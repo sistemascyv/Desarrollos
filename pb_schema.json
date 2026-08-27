@@ -41,6 +41,34 @@
     ]
   },
   {
+    "name": "clientes",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      { "name": "nombre", "type": "text", "required": true, "options": {} },
+      { "name": "activo", "type": "bool", "required": false, "options": {} }
+    ]
+  },
+  {
+    "name": "rutas",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      { "name": "origen", "type": "text", "required": true, "options": {} },
+      { "name": "destino", "type": "text", "required": true, "options": {} },
+      { "name": "cliente", "type": "text", "required": false, "options": {} },
+      { "name": "activo", "type": "bool", "required": false, "options": {} }
+    ]
+  },
+  {
     "name": "tramos",
     "type": "base",
     "listRule": "",

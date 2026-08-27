@@ -30,8 +30,14 @@ a pedir crear el usuario admin).
 
 Una vez adentro, **Settings → Import collections**, pegá el contenido de
 `pb_schema.json` (formato compatible con 0.22.x, usa `schema` en vez de
-`fields`). Esto crea `choferes`, `vehiculos`, `tarifas` y `tramos` con todos
-los campos **excepto** la relación `chofer`.
+`fields`). Esto crea `choferes`, `vehiculos`, `clientes`, `rutas`, `tarifas`
+y `tramos` con todos los campos **excepto** la relación `chofer`.
+
+> **Ya en el servidor de producción** las colecciones se crearon vía API con
+> `curl` (usuario admin creado con `./pocketbase admin create`, login con
+> `/api/admins/auth-with-password`, y un `POST /api/collections` por cada
+> colección) porque no había forma de abrir el Admin UI en el navegador sin
+> túnel SSH. El resultado final es el mismo que importando este JSON.
 
 > **Campo `chofer` (relación) — agregar a mano:** el importador necesita el
 > `collectionId` real de `choferes`, que PocketBase recién genera al
@@ -48,8 +54,15 @@ Colecciones resultantes:
 |---|---|
 | `choferes` | nombre, localidad, activo |
 | `vehiculos` | codigo, marca_modelo, activo |
+| `clientes` | nombre, activo |
+| `rutas` | origen, destino, cliente (opcional), activo |
 | `tarifas` | mes, tarifa_km |
 | `tramos` | ver lista completa abajo |
+
+`clientes` y `rutas` son catálogos de uso rápido: se cargan desde el panel
+**👤 Administración** de la propia app y alimentan el autocompletado de
+"Cliente" y el selector de "Ruta rápida" al cargar un tramo nuevo, para no
+tener que tipear origen/destino/cliente de memoria cada vez.
 
 ### Reglas de acceso (API rules)
 
@@ -120,6 +133,22 @@ vez de por HTTPS, hay que configurar ahí mismo la URL pública
    tramo se calcula automáticamente mientras se completa el formulario.
 5. El resumen del mes (arriba de la tabla) muestra: total de vales, km de
    alargue, monto de alargue, total de gastos, viáticos y saldo.
+
+### Panel de Administración
+
+Botón **👤 Administración** en el header. Cuatro pestañas:
+
+- **Choferes** y **Vehículos / Tractores**: para no depender del Admin UI de
+  PocketBase para altas de rutina.
+- **Clientes**: catálogo de nombres de cliente, se usa como autocompletado
+  (datalist) en el campo "Cliente" del formulario de tramo.
+- **Rutas frecuentes**: origen + destino (+ cliente habitual opcional).
+  Aparecen en el desplegable **"Ruta rápida"** dentro de "Nuevo tramo": al
+  elegir una, completa origen, destino y cliente de un clic.
+
+Cada fila tiene **Desactivar/Reactivar** (no aparece más en los selectores
+pero no se pierde el historial de tramos que la usaron) y **Borrar**
+(elimina el registro; no borra los tramos que ya lo referencian).
 
 ### Offline
 

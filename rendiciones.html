@@ -79,6 +79,11 @@
   }
   .detail-grid .d-item .lbl{font-size:11px; color:var(--muted); text-transform:uppercase;}
   .detail-grid .d-item .val{font-size:13px; margin-top:2px;}
+  .admin-row{display:flex; align-items:center; justify-content:space-between; padding:7px 4px; border-bottom:1px solid var(--border); gap:10px;}
+  .admin-row .info{display:flex; flex-direction:column;}
+  .admin-row .info .sub{font-size:11px; color:var(--muted);}
+  .admin-row.inactivo .info .name{opacity:.5; text-decoration:line-through;}
+  .admin-row .acts{display:flex; gap:6px; flex-shrink:0;}
   .toast-wrap{position:fixed; bottom:16px; right:16px; display:flex; flex-direction:column; gap:8px; z-index:50;}
   .toast{
     background:var(--panel2); border:1px solid var(--border); padding:10px 14px; border-radius:8px;
@@ -115,6 +120,7 @@
     <span id="netPill" class="pill offline">verificando...</span>
     <span id="queuePill" class="pill">0 pendientes</span>
     <button class="secondary small" onclick="flushQueue(true)">Sincronizar</button>
+    <button class="secondary small" onclick="openAdmin()">👤 Administración</button>
     <button class="secondary small" onclick="openSettings()">⚙ Config</button>
   </div>
 </header>
@@ -179,7 +185,7 @@
           <legend>Viaje</legend>
           <div class="row">
             <div class="field"><label>Tractor</label><input list="dlVehiculos" id="f_tractor" placeholder="T130"></div>
-            <div class="field"><label>Cliente</label><input id="f_cliente" placeholder='"-" si vacío, "T" si posicionamiento'></div>
+            <div class="field"><label>Cliente</label><input list="dlClientes" id="f_cliente" placeholder='"-" si vacío, "T" si posicionamiento'></div>
           </div>
           <div class="row">
             <div class="field"><label>Día salida</label><input type="date" id="f_dia_salida"></div>
@@ -190,8 +196,13 @@
             <div class="field"><label>Hora llegada</label><input type="time" id="f_hora_llegada"></div>
           </div>
           <div class="row">
-            <div class="field" style="flex:1;"><label>Origen</label><input id="f_origen"></div>
-            <div class="field" style="flex:1;"><label>Destino</label><input id="f_destino"></div>
+            <div class="field" style="flex:1;"><label>Ruta rápida (opcional)</label>
+              <select id="f_ruta_quick" onchange="applyRutaQuick()"><option value="">— elegir para autocompletar —</option></select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field" style="flex:1;"><label>Origen</label><input list="dlOrigenes" id="f_origen"></div>
+            <div class="field" style="flex:1;"><label>Destino</label><input list="dlDestinos" id="f_destino"></div>
           </div>
           <div class="row">
             <div class="field"><label><input type="checkbox" id="f_es_posicionamiento" onchange="onPosicionamientoChange()"> Es posicionamiento (Carga = "T")</label></div>
@@ -274,7 +285,73 @@
   </div>
 </div>
 
+<!-- Modal: administración de choferes / vehículos / clientes / rutas -->
+<div class="modal-bg" id="adminModalBg">
+  <div class="modal" style="max-width:820px;">
+    <span class="close-x" onclick="closeAdmin()">✕</span>
+    <h3>Administración</h3>
+    <div class="row" style="margin-bottom:14px;">
+      <button class="small" id="tabBtn_choferes" onclick="switchAdminTab('choferes')">Choferes</button>
+      <button class="small secondary" id="tabBtn_vehiculos" onclick="switchAdminTab('vehiculos')">Vehículos / Tractores</button>
+      <button class="small secondary" id="tabBtn_clientes" onclick="switchAdminTab('clientes')">Clientes</button>
+      <button class="small secondary" id="tabBtn_rutas" onclick="switchAdminTab('rutas')">Rutas frecuentes</button>
+    </div>
+
+    <div id="adminTab_choferes" class="admin-tab">
+      <div class="row">
+        <div class="field" style="flex:1;"><label>Nombre</label><input id="ac_chofer_nombre"></div>
+        <div class="field"><label>Localidad</label><input id="ac_chofer_localidad"></div>
+        <button onclick="adminCreateChofer()">+ Agregar</button>
+      </div>
+      <div class="table-wrap" style="max-height:40vh; margin-top:12px;">
+        <table><tbody id="adminList_choferes"></tbody></table>
+      </div>
+    </div>
+
+    <div id="adminTab_vehiculos" class="admin-tab" style="display:none;">
+      <div class="row">
+        <div class="field"><label>Código (patente/tractor)</label><input id="ac_vehiculo_codigo" placeholder="T130"></div>
+        <div class="field" style="flex:1;"><label>Marca / modelo</label><input id="ac_vehiculo_marca"></div>
+        <button onclick="adminCreateVehiculo()">+ Agregar</button>
+      </div>
+      <div class="table-wrap" style="max-height:40vh; margin-top:12px;">
+        <table><tbody id="adminList_vehiculos"></tbody></table>
+      </div>
+    </div>
+
+    <div id="adminTab_clientes" class="admin-tab" style="display:none;">
+      <div class="row">
+        <div class="field" style="flex:1;"><label>Nombre del cliente</label><input id="ac_cliente_nombre"></div>
+        <button onclick="adminCreateCliente()">+ Agregar</button>
+      </div>
+      <div class="table-wrap" style="max-height:40vh; margin-top:12px;">
+        <table><tbody id="adminList_clientes"></tbody></table>
+      </div>
+    </div>
+
+    <div id="adminTab_rutas" class="admin-tab" style="display:none;">
+      <div class="row">
+        <div class="field" style="flex:1;"><label>Origen</label><input id="ac_ruta_origen"></div>
+        <div class="field" style="flex:1;"><label>Destino</label><input id="ac_ruta_destino"></div>
+        <div class="field"><label>Cliente habitual (opcional)</label><input id="ac_ruta_cliente" list="dlClientes"></div>
+        <button onclick="adminCreateRuta()">+ Agregar</button>
+      </div>
+      <div class="hint">Estas rutas aparecen como acceso rápido en "Nuevo tramo" para completar origen y destino con un clic.</div>
+      <div class="table-wrap" style="max-height:40vh; margin-top:12px;">
+        <table><tbody id="adminList_rutas"></tbody></table>
+      </div>
+    </div>
+
+    <div class="row" style="justify-content:flex-end; margin-top:14px;">
+      <button class="secondary" onclick="closeAdmin()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <datalist id="dlVehiculos"></datalist>
+<datalist id="dlClientes"></datalist>
+<datalist id="dlOrigenes"></datalist>
+<datalist id="dlDestinos"></datalist>
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
@@ -290,6 +367,8 @@ const LS = {
   queue: 'cyv_pending_queue',
   cacheChoferes: 'cyv_cache_choferes',
   cacheVehiculos: 'cyv_cache_vehiculos',
+  cacheClientes: 'cyv_cache_clientes',
+  cacheRutas: 'cyv_cache_rutas',
   cacheTramos: 'cyv_cache_tramos_',
 };
 
@@ -300,6 +379,8 @@ settings.viaticoNoche = settings.viaticoNoche || 0;
 
 let choferes = [];
 let vehiculos = [];
+let clientes = [];
+let rutas = [];
 let tramos = [];
 let tarifaActual = null; // record for mes seleccionado
 let expandedRows = new Set();
@@ -410,8 +491,7 @@ function saveSettings(){
 }
 
 // ---------- bootstrap: load choferes / vehiculos ----------
-async function bootstrap(){
-  document.getElementById('selMes').value = currentMonth();
+async function refreshCatalogs(){
   try{
     const r = await pb('collections/choferes/records?perPage=200&filter=' + encodeURIComponent('activo=true') + '&sort=nombre');
     choferes = r.items || [];
@@ -421,7 +501,9 @@ async function bootstrap(){
     if(choferes.length===0) toast('No se pudo cargar choferes: ' + e.message, 'err');
   }
   const sel = document.getElementById('selChofer');
+  const prevChofer = sel.value;
   sel.innerHTML = choferes.map(c=>`<option value="${c.id}">${c.nombre}${c.localidad?' — '+c.localidad:''}</option>`).join('') || '<option value="">(sin choferes)</option>';
+  if(prevChofer && choferes.some(c=>c.id===prevChofer)) sel.value = prevChofer;
 
   try{
     const r = await pb('collections/vehiculos/records?perPage=200&filter=' + encodeURIComponent('activo=true') + '&sort=codigo');
@@ -432,10 +514,46 @@ async function bootstrap(){
   }
   document.getElementById('dlVehiculos').innerHTML = vehiculos.map(v=>`<option value="${v.codigo}">`).join('');
 
+  try{
+    const r = await pb('collections/clientes/records?perPage=200&filter=' + encodeURIComponent('activo=true') + '&sort=nombre');
+    clientes = r.items || [];
+    localStorage.setItem(LS.cacheClientes, JSON.stringify(clientes));
+  }catch(e){
+    clientes = JSON.parse(localStorage.getItem(LS.cacheClientes) || '[]');
+  }
+  document.getElementById('dlClientes').innerHTML = clientes.map(c=>`<option value="${c.nombre}">`).join('');
+
+  try{
+    const r = await pb('collections/rutas/records?perPage=200&filter=' + encodeURIComponent('activo=true') + '&sort=origen');
+    rutas = r.items || [];
+    localStorage.setItem(LS.cacheRutas, JSON.stringify(rutas));
+  }catch(e){
+    rutas = JSON.parse(localStorage.getItem(LS.cacheRutas) || '[]');
+  }
+  document.getElementById('dlOrigenes').innerHTML = [...new Set(rutas.map(r=>r.origen))].map(o=>`<option value="${o}">`).join('');
+  document.getElementById('dlDestinos').innerHTML = [...new Set(rutas.map(r=>r.destino))].map(d=>`<option value="${d}">`).join('');
+  const rutaSel = document.getElementById('f_ruta_quick');
+  rutaSel.innerHTML = '<option value="">— elegir para autocompletar —</option>' +
+    rutas.map(r=>`<option value="${r.id}">${r.origen} → ${r.destino}${r.cliente?' ('+r.cliente+')':''}</option>`).join('');
+}
+
+async function bootstrap(){
+  document.getElementById('selMes').value = currentMonth();
+  await refreshCatalogs();
   updateNetPill();
   updateQueuePill();
   if(choferes.length){ loadTramos(); }
   flushQueue();
+}
+
+function applyRutaQuick(){
+  const id = document.getElementById('f_ruta_quick').value;
+  if(!id) return;
+  const r = rutas.find(x=>x.id===id);
+  if(!r) return;
+  document.getElementById('f_origen').value = r.origen;
+  document.getElementById('f_destino').value = r.destino;
+  if(r.cliente){ document.getElementById('f_cliente').value = r.cliente; }
 }
 
 // ---------- tarifa ----------
@@ -678,6 +796,135 @@ async function deleteTramo(id){
   localStorage.setItem(LS.cacheTramos + chofer + '_' + mes, JSON.stringify(tramos));
   renderTramos();
   renderSummary();
+}
+
+// ---------- panel de administración ----------
+let adminData = { choferes: [], vehiculos: [], clientes: [], rutas: [] };
+
+async function openAdmin(){
+  document.getElementById('adminModalBg').classList.add('open');
+  await loadAdminAll();
+  switchAdminTab('choferes');
+}
+function closeAdmin(){ document.getElementById('adminModalBg').classList.remove('open'); }
+
+async function loadAdminAll(){
+  for(const col of ['choferes','vehiculos','clientes','rutas']){
+    try{
+      const r = await pb('collections/' + col + '/records?perPage=500&sort=-created');
+      adminData[col] = r.items || [];
+    }catch(e){
+      toast('No se pudo cargar ' + col + ': ' + e.message, 'err');
+      adminData[col] = [];
+    }
+  }
+  renderAdminTab('choferes');
+  renderAdminTab('vehiculos');
+  renderAdminTab('clientes');
+  renderAdminTab('rutas');
+}
+
+function switchAdminTab(tab){
+  ['choferes','vehiculos','clientes','rutas'].forEach(t=>{
+    document.getElementById('adminTab_'+t).style.display = (t===tab)?'block':'none';
+    document.getElementById('tabBtn_'+t).className = 'small' + (t===tab?'':' secondary');
+  });
+}
+
+function renderAdminTab(col){
+  const body = document.getElementById('adminList_' + col);
+  const items = adminData[col];
+  if(!items || items.length===0){ body.innerHTML = '<tr><td class="empty">Sin registros todavía.</td></tr>'; return; }
+  body.innerHTML = items.map(item=>{
+    const inactivo = item.activo === false;
+    let title, sub;
+    if(col==='choferes'){ title = item.nombre; sub = item.localidad||''; }
+    else if(col==='vehiculos'){ title = item.codigo; sub = item.marca_modelo||''; }
+    else if(col==='clientes'){ title = item.nombre; sub = ''; }
+    else { title = `${item.origen} → ${item.destino}`; sub = item.cliente||''; }
+    return `<tr><td colspan="99" style="padding:0;">
+      <div class="admin-row ${inactivo?'inactivo':''}">
+        <div class="info"><span class="name">${title}</span>${sub?`<span class="sub">${sub}</span>`:''}</div>
+        <div class="acts">
+          <button class="small secondary" onclick="adminToggleActivo('${col}','${item.id}', ${!inactivo})">${inactivo?'Reactivar':'Desactivar'}</button>
+          <button class="small danger" onclick="adminDelete('${col}','${item.id}')">Borrar</button>
+        </div>
+      </div>
+    </td></tr>`;
+  }).join('');
+}
+
+async function adminToggleActivo(col, id, currentlyActive){
+  try{
+    await pb('collections/' + col + '/records/' + id, {method:'PATCH', body:{activo: !currentlyActive}});
+    await loadAdminAll();
+    await refreshCatalogs();
+  }catch(e){ toast('Error: ' + e.message, 'err'); }
+}
+async function adminDelete(col, id){
+  if(!confirm('¿Borrar este registro? Esta acción no se puede deshacer.')) return;
+  try{
+    await pb('collections/' + col + '/records/' + id, {method:'DELETE'});
+    await loadAdminAll();
+    await refreshCatalogs();
+    toast('Borrado.', 'ok');
+  }catch(e){ toast('Error: ' + e.message, 'err'); }
+}
+
+async function adminCreateChofer(){
+  const nombre = document.getElementById('ac_chofer_nombre').value.trim();
+  const localidad = document.getElementById('ac_chofer_localidad').value.trim();
+  if(!nombre){ toast('Falta el nombre.', 'warn'); return; }
+  try{
+    await pb('collections/choferes/records', {method:'POST', body:{nombre, localidad, activo:true}});
+    document.getElementById('ac_chofer_nombre').value = '';
+    document.getElementById('ac_chofer_localidad').value = '';
+    await loadAdminAll();
+    await refreshCatalogs();
+    toast('Chofer agregado.', 'ok');
+  }catch(e){ toast('Error: ' + e.message, 'err'); }
+}
+
+async function adminCreateVehiculo(){
+  const codigo = document.getElementById('ac_vehiculo_codigo').value.trim();
+  const marca_modelo = document.getElementById('ac_vehiculo_marca').value.trim();
+  if(!codigo){ toast('Falta el código.', 'warn'); return; }
+  try{
+    await pb('collections/vehiculos/records', {method:'POST', body:{codigo, marca_modelo, activo:true}});
+    document.getElementById('ac_vehiculo_codigo').value = '';
+    document.getElementById('ac_vehiculo_marca').value = '';
+    await loadAdminAll();
+    await refreshCatalogs();
+    toast('Vehículo agregado.', 'ok');
+  }catch(e){ toast('Error: ' + e.message, 'err'); }
+}
+
+async function adminCreateCliente(){
+  const nombre = document.getElementById('ac_cliente_nombre').value.trim();
+  if(!nombre){ toast('Falta el nombre.', 'warn'); return; }
+  try{
+    await pb('collections/clientes/records', {method:'POST', body:{nombre, activo:true}});
+    document.getElementById('ac_cliente_nombre').value = '';
+    await loadAdminAll();
+    await refreshCatalogs();
+    toast('Cliente agregado.', 'ok');
+  }catch(e){ toast('Error: ' + e.message, 'err'); }
+}
+
+async function adminCreateRuta(){
+  const origen = document.getElementById('ac_ruta_origen').value.trim();
+  const destino = document.getElementById('ac_ruta_destino').value.trim();
+  const cliente = document.getElementById('ac_ruta_cliente').value.trim();
+  if(!origen || !destino){ toast('Faltan origen y/o destino.', 'warn'); return; }
+  try{
+    await pb('collections/rutas/records', {method:'POST', body:{origen, destino, cliente, activo:true}});
+    document.getElementById('ac_ruta_origen').value = '';
+    document.getElementById('ac_ruta_destino').value = '';
+    document.getElementById('ac_ruta_cliente').value = '';
+    await loadAdminAll();
+    await refreshCatalogs();
+    toast('Ruta agregada.', 'ok');
+  }catch(e){ toast('Error: ' + e.message, 'err'); }
 }
 
 // ---------- init ----------
