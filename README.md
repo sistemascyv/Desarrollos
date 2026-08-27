@@ -13,18 +13,34 @@ sin frameworks ni build step, que habla directamente con PocketBase vía REST
 
 ## 1. Crear las colecciones en PocketBase
 
-Entrá al Admin UI de PocketBase (`http://localhost:8090/_/` en el servidor,
-o vía túnel SSH) y usá **Settings → Import collections**, pegando el
-contenido de `pb_schema.json`.
+Servidor actual: PocketBase **0.22.20**, corriendo como servicio systemd
+(`pocketbase.service`) en `127.0.0.1:8090`. Admin UI: `http://localhost:8090/_/`
+(entrar vía túnel SSH o desde el propio servidor con `curl`, ya que el puerto
+8090 no está expuesto públicamente — Caddy solo expone 443/80).
 
-> **Importante — campo `chofer` (relación):** el importador necesita el
-> `collectionId` real de `choferes`, que PocketBase genera al crearla. El
-> JSON incluye el campo `chofer` como relación apuntando a `"choferes"` a
-> modo de referencia, pero es posible que debas:
-> 1. Importar primero `choferes`, `vehiculos` y `tarifas`.
-> 2. Crear `tramos` y agregar manualmente el campo `chofer` como tipo
->    **Relation → choferes** (single select) desde el Admin UI, si el
->    import automático no lo resuelve.
+Para entrar al Admin UI desde tu navegador sin abrir el puerto, hacé un túnel
+SSH desde tu máquina:
+
+```bash
+ssh -L 8090:localhost:8090 ubuntu@44.204.212.111
+```
+
+y después abrí `http://localhost:8090/_/` en tu navegador (la primera vez va
+a pedir crear el usuario admin).
+
+Una vez adentro, **Settings → Import collections**, pegá el contenido de
+`pb_schema.json` (formato compatible con 0.22.x, usa `schema` en vez de
+`fields`). Esto crea `choferes`, `vehiculos`, `tarifas` y `tramos` con todos
+los campos **excepto** la relación `chofer`.
+
+> **Campo `chofer` (relación) — agregar a mano:** el importador necesita el
+> `collectionId` real de `choferes`, que PocketBase recién genera al
+> crearla, así que no viene en el JSON. Después de importar:
+> 1. Entrá a la colección `tramos` → **New field**.
+> 2. Nombre: `chofer`. Tipo: **Relation**.
+> 3. Colección relacionada: `choferes`. **Max select: 1** (single).
+> 4. Marcalo como **Required**.
+> 5. Guardar.
 
 Colecciones resultantes:
 
@@ -62,17 +78,36 @@ permanencia, cruce_frontera, chofer (relation → choferes), mes ("2026-08")
 
 ## 2. Publicar el HTML
 
-Dos opciones:
+El Caddyfile actual del servidor es:
 
-- **Servido por Caddy** (recomendado): copiar `rendiciones.html` a la
-  carpeta que sirve `app.carossiovairolatti.com.ar` (por ejemplo como
-  `/rendiciones` o en la raíz), así administración entra por HTTPS y el
-  campo "URL base de PocketBase" en `⚙ Config` puede quedar en blanco
-  (usa el mismo origen).
-- **Abrir localmente con doble clic**: funciona igual, pero hay que
-  configurar en `⚙ Config` la URL pública de PocketBase, por ejemplo
-  `https://app.carossiovairolatti.com.ar`, para que el navegador pueda
-  llamar a la API (con CORS habilitado en PocketBase/Caddy).
+```
+app.carossiovairolatti.com.ar {
+    reverse_proxy localhost:8090
+}
+```
+
+Es decir, **todo** el dominio ya apunta a PocketBase. PocketBase sirve
+archivos estáticos automáticamente desde su carpeta `pb_public` (al lado del
+binario), así que no hace falta tocar Caddy: alcanza con copiar el HTML ahí.
+
+```bash
+mkdir -p /home/ubuntu/pocketbase/pb_public
+cp rendiciones.html /home/ubuntu/pocketbase/pb_public/rendiciones.html
+sudo systemctl restart pocketbase   # por si hace falta que detecte la carpeta nueva
+```
+
+Con eso queda disponible en:
+
+```
+https://app.carossiovairolatti.com.ar/rendiciones.html
+```
+
+Como se sirve desde el mismo origen que la API, el campo **"URL base de
+PocketBase"** en `⚙ Config` puede quedar en blanco.
+
+Si en algún momento se prefiere abrir el archivo localmente con doble clic en
+vez de por HTTPS, hay que configurar ahí mismo la URL pública
+(`https://app.carossiovairolatti.com.ar`).
 
 ## 3. Uso
 
