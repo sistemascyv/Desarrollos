@@ -60,7 +60,7 @@
   .stat.saldo-neg .val{color:var(--err);}
   table{width:100%; border-collapse:collapse; font-size:12.5px;}
   th, td{padding:6px 7px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;}
-  th{color:var(--muted); font-weight:500; position:sticky; top:53px; background:var(--panel);}
+  th{color:var(--muted); font-weight:500; position:sticky; top:0; background:var(--panel);}
   tbody tr:hover{background:var(--panel2);}
   .table-wrap{overflow-x:auto; max-height:60vh; overflow-y:auto;}
   .num{text-align:right; font-variant-numeric:tabular-nums;}
@@ -141,13 +141,10 @@
       <table id="tramosTable">
         <thead>
           <tr>
-            <th></th><th>Tractor</th><th>Salida</th><th>Llegada</th><th>Origen</th><th>Destino</th>
-            <th>Cliente</th><th class="num">Peajes</th><th class="num">Gastos varios</th>
-            <th class="num">Km alargue</th><th class="num">Comida viaje</th><th class="num">Comida intl</th>
-            <th class="num">Retiro/Entrega SFCO</th><th class="num">Interrupción</th><th class="num">CyD manual</th>
-            <th class="num">Control gral</th><th class="num">Descanso</th><th>Vale N°</th><th class="num">Vale importe</th>
-            <th class="num">Total gastos</th><th class="num">Km recorridos</th><th class="num">Km dobles</th>
-            <th>Control</th><th class="num">Permanencia</th><th class="num">Cruce frontera</th><th></th>
+            <th></th><th>Tractor</th><th>Salida</th><th>Llegada</th><th>Origen → Destino</th>
+            <th>Cliente</th><th class="num">Km alargue</th><th>Vale N°</th><th class="num">Vale importe</th>
+            <th class="num">Total gastos</th><th class="num">Km recorridos</th>
+            <th>Control</th><th class="num">Permanencia</th><th></th>
           </tr>
         </thead>
         <tbody id="tramosBody"></tbody>
@@ -494,27 +491,15 @@ function renderTramos(){
       <td>${t.tractor||''}</td>
       <td>${t.dia_salida||''} ${t.hora_salida||''}</td>
       <td>${t.dia_llegada||''} ${t.hora_llegada||''}</td>
-      <td>${t.origen||''}</td>
-      <td>${t.destino||''}</td>
+      <td>${t.origen||''} → ${t.destino||''}</td>
       <td>${t.cliente||''}${t.es_posicionamiento?' <span class="badge">POS</span>':''}</td>
-      <td class="num">${money(t.peajes)}</td>
-      <td class="num">${money(t.gastos_varios)}</td>
       <td class="num">${t.km_alargue||0}</td>
-      <td class="num">${money(t.comida_viaje)}</td>
-      <td class="num">${money(t.comida_internacional)}</td>
-      <td class="num">${money(t.entrega_retiro_sfco)}</td>
-      <td class="num">${money(t.interrupcion)}</td>
-      <td class="num">${money(t.cyd_manual)}</td>
-      <td class="num">${money(t.control_gral)}</td>
-      <td class="num">${money(t.descanso)}</td>
       <td>${t.vale_nro||''}</td>
       <td class="num">${money(t.vale_importe)}</td>
       <td class="num"><strong>${money(t.total_gastos)}</strong></td>
       <td class="num">${t.km_recorridos||0}</td>
-      <td class="num">${t.km_dobles||0}</td>
       <td>${t.control?'✔':''}</td>
       <td class="num">${t.permanencia||0}</td>
-      <td class="num">${t.cruce_frontera||0}</td>
       <td class="actions-cell">
         <button class="small secondary" onclick="openTramoModal('${t.id}')">Editar</button>
         <button class="small danger" onclick="deleteTramo('${t.id}')">Borrar</button>
