@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyV — Rendiciones de Choferes</title>
+<style>
+  :root{
+    --bg:#0f1720; --panel:#17212b; --panel2:#1e2a36; --border:#2a3a49;
+    --text:#e6edf3; --muted:#8b9bab; --accent:#3d8bfd; --accent2:#2563eb;
+    --ok:#2ecc71; --warn:#f5a623; --err:#e5484d; --input:#0d151d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); font-size:14px;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 18px; background:var(--panel); border-bottom:1px solid var(--border);
+    position:sticky; top:0; z-index:20;
+  }
+  header h1{font-size:16px; margin:0; font-weight:600;}
+  header h1 span{color:var(--accent);}
+  .top-actions{display:flex; gap:8px; align-items:center;}
+  .pill{
+    font-size:11px; padding:3px 9px; border-radius:20px; border:1px solid var(--border);
+    color:var(--muted);
+  }
+  .pill.online{color:var(--ok); border-color:var(--ok);}
+  .pill.offline{color:var(--err); border-color:var(--err);}
+  button{
+    background:var(--accent2); color:#fff; border:none; border-radius:6px;
+    padding:8px 14px; cursor:pointer; font-size:13px; font-weight:500;
+  }
+  button.secondary{background:transparent; border:1px solid var(--border); color:var(--text);}
+  button.danger{background:var(--err);}
+  button.small{padding:5px 9px; font-size:12px;}
+  button:disabled{opacity:.5; cursor:not-allowed;}
+  main{padding:18px; max-width:1400px; margin:0 auto;}
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:16px; margin-bottom:16px;
+  }
+  .card h2{font-size:14px; margin:0 0 12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;}
+  .field{display:flex; flex-direction:column; gap:4px; min-width:130px;}
+  .field label{font-size:11px; color:var(--muted);}
+  input, select{
+    background:var(--input); border:1px solid var(--border); color:var(--text);
+    border-radius:6px; padding:7px 8px; font-size:13px;
+  }
+  input:focus, select:focus{outline:1px solid var(--accent);}
+  input[type=checkbox]{width:16px; height:16px;}
+  .summary-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px;}
+  .stat{background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:10px 12px;}
+  .stat .lbl{font-size:11px; color:var(--muted); text-transform:uppercase;}
+  .stat .val{font-size:18px; font-weight:600; margin-top:2px;}
+  .stat.saldo-pos .val{color:var(--ok);}
+  .stat.saldo-neg .val{color:var(--err);}
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th, td{padding:6px 7px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap;}
+  th{color:var(--muted); font-weight:500; position:sticky; top:53px; background:var(--panel);}
+  tbody tr:hover{background:var(--panel2);}
+  .table-wrap{overflow-x:auto; max-height:60vh; overflow-y:auto;}
+  .num{text-align:right; font-variant-numeric:tabular-nums;}
+  .badge{font-size:10px; padding:2px 6px; border-radius:4px; background:var(--panel2); border:1px solid var(--border); color:var(--muted);}
+  .badge.pending{color:var(--warn); border-color:var(--warn);}
+  .actions-cell{display:flex; gap:4px;}
+  .toast-wrap{position:fixed; bottom:16px; right:16px; display:flex; flex-direction:column; gap:8px; z-index:50;}
+  .toast{
+    background:var(--panel2); border:1px solid var(--border); padding:10px 14px; border-radius:8px;
+    font-size:13px; box-shadow:0 4px 14px rgba(0,0,0,.4); max-width:340px;
+  }
+  .toast.err{border-color:var(--err); color:var(--err);}
+  .toast.ok{border-color:var(--ok); color:var(--ok);}
+  .toast.warn{border-color:var(--warn); color:var(--warn);}
+  .modal-bg{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
+    align-items:flex-start; justify-content:center; z-index:40; overflow-y:auto; padding:30px 12px;
+  }
+  .modal-bg.open{display:flex;}
+  .modal{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px;
+    width:100%; max-width:640px;
+  }
+  .modal h3{margin-top:0;}
+  .modal .row{margin-bottom:10px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .close-x{float:right; cursor:pointer; color:var(--muted); font-size:18px;}
+  .hint{font-size:11px; color:var(--muted); margin-top:6px;}
+  fieldset{border:1px solid var(--border); border-radius:8px; margin:0 0 12px; padding:10px 12px;}
+  legend{font-size:11px; color:var(--muted); text-transform:uppercase; padding:0 6px;}
+  .empty{color:var(--muted); padding:20px; text-align:center;}
+  a.link{color:var(--accent); cursor:pointer;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CyV <span>· Rendiciones de Choferes</span></h1>
+  <div class="top-actions">
+    <span id="netPill" class="pill offline">verificando...</span>
+    <span id="queuePill" class="pill">0 pendientes</span>
+    <button class="secondary small" onclick="flushQueue(true)">Sincronizar</button>
+    <button class="secondary small" onclick="openSettings()">⚙ Config</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Seleccionar chofer y mes</h2>
+    <div class="row">
+      <div class="field" style="min-width:220px;">
+        <label>Chofer</label>
+        <select id="selChofer"></select>
+      </div>
+      <div class="field">
+        <label>Mes</label>
+        <input type="month" id="selMes">
+      </div>
+      <div class="field">
+        <label>Tarifa km del mes ($/km)</label>
+        <input type="number" step="0.0001" id="tarifaKm" placeholder="ej: 169.6053">
+      </div>
+      <button class="secondary" onclick="saveTarifa()">Guardar tarifa</button>
+      <button onclick="loadTramos()">Cargar rendición</button>
+      <button class="secondary" onclick="openTramoModal()">+ Nuevo tramo</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Resumen del mes</h2>
+    <div class="summary-grid" id="summaryGrid"></div>
+  </div>
+
+  <div class="card">
+    <h2>Tramos</h2>
+    <div class="table-wrap">
+      <table id="tramosTable">
+        <thead>
+          <tr>
+            <th></th><th>Tractor</th><th>Salida</th><th>Llegada</th><th>Origen</th><th>Destino</th>
+            <th>Cliente</th><th class="num">Peajes</th><th class="num">Gastos varios</th>
+            <th class="num">Km alargue</th><th class="num">Comida viaje</th><th class="num">Comida intl</th>
+            <th class="num">Retiro/Entrega SFCO</th><th class="num">Interrupción</th><th class="num">CyD manual</th>
+            <th class="num">Control gral</th><th class="num">Descanso</th><th>Vale N°</th><th class="num">Vale importe</th>
+            <th class="num">Total gastos</th><th class="num">Km recorridos</th><th class="num">Km dobles</th>
+            <th>Control</th><th class="num">Permanencia</th><th class="num">Cruce frontera</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tramosBody"></tbody>
+      </table>
+      <div id="emptyMsg" class="empty" style="display:none;">No hay tramos cargados para este chofer / mes.</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Modal: nuevo/editar tramo -->
+<div class="modal-bg" id="tramoModalBg">
+  <div class="modal">
+    <span class="close-x" onclick="closeTramoModal()">✕</span>
+    <h3 id="tramoModalTitle">Nuevo tramo</h3>
+    <form id="tramoForm" onsubmit="return submitTramo(event)">
+      <input type="hidden" id="f_id">
+      <div class="grid2">
+        <fieldset>
+          <legend>Viaje</legend>
+          <div class="row">
+            <div class="field"><label>Tractor</label><input list="dlVehiculos" id="f_tractor" placeholder="T130"></div>
+            <div class="field"><label>Cliente</label><input id="f_cliente" placeholder='"-" si vacío, "T" si posicionamiento'></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Día salida</label><input type="date" id="f_dia_salida"></div>
+            <div class="field"><label>Hora salida</label><input type="time" id="f_hora_salida"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Día llegada</label><input type="date" id="f_dia_llegada"></div>
+            <div class="field"><label>Hora llegada</label><input type="time" id="f_hora_llegada"></div>
+          </div>
+          <div class="row">
+            <div class="field" style="flex:1;"><label>Origen</label><input id="f_origen"></div>
+            <div class="field" style="flex:1;"><label>Destino</label><input id="f_destino"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label><input type="checkbox" id="f_es_posicionamiento" onchange="onPosicionamientoChange()"> Es posicionamiento (Carga = "T")</label></div>
+            <div class="field"><label><input type="checkbox" id="f_control"> Control</label></div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Km y estadía</legend>
+          <div class="row">
+            <div class="field"><label>Km recorridos</label><input type="number" id="f_km_recorridos" value="0"></div>
+            <div class="field"><label>Km dobles</label><input type="number" id="f_km_dobles" value="0"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Km alargue</label><input type="number" id="f_km_alargue" value="0" oninput="recalcTotal()"></div>
+            <div class="field"><label>Permanencia (noches)</label><input type="number" id="f_permanencia" value="0"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Cruce frontera</label><input type="number" id="f_cruce_frontera" value="0"></div>
+          </div>
+        </fieldset>
+      </div>
+
+      <fieldset>
+        <legend>Gastos ($)</legend>
+        <div class="row">
+          <div class="field"><label>Peajes</label><input type="number" step="0.01" id="f_peajes" value="0" oninput="recalcTotal()"></div>
+          <div class="field"><label>Gastos varios</label><input type="number" step="0.01" id="f_gastos_varios" value="0" oninput="recalcTotal()"></div>
+          <div class="field"><label>Comida viaje</label><input type="number" step="0.01" id="f_comida_viaje" value="0" oninput="recalcTotal()"></div>
+          <div class="field"><label>Comida internacional</label><input type="number" step="0.01" id="f_comida_internacional" value="0" oninput="recalcTotal()"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Entrega/Retiro SFCO</label><input type="number" step="0.01" id="f_entrega_retiro_sfco" value="0" oninput="recalcTotal()"></div>
+          <div class="field"><label>Interrupción</label><input type="number" step="0.01" id="f_interrupcion" value="0" oninput="recalcTotal()"></div>
+          <div class="field"><label>CyD manual</label><input type="number" step="0.01" id="f_cyd_manual" value="0" oninput="recalcTotal()"></div>
+          <div class="field"><label>Control gral</label><input type="number" step="0.01" id="f_control_gral" value="0" oninput="recalcTotal()"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Descanso</label><input type="number" step="0.01" id="f_descanso" value="0" oninput="recalcTotal()"></div>
+        </div>
+        <div class="hint">Total gastos (calculado): <strong id="f_total_preview">$0,00</strong></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Vale</legend>
+        <div class="row">
+          <div class="field"><label>Vale N°</label><input id="f_vale_nro"></div>
+          <div class="field"><label>Vale importe</label><input type="number" step="0.01" id="f_vale_importe" value="0"></div>
+        </div>
+      </fieldset>
+
+      <div class="row" style="justify-content:flex-end; margin-top:14px;">
+        <button type="button" class="secondary" onclick="closeTramoModal()">Cancelar</button>
+        <button type="submit">Guardar tramo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: configuración -->
+<div class="modal-bg" id="settingsModalBg">
+  <div class="modal">
+    <span class="close-x" onclick="closeSettings()">✕</span>
+    <h3>Configuración</h3>
+    <div class="field" style="margin-bottom:10px;">
+      <label>URL base de PocketBase (ej: https://app.carossiovairolatti.com.ar)</label>
+      <input id="cfgPbUrl" style="width:100%;">
+    </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Token de autenticación (opcional, Bearer)</label>
+      <input id="cfgToken" style="width:100%;">
+    </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Valor viático por noche de permanencia ($) — regla a confirmar con la empresa</label>
+      <input type="number" step="0.01" id="cfgViaticoNoche" style="width:100%;">
+    </div>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="secondary" onclick="closeSettings()">Cerrar</button>
+      <button onclick="saveSettings()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="dlVehiculos"></datalist>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ============================================================
+   CyV — Rendiciones de choferes
+   Single-file vanilla JS app. Talks to PocketBase via REST fetch().
+   Offline-first: writes that fail go to a localStorage queue and
+   are retried automatically / on demand.
+   ============================================================ */
+
+const LS = {
+  settings: 'cyv_settings',
+  queue: 'cyv_pending_queue',
+  cacheChoferes: 'cyv_cache_choferes',
+  cacheVehiculos: 'cyv_cache_vehiculos',
+  cacheTramos: 'cyv_cache_tramos_',
+};
+
+let settings = JSON.parse(localStorage.getItem(LS.settings) || '{}');
+settings.pbUrl = settings.pbUrl || (location.origin.startsWith('file') ? '' : location.origin);
+settings.token = settings.token || '';
+settings.viaticoNoche = settings.viaticoNoche || 0;
+
+let choferes = [];
+let vehiculos = [];
+let tramos = [];
+let tarifaActual = null; // record for mes seleccionado
+
+// ---------- utils ----------
+function money(n){
+  n = Number(n)||0;
+  return n.toLocaleString('es-AR', {style:'currency', currency:'ARS', minimumFractionDigits:2});
+}
+function toast(msg, type){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type||'');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 5000);
+}
+function currentMonth(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function uid(){ return 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
+
+// ---------- PocketBase REST helper ----------
+async function pb(path, opts){
+  opts = opts || {};
+  if(!settings.pbUrl){ throw new Error('Falta configurar la URL de PocketBase (⚙ Config).'); }
+  const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+  if(settings.token){ headers['Authorization'] = settings.token; }
+  const res = await fetch(settings.pbUrl.replace(/\/$/,'') + '/api/' + path, {
+    method: opts.method || 'GET',
+    headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if(!res.ok){
+    let detail = '';
+    try{ detail = (await res.json()).message; }catch(e){}
+    throw new Error('PB ' + res.status + (detail? ': '+detail : ''));
+  }
+  if(res.status === 204) return null;
+  return res.json();
+}
+
+function pbFilterEscape(v){
+  return String(v).replace(/'/g,"\\'");
+}
+
+// ---------- connectivity ----------
+function updateNetPill(){
+  const el = document.getElementById('netPill');
+  if(navigator.onLine){ el.textContent = 'online'; el.className = 'pill online'; }
+  else { el.textContent = 'offline'; el.className = 'pill offline'; }
+}
+window.addEventListener('online', ()=>{ updateNetPill(); flushQueue(); });
+window.addEventListener('offline', updateNetPill);
+
+// ---------- offline queue ----------
+function getQueue(){ return JSON.parse(localStorage.getItem(LS.queue) || '[]'); }
+function setQueue(q){ localStorage.setItem(LS.queue, JSON.stringify(q)); updateQueuePill(); }
+function updateQueuePill(){
+  const q = getQueue();
+  document.getElementById('queuePill').textContent = q.length + ' pendientes';
+}
+function queueOp(op){
+  const q = getQueue();
+  q.push(op);
+  setQueue(q);
+}
+async function flushQueue(manual){
+  if(!navigator.onLine){ if(manual) toast('Sin conexión, no se puede sincronizar.', 'warn'); return; }
+  let q = getQueue();
+  if(q.length === 0){ if(manual) toast('No hay operaciones pendientes.'); return; }
+  const remaining = [];
+  for(const op of q){
+    try{
+      if(op.type === 'create'){
+        await pb('collections/' + op.collection + '/records', {method:'POST', body:op.data});
+      } else if(op.type === 'update'){
+        await pb('collections/' + op.collection + '/records/' + op.id, {method:'PATCH', body:op.data});
+      } else if(op.type === 'delete'){
+        await pb('collections/' + op.collection + '/records/' + op.id, {method:'DELETE'});
+      }
+    }catch(e){
+      remaining.push(op);
+    }
+  }
+  setQueue(remaining);
+  if(manual) toast(remaining.length === 0 ? 'Sincronización completa.' : (q.length-remaining.length)+' sincronizados, '+remaining.length+' pendientes.', remaining.length?'warn':'ok');
+  if(remaining.length < q.length){ loadTramos(); }
+}
+
+// ---------- settings modal ----------
+function openSettings(){
+  document.getElementById('cfgPbUrl').value = settings.pbUrl || '';
+  document.getElementById('cfgToken').value = settings.token || '';
+  document.getElementById('cfgViaticoNoche').value = settings.viaticoNoche || 0;
+  document.getElementById('settingsModalBg').classList.add('open');
+}
+function closeSettings(){ document.getElementById('settingsModalBg').classList.remove('open'); }
+function saveSettings(){
+  settings.pbUrl = document.getElementById('cfgPbUrl').value.trim();
+  settings.token = document.getElementById('cfgToken').value.trim();
+  settings.viaticoNoche = Number(document.getElementById('cfgViaticoNoche').value) || 0;
+  localStorage.setItem(LS.settings, JSON.stringify(settings));
+  closeSettings();
+  toast('Configuración guardada.', 'ok');
+  bootstrap();
+}
+
+// ---------- bootstrap: load choferes / vehiculos ----------
+async function bootstrap(){
+  document.getElementById('selMes').value = currentMonth();
+  try{
+    const r = await pb('collections/choferes/records?perPage=200&filter=' + encodeURIComponent('activo=true') + '&sort=nombre');
+    choferes = r.items || [];
+    localStorage.setItem(LS.cacheChoferes, JSON.stringify(choferes));
+  }catch(e){
+    choferes = JSON.parse(localStorage.getItem(LS.cacheChoferes) || '[]');
+    if(choferes.length===0) toast('No se pudo cargar choferes: ' + e.message, 'err');
+  }
+  const sel = document.getElementById('selChofer');
+  sel.innerHTML = choferes.map(c=>`<option value="${c.id}">${c.nombre}${c.localidad?' — '+c.localidad:''}</option>`).join('') || '<option value="">(sin choferes)</option>';
+
+  try{
+    const r = await pb('collections/vehiculos/records?perPage=200&filter=' + encodeURIComponent('activo=true') + '&sort=codigo');
+    vehiculos = r.items || [];
+    localStorage.setItem(LS.cacheVehiculos, JSON.stringify(vehiculos));
+  }catch(e){
+    vehiculos = JSON.parse(localStorage.getItem(LS.cacheVehiculos) || '[]');
+  }
+  document.getElementById('dlVehiculos').innerHTML = vehiculos.map(v=>`<option value="${v.codigo}">`).join('');
+
+  updateNetPill();
+  updateQueuePill();
+  if(choferes.length){ loadTramos(); }
+  flushQueue();
+}
+
+// ---------- tarifa ----------
+async function loadTarifa(mes){
+  try{
+    const r = await pb('collections/tarifas/records?filter=' + encodeURIComponent(`mes='${pbFilterEscape(mes)}'`));
+    tarifaActual = (r.items && r.items[0]) || null;
+  }catch(e){
+    tarifaActual = null;
+  }
+  document.getElementById('tarifaKm').value = tarifaActual ? tarifaActual.tarifa_km : '';
+}
+async function saveTarifa(){
+  const mes = document.getElementById('selMes').value;
+  const tarifa_km = Number(document.getElementById('tarifaKm').value);
+  if(!mes){ toast('Elegí un mes primero.', 'warn'); return; }
+  if(!tarifa_km){ toast('Ingresá un valor de tarifa por km.', 'warn'); return; }
+  try{
+    if(tarifaActual){
+      await pb('collections/tarifas/records/' + tarifaActual.id, {method:'PATCH', body:{tarifa_km}});
+    } else {
+      await pb('collections/tarifas/records', {method:'POST', body:{mes, tarifa_km}});
+    }
+    toast('Tarifa guardada.', 'ok');
+    await loadTarifa(mes);
+    renderSummary();
+  }catch(e){
+    queueOp({type: tarifaActual?'update':'create', collection:'tarifas', id: tarifaActual?tarifaActual.id:undefined, data:{mes, tarifa_km}});
+    toast('Sin conexión: tarifa encolada para sincronizar.', 'warn');
+  }
+}
+
+// ---------- tramos: load / render ----------
+async function loadTramos(){
+  const chofer = document.getElementById('selChofer').value;
+  const mes = document.getElementById('selMes').value;
+  if(!chofer || !mes){ return; }
+  await loadTarifa(mes);
+  const cacheKey = LS.cacheTramos + chofer + '_' + mes;
+  try{
+    const filter = `chofer='${pbFilterEscape(chofer)}' && mes='${pbFilterEscape(mes)}'`;
+    const r = await pb('collections/tramos/records?perPage=500&filter=' + encodeURIComponent(filter) + '&sort=dia_salida,hora_salida');
+    tramos = r.items || [];
+    localStorage.setItem(cacheKey, JSON.stringify(tramos));
+  }catch(e){
+    tramos = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+    toast('Mostrando datos en caché (sin conexión): ' + e.message, 'warn');
+  }
+  renderTramos();
+  renderSummary();
+}
+
+function renderTramos(){
+  const body = document.getElementById('tramosBody');
+  const empty = document.getElementById('emptyMsg');
+  if(tramos.length === 0){
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  body.innerHTML = tramos.map(t=>{
+    const pending = String(t.id).startsWith('tmp_');
+    return `<tr>
+      <td>${pending?'<span class="badge pending">pend.</span>':''}</td>
+      <td>${t.tractor||''}</td>
+      <td>${t.dia_salida||''} ${t.hora_salida||''}</td>
+      <td>${t.dia_llegada||''} ${t.hora_llegada||''}</td>
+      <td>${t.origen||''}</td>
+      <td>${t.destino||''}</td>
+      <td>${t.cliente||''}${t.es_posicionamiento?' <span class="badge">POS</span>':''}</td>
+      <td class="num">${money(t.peajes)}</td>
+      <td class="num">${money(t.gastos_varios)}</td>
+      <td class="num">${t.km_alargue||0}</td>
+      <td class="num">${money(t.comida_viaje)}</td>
+      <td class="num">${money(t.comida_internacional)}</td>
+      <td class="num">${money(t.entrega_retiro_sfco)}</td>
+      <td class="num">${money(t.interrupcion)}</td>
+      <td class="num">${money(t.cyd_manual)}</td>
+      <td class="num">${money(t.control_gral)}</td>
+      <td class="num">${money(t.descanso)}</td>
+      <td>${t.vale_nro||''}</td>
+      <td class="num">${money(t.vale_importe)}</td>
+      <td class="num"><strong>${money(t.total_gastos)}</strong></td>
+      <td class="num">${t.km_recorridos||0}</td>
+      <td class="num">${t.km_dobles||0}</td>
+      <td>${t.control?'✔':''}</td>
+      <td class="num">${t.permanencia||0}</td>
+      <td class="num">${t.cruce_frontera||0}</td>
+      <td class="actions-cell">
+        <button class="small secondary" onclick="openTramoModal('${t.id}')">Editar</button>
+        <button class="small danger" onclick="deleteTramo('${t.id}')">Borrar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSummary(){
+  const grid = document.getElementById('summaryGrid');
+  const totalVales = tramos.reduce((s,t)=>s+(Number(t.vale_importe)||0),0);
+  const totalKmAlargue = tramos.reduce((s,t)=>s+(Number(t.km_alargue)||0),0);
+  const tarifaKm = tarifaActual ? Number(tarifaActual.tarifa_km) : 0;
+  const montoAlargue = totalKmAlargue * tarifaKm;
+  const totalGastosMes = tramos.reduce((s,t)=>s+(Number(t.total_gastos)||0),0);
+  const totalPermanencia = tramos.reduce((s,t)=>s+(Number(t.permanencia)||0),0);
+  const viaticos = totalPermanencia * (Number(settings.viaticoNoche)||0);
+  const saldo = totalVales - totalGastosMes;
+
+  const stats = [
+    ['Total vales del mes', money(totalVales)],
+    ['Km alargue del mes', totalKmAlargue.toLocaleString('es-AR')],
+    ['Monto alargue del mes', money(montoAlargue) + (tarifaKm?'':' (falta tarifa)')],
+    ['Total gastos del mes', money(totalGastosMes)],
+    ['Viáticos (noches × valor)', money(viaticos)],
+    ['Saldo (vales − gastos)', money(saldo)],
+  ];
+  grid.innerHTML = stats.map((s,i)=>{
+    const cls = i===5 ? (saldo>=0?'saldo-pos':'saldo-neg') : '';
+    return `<div class="stat ${cls}"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`;
+  }).join('');
+}
+
+// ---------- tramo modal ----------
+const FORM_FIELDS = ['tractor','dia_salida','hora_salida','dia_llegada','hora_llegada','origen','destino',
+  'cliente','peajes','gastos_varios','km_alargue','comida_viaje','comida_internacional',
+  'entrega_retiro_sfco','interrupcion','cyd_manual','control_gral','descanso','vale_nro','vale_importe',
+  'km_recorridos','km_dobles','permanencia','cruce_frontera'];
+
+function openTramoModal(id){
+  document.getElementById('tramoForm').reset();
+  document.getElementById('f_id').value = '';
+  document.getElementById('tramoModalTitle').textContent = 'Nuevo tramo';
+  if(id){
+    const t = tramos.find(x=>x.id===id);
+    if(t){
+      document.getElementById('tramoModalTitle').textContent = 'Editar tramo';
+      document.getElementById('f_id').value = t.id;
+      FORM_FIELDS.forEach(f=>{
+        const el = document.getElementById('f_'+f);
+        if(el) el.value = t[f] ?? (el.type==='number'?0:'');
+      });
+      document.getElementById('f_es_posicionamiento').checked = !!t.es_posicionamiento;
+      document.getElementById('f_control').checked = !!t.control;
+    }
+  } else {
+    document.getElementById('f_dia_salida').value = new Date().toISOString().slice(0,10);
+  }
+  recalcTotal();
+  document.getElementById('tramoModalBg').classList.add('open');
+}
+function closeTramoModal(){ document.getElementById('tramoModalBg').classList.remove('open'); }
+
+function onPosicionamientoChange(){
+  if(document.getElementById('f_es_posicionamiento').checked){
+    document.getElementById('f_cliente').value = 'T';
+  }
+}
+
+const MONTO_FIELDS_FOR_TOTAL = ['peajes','gastos_varios','comida_viaje','comida_internacional',
+  'entrega_retiro_sfco','interrupcion','cyd_manual','control_gral','descanso'];
+
+function calcTotalFromForm(){
+  return MONTO_FIELDS_FOR_TOTAL.reduce((s,f)=>{
+    const el = document.getElementById('f_'+f);
+    return s + (Number(el && el.value) || 0);
+  }, 0);
+}
+function recalcTotal(){
+  document.getElementById('f_total_preview').textContent = money(calcTotalFromForm());
+}
+
+async function submitTramo(ev){
+  ev.preventDefault();
+  const chofer = document.getElementById('selChofer').value;
+  const mes = document.getElementById('selMes').value;
+  if(!chofer || !mes){ toast('Elegí chofer y mes primero.', 'warn'); return false; }
+
+  const data = { chofer, mes };
+  FORM_FIELDS.forEach(f=>{
+    const el = document.getElementById('f_'+f);
+    if(!el) return;
+    data[f] = el.type === 'number' ? (Number(el.value)||0) : el.value;
+  });
+  data.es_posicionamiento = document.getElementById('f_es_posicionamiento').checked;
+  data.control = document.getElementById('f_control').checked;
+  data.total_gastos = calcTotalFromForm();
+  if(data.es_posicionamiento && !data.cliente) data.cliente = 'T';
+  if(!data.cliente) data.cliente = '-';
+
+  const id = document.getElementById('f_id').value;
+  try{
+    if(id){
+      await pb('collections/tramos/records/' + id, {method:'PATCH', body:data});
+    } else {
+      await pb('collections/tramos/records', {method:'POST', body:data});
+    }
+    toast('Tramo guardado.', 'ok');
+    closeTramoModal();
+    loadTramos();
+  }catch(e){
+    if(id){
+      queueOp({type:'update', collection:'tramos', id, data});
+      const idx = tramos.findIndex(t=>t.id===id);
+      if(idx>=0) tramos[idx] = Object.assign({}, tramos[idx], data);
+    } else {
+      const tempId = uid();
+      queueOp({type:'create', collection:'tramos', data});
+      tramos.push(Object.assign({id:tempId}, data));
+    }
+    localStorage.setItem(LS.cacheTramos + chofer + '_' + mes, JSON.stringify(tramos));
+    toast('Sin conexión: tramo guardado localmente y encolado.', 'warn');
+    closeTramoModal();
+    renderTramos();
+    renderSummary();
+  }
+  return false;
+}
+
+async function deleteTramo(id){
+  if(!confirm('¿Borrar este tramo?')) return;
+  const chofer = document.getElementById('selChofer').value;
+  const mes = document.getElementById('selMes').value;
+  if(!String(id).startsWith('tmp_')){
+    try{
+      await pb('collections/tramos/records/' + id, {method:'DELETE'});
+    }catch(e){
+      queueOp({type:'delete', collection:'tramos', id});
+    }
+  } else {
+    const q = getQueue().filter(op => !(op.type==='create' && op.data && tramos.find(t=>t.id===id)));
+  }
+  tramos = tramos.filter(t=>t.id!==id);
+  localStorage.setItem(LS.cacheTramos + chofer + '_' + mes, JSON.stringify(tramos));
+  renderTramos();
+  renderSummary();
+}
+
+// ---------- init ----------
+setInterval(()=>flushQueue(false), 30000);
+bootstrap();
+</script>
+</body>
+</html>
