@@ -67,6 +67,18 @@
   .badge{font-size:10px; padding:2px 6px; border-radius:4px; background:var(--panel2); border:1px solid var(--border); color:var(--muted);}
   .badge.pending{color:var(--warn); border-color:var(--warn);}
   .actions-cell{display:flex; gap:4px;}
+  .expand-btn{
+    background:transparent; border:1px solid var(--border); color:var(--muted);
+    width:24px; height:24px; padding:0; border-radius:6px; font-size:12px; line-height:1;
+  }
+  .expand-btn.open{color:var(--accent); border-color:var(--accent);}
+  tr.detail-row td{background:var(--panel2); white-space:normal;}
+  .detail-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;
+    padding:10px 4px;
+  }
+  .detail-grid .d-item .lbl{font-size:11px; color:var(--muted); text-transform:uppercase;}
+  .detail-grid .d-item .val{font-size:13px; margin-top:2px;}
   .toast-wrap{position:fixed; bottom:16px; right:16px; display:flex; flex-direction:column; gap:8px; z-index:50;}
   .toast{
     background:var(--panel2); border:1px solid var(--border); padding:10px 14px; border-radius:8px;
@@ -141,7 +153,7 @@
       <table id="tramosTable">
         <thead>
           <tr>
-            <th></th><th>Tractor</th><th>Salida</th><th>Llegada</th><th>Origen → Destino</th>
+            <th></th><th></th><th>Tractor</th><th>Salida</th><th>Llegada</th><th>Origen → Destino</th>
             <th>Cliente</th><th class="num">Km alargue</th><th>Vale N°</th><th class="num">Vale importe</th>
             <th class="num">Total gastos</th><th class="num">Km recorridos</th>
             <th>Control</th><th class="num">Permanencia</th><th></th>
@@ -290,6 +302,7 @@ let choferes = [];
 let vehiculos = [];
 let tramos = [];
 let tarifaActual = null; // record for mes seleccionado
+let expandedRows = new Set();
 
 // ---------- utils ----------
 function money(n){
@@ -484,9 +497,22 @@ function renderTramos(){
     return;
   }
   empty.style.display = 'none';
+  const DETAIL_FIELDS = [
+    ['peajes', 'Peajes', true], ['gastos_varios', 'Gastos varios', true],
+    ['comida_viaje', 'Comida viaje', true], ['comida_internacional', 'Comida internacional', true],
+    ['entrega_retiro_sfco', 'Retiro/Entrega SFCO', true], ['interrupcion', 'Interrupción', true],
+    ['cyd_manual', 'CyD manual', true], ['control_gral', 'Control gral', true],
+    ['descanso', 'Descanso', true], ['km_dobles', 'Km dobles', false],
+    ['cruce_frontera', 'Cruce frontera', false],
+  ];
   body.innerHTML = tramos.map(t=>{
     const pending = String(t.id).startsWith('tmp_');
+    const open = expandedRows.has(t.id);
+    const detailHtml = DETAIL_FIELDS.map(([f,label,isMoney])=>
+      `<div class="d-item"><div class="lbl">${label}</div><div class="val">${isMoney?money(t[f]):(t[f]||0)}</div></div>`
+    ).join('');
     return `<tr>
+      <td><button class="expand-btn ${open?'open':''}" onclick="toggleExpand('${t.id}')">${open?'▾':'▸'}</button></td>
       <td>${pending?'<span class="badge pending">pend.</span>':''}</td>
       <td>${t.tractor||''}</td>
       <td>${t.dia_salida||''} ${t.hora_salida||''}</td>
@@ -504,8 +530,14 @@ function renderTramos(){
         <button class="small secondary" onclick="openTramoModal('${t.id}')">Editar</button>
         <button class="small danger" onclick="deleteTramo('${t.id}')">Borrar</button>
       </td>
-    </tr>`;
+    </tr>${open?`<tr class="detail-row"><td></td><td colspan="14"><div class="detail-grid">${detailHtml}</div></td></tr>`:''}`;
   }).join('');
+}
+
+function toggleExpand(id){
+  if(expandedRows.has(id)) expandedRows.delete(id);
+  else expandedRows.add(id);
+  renderTramos();
 }
 
 function renderSummary(){
