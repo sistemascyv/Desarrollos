@@ -120,12 +120,12 @@
     <span id="netPill" class="pill offline">verificando...</span>
     <span id="queuePill" class="pill">0 pendientes</span>
     <button class="secondary small" onclick="flushQueue(true)">Sincronizar</button>
-    <button class="secondary small" onclick="openAdmin()">👤 Administración</button>
+    <button class="secondary small" id="navAdminBtn" onclick="openAdmin()">👤 Administración</button>
     <button class="secondary small" onclick="openSettings()">⚙ Config</button>
   </div>
 </header>
 
-<main>
+<main id="mainView">
 
   <div class="card">
     <h2>Seleccionar chofer y mes</h2>
@@ -286,67 +286,71 @@
 </div>
 
 <!-- Modal: administración de choferes / vehículos / clientes / rutas -->
-<div class="modal-bg" id="adminModalBg">
-  <div class="modal" style="max-width:820px;">
-    <span class="close-x" onclick="closeAdmin()">✕</span>
-    <h3>Administración</h3>
-    <div class="row" style="margin-bottom:14px;">
+<main id="adminView" style="display:none;">
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between; align-items:center;">
+      <h2 style="margin:0;">Administración</h2>
+      <button class="secondary small" onclick="closeAdmin()">← Volver a rendiciones</button>
+    </div>
+    <div class="row" style="margin-top:14px;">
       <button class="small" id="tabBtn_choferes" onclick="switchAdminTab('choferes')">Choferes</button>
       <button class="small secondary" id="tabBtn_vehiculos" onclick="switchAdminTab('vehiculos')">Vehículos / Tractores</button>
       <button class="small secondary" id="tabBtn_clientes" onclick="switchAdminTab('clientes')">Clientes</button>
       <button class="small secondary" id="tabBtn_rutas" onclick="switchAdminTab('rutas')">Rutas frecuentes</button>
     </div>
+  </div>
 
-    <div id="adminTab_choferes" class="admin-tab">
-      <div class="row">
-        <div class="field" style="flex:1;"><label>Nombre</label><input id="ac_chofer_nombre"></div>
-        <div class="field"><label>Localidad</label><input id="ac_chofer_localidad"></div>
-        <button onclick="adminCreateChofer()">+ Agregar</button>
-      </div>
-      <div class="table-wrap" style="max-height:40vh; margin-top:12px;">
-        <table><tbody id="adminList_choferes"></tbody></table>
-      </div>
+  <div class="card" id="adminTab_choferes">
+    <h2>Choferes</h2>
+    <div class="row">
+      <div class="field" style="flex:1;"><label>Nombre</label><input id="ac_chofer_nombre"></div>
+      <div class="field"><label>Localidad</label><input id="ac_chofer_localidad"></div>
+      <button onclick="adminCreateChofer()">+ Agregar</button>
     </div>
-
-    <div id="adminTab_vehiculos" class="admin-tab" style="display:none;">
-      <div class="row">
-        <div class="field"><label>Código (patente/tractor)</label><input id="ac_vehiculo_codigo" placeholder="T130"></div>
-        <div class="field" style="flex:1;"><label>Marca / modelo</label><input id="ac_vehiculo_marca"></div>
-        <button onclick="adminCreateVehiculo()">+ Agregar</button>
-      </div>
-      <div class="table-wrap" style="max-height:40vh; margin-top:12px;">
-        <table><tbody id="adminList_vehiculos"></tbody></table>
-      </div>
-    </div>
-
-    <div id="adminTab_clientes" class="admin-tab" style="display:none;">
-      <div class="row">
-        <div class="field" style="flex:1;"><label>Nombre del cliente</label><input id="ac_cliente_nombre"></div>
-        <button onclick="adminCreateCliente()">+ Agregar</button>
-      </div>
-      <div class="table-wrap" style="max-height:40vh; margin-top:12px;">
-        <table><tbody id="adminList_clientes"></tbody></table>
-      </div>
-    </div>
-
-    <div id="adminTab_rutas" class="admin-tab" style="display:none;">
-      <div class="row">
-        <div class="field" style="flex:1;"><label>Origen</label><input id="ac_ruta_origen"></div>
-        <div class="field" style="flex:1;"><label>Destino</label><input id="ac_ruta_destino"></div>
-        <div class="field"><label>Cliente habitual (opcional)</label><input id="ac_ruta_cliente" list="dlClientes"></div>
-        <button onclick="adminCreateRuta()">+ Agregar</button>
-      </div>
-      <div class="hint">Estas rutas aparecen como acceso rápido en "Nuevo tramo" para completar origen y destino con un clic.</div>
-      <div class="table-wrap" style="max-height:40vh; margin-top:12px;">
-        <table><tbody id="adminList_rutas"></tbody></table>
-      </div>
-    </div>
-
-    <div class="row" style="justify-content:flex-end; margin-top:14px;">
-      <button class="secondary" onclick="closeAdmin()">Cerrar</button>
+    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
+      <table><tbody id="adminList_choferes"></tbody></table>
     </div>
   </div>
-</div>
+
+  <div class="card" id="adminTab_vehiculos" style="display:none;">
+    <h2>Vehículos / Tractores</h2>
+    <div class="row">
+      <div class="field"><label>Código (patente/tractor)</label><input id="ac_vehiculo_codigo" placeholder="T130"></div>
+      <div class="field" style="flex:1;"><label>Marca / modelo</label><input id="ac_vehiculo_marca"></div>
+      <button onclick="adminCreateVehiculo()">+ Agregar</button>
+    </div>
+    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
+      <table><tbody id="adminList_vehiculos"></tbody></table>
+    </div>
+  </div>
+
+  <div class="card" id="adminTab_clientes" style="display:none;">
+    <h2>Clientes</h2>
+    <div class="row">
+      <div class="field" style="flex:1;"><label>Nombre del cliente</label><input id="ac_cliente_nombre"></div>
+      <button onclick="adminCreateCliente()">+ Agregar</button>
+    </div>
+    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
+      <table><tbody id="adminList_clientes"></tbody></table>
+    </div>
+  </div>
+
+  <div class="card" id="adminTab_rutas" style="display:none;">
+    <h2>Rutas frecuentes</h2>
+    <div class="row">
+      <div class="field" style="flex:1;"><label>Origen</label><input id="ac_ruta_origen"></div>
+      <div class="field" style="flex:1;"><label>Destino</label><input id="ac_ruta_destino"></div>
+      <div class="field"><label>Cliente habitual (opcional)</label><input id="ac_ruta_cliente" list="dlClientes"></div>
+      <button onclick="adminCreateRuta()">+ Agregar</button>
+    </div>
+    <div class="hint">Estas rutas aparecen como acceso rápido en "Nuevo tramo" para completar origen y destino con un clic.</div>
+    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
+      <table><tbody id="adminList_rutas"></tbody></table>
+    </div>
+  </div>
+
+</main>
 
 <datalist id="dlVehiculos"></datalist>
 <datalist id="dlClientes"></datalist>
@@ -802,11 +806,15 @@ async function deleteTramo(id){
 let adminData = { choferes: [], vehiculos: [], clientes: [], rutas: [] };
 
 async function openAdmin(){
-  document.getElementById('adminModalBg').classList.add('open');
+  document.getElementById('mainView').style.display = 'none';
+  document.getElementById('adminView').style.display = 'block';
   await loadAdminAll();
   switchAdminTab('choferes');
 }
-function closeAdmin(){ document.getElementById('adminModalBg').classList.remove('open'); }
+function closeAdmin(){
+  document.getElementById('adminView').style.display = 'none';
+  document.getElementById('mainView').style.display = 'block';
+}
 
 async function loadAdminAll(){
   for(const col of ['choferes','vehiculos','clientes','rutas']){
