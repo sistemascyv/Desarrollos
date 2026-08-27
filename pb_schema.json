@@ -7,10 +7,10 @@
     "createRule": "",
     "updateRule": "",
     "deleteRule": "",
-    "fields": [
-      { "name": "nombre", "type": "text", "required": true },
-      { "name": "localidad", "type": "text", "required": false },
-      { "name": "activo", "type": "bool", "required": false }
+    "schema": [
+      { "name": "nombre", "type": "text", "required": true, "options": {} },
+      { "name": "localidad", "type": "text", "required": false, "options": {} },
+      { "name": "activo", "type": "bool", "required": false, "options": {} }
     ]
   },
   {
@@ -21,10 +21,10 @@
     "createRule": "",
     "updateRule": "",
     "deleteRule": "",
-    "fields": [
-      { "name": "codigo", "type": "text", "required": true },
-      { "name": "marca_modelo", "type": "text", "required": false },
-      { "name": "activo", "type": "bool", "required": false }
+    "schema": [
+      { "name": "codigo", "type": "text", "required": true, "options": {} },
+      { "name": "marca_modelo", "type": "text", "required": false, "options": {} },
+      { "name": "activo", "type": "bool", "required": false, "options": {} }
     ]
   },
   {
@@ -35,9 +35,9 @@
     "createRule": "",
     "updateRule": "",
     "deleteRule": "",
-    "fields": [
-      { "name": "mes", "type": "text", "required": true },
-      { "name": "tarifa_km", "type": "number", "required": true }
+    "schema": [
+      { "name": "mes", "type": "text", "required": true, "options": {} },
+      { "name": "tarifa_km", "type": "number", "required": true, "options": {} }
     ]
   },
   {
@@ -48,42 +48,35 @@
     "createRule": "",
     "updateRule": "",
     "deleteRule": "",
-    "fields": [
-      { "name": "tractor", "type": "text" },
-      { "name": "dia_salida", "type": "date" },
-      { "name": "hora_salida", "type": "text" },
-      { "name": "dia_llegada", "type": "date" },
-      { "name": "hora_llegada", "type": "text" },
-      { "name": "origen", "type": "text" },
-      { "name": "destino", "type": "text" },
-      { "name": "cliente", "type": "text" },
-      { "name": "es_posicionamiento", "type": "bool" },
-      { "name": "peajes", "type": "number" },
-      { "name": "gastos_varios", "type": "number" },
-      { "name": "km_alargue", "type": "number" },
-      { "name": "comida_viaje", "type": "number" },
-      { "name": "comida_internacional", "type": "number" },
-      { "name": "entrega_retiro_sfco", "type": "number" },
-      { "name": "interrupcion", "type": "number" },
-      { "name": "cyd_manual", "type": "number" },
-      { "name": "control_gral", "type": "number" },
-      { "name": "descanso", "type": "number" },
-      { "name": "vale_nro", "type": "text" },
-      { "name": "vale_importe", "type": "number" },
-      { "name": "total_gastos", "type": "number" },
-      { "name": "km_recorridos", "type": "number" },
-      { "name": "km_dobles", "type": "number" },
-      { "name": "control", "type": "bool" },
-      { "name": "permanencia", "type": "number" },
-      { "name": "cruce_frontera", "type": "number" },
-      {
-        "name": "chofer",
-        "type": "relation",
-        "required": true,
-        "collectionId": "choferes",
-        "maxSelect": 1
-      },
-      { "name": "mes", "type": "text", "required": true }
+    "schema": [
+      { "name": "tractor", "type": "text", "options": {} },
+      { "name": "dia_salida", "type": "text", "options": {} },
+      { "name": "hora_salida", "type": "text", "options": {} },
+      { "name": "dia_llegada", "type": "text", "options": {} },
+      { "name": "hora_llegada", "type": "text", "options": {} },
+      { "name": "origen", "type": "text", "options": {} },
+      { "name": "destino", "type": "text", "options": {} },
+      { "name": "cliente", "type": "text", "options": {} },
+      { "name": "es_posicionamiento", "type": "bool", "options": {} },
+      { "name": "peajes", "type": "number", "options": {} },
+      { "name": "gastos_varios", "type": "number", "options": {} },
+      { "name": "km_alargue", "type": "number", "options": {} },
+      { "name": "comida_viaje", "type": "number", "options": {} },
+      { "name": "comida_internacional", "type": "number", "options": {} },
+      { "name": "entrega_retiro_sfco", "type": "number", "options": {} },
+      { "name": "interrupcion", "type": "number", "options": {} },
+      { "name": "cyd_manual", "type": "number", "options": {} },
+      { "name": "control_gral", "type": "number", "options": {} },
+      { "name": "descanso", "type": "number", "options": {} },
+      { "name": "vale_nro", "type": "text", "options": {} },
+      { "name": "vale_importe", "type": "number", "options": {} },
+      { "name": "total_gastos", "type": "number", "options": {} },
+      { "name": "km_recorridos", "type": "number", "options": {} },
+      { "name": "km_dobles", "type": "number", "options": {} },
+      { "name": "control", "type": "bool", "options": {} },
+      { "name": "permanencia", "type": "number", "options": {} },
+      { "name": "cruce_frontera", "type": "number", "options": {} },
+      { "name": "mes", "type": "text", "required": true, "options": {} }
     ]
   }
 ]
