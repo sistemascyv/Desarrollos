@@ -79,11 +79,27 @@
   }
   .detail-grid .d-item .lbl{font-size:11px; color:var(--muted); text-transform:uppercase;}
   .detail-grid .d-item .val{font-size:13px; margin-top:2px;}
-  .admin-row{display:flex; align-items:center; justify-content:space-between; padding:7px 4px; border-bottom:1px solid var(--border); gap:10px;}
-  .admin-row .info{display:flex; flex-direction:column;}
-  .admin-row .info .sub{font-size:11px; color:var(--muted);}
-  .admin-row.inactivo .info .name{opacity:.5; text-decoration:line-through;}
-  .admin-row .acts{display:flex; gap:6px; flex-shrink:0;}
+  tr.inactivo td{opacity:.5;}
+  tr.inactivo td.admin-name{text-decoration:line-through;}
+  .admin-toolbar{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:6px;}
+  .admin-toolbar input{max-width:280px; flex:1;}
+  .count-badge{font-size:11px; padding:3px 10px; border-radius:20px; background:var(--panel2); border:1px solid var(--border); color:var(--muted); white-space:nowrap;}
+  tfoot td{border-top:2px solid var(--border); border-bottom:none; background:var(--panel2); font-weight:600;}
+  #printHeader{display:none;}
+  tr.detail-row{display:none;}
+  tr.detail-row.open{display:table-row;}
+  @media print{
+    body{background:#fff; color:#000; font-size:11px;}
+    .table-wrap{overflow:visible !important; max-height:none !important;}
+    header, .toast-wrap, .modal-bg, .actions-cell, .expand-btn, #adminView, button{display:none !important;}
+    main{padding:0; max-width:none;}
+    .card{border:1px solid #999; background:#fff; box-shadow:none; break-inside:avoid;}
+    th{background:#eee !important; color:#000 !important;}
+    tr.detail-row{display:table-row !important;}
+    #printHeader{display:block !important; margin-bottom:14px;}
+    #printHeader h1{font-size:18px; margin:0 0 4px;}
+    #printHeader .sub{font-size:12px; color:#333;}
+  }
   .toast-wrap{position:fixed; bottom:16px; right:16px; display:flex; flex-direction:column; gap:8px; z-index:50;}
   .toast{
     background:var(--panel2); border:1px solid var(--border); padding:10px 14px; border-radius:8px;
@@ -160,6 +176,11 @@
 
 <main id="mainView">
 
+  <div id="printHeader">
+    <h1>CyV — Rendición de chofer</h1>
+    <div class="sub" id="printHeaderSub"></div>
+  </div>
+
   <div class="card">
     <h2>Seleccionar chofer y mes</h2>
     <div class="row">
@@ -178,6 +199,8 @@
       <button class="secondary" onclick="saveTarifa()">Guardar tarifa</button>
       <button onclick="loadTramos()">Cargar rendición</button>
       <button class="secondary" onclick="openTramoModal()">+ Nuevo tramo</button>
+      <button class="secondary" onclick="exportCSV()">⬇ Exportar CSV</button>
+      <button class="secondary" onclick="window.print()">🖨 Imprimir</button>
     </div>
   </div>
 
@@ -199,6 +222,7 @@
           </tr>
         </thead>
         <tbody id="tramosBody"></tbody>
+        <tfoot id="tramosFoot" style="display:none;"></tfoot>
       </table>
       <div id="emptyMsg" class="empty" style="display:none;">No hay tramos cargados para este chofer / mes.</div>
     </div>
@@ -314,6 +338,18 @@
   </div>
 </div>
 
+<!-- Modal: confirmación genérica -->
+<div class="modal-bg" id="confirmModalBg">
+  <div class="modal" style="max-width:420px;">
+    <h3 id="confirmModalTitle">Confirmar</h3>
+    <p id="confirmModalMsg" style="font-size:13px; margin:0;"></p>
+    <div class="row" style="justify-content:flex-end; margin-top:18px;">
+      <button class="secondary" onclick="closeConfirm(false)">Cancelar</button>
+      <button class="danger" onclick="closeConfirm(true)">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: administración de choferes / vehículos / clientes / rutas -->
 <main id="adminView" style="display:none;">
 
@@ -338,8 +374,15 @@
       <div class="field"><label>Localidad</label><input id="ac_chofer_localidad"></div>
       <button onclick="adminCreateChofer()">+ Agregar</button>
     </div>
-    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
-      <table><tbody id="adminList_choferes"></tbody></table>
+    <div class="admin-toolbar">
+      <input type="text" id="search_choferes" placeholder="Buscar por nombre o localidad..." oninput="onAdminSearch('choferes', this.value)">
+      <span class="count-badge" id="count_choferes">0</span>
+    </div>
+    <div class="table-wrap" style="max-height:50vh; margin-top:10px;">
+      <table>
+        <thead><tr><th>Nombre</th><th>Localidad</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="adminList_choferes"></tbody>
+      </table>
     </div>
   </div>
 
@@ -350,8 +393,15 @@
       <div class="field" style="flex:1;"><label>Marca / modelo</label><input id="ac_vehiculo_marca"></div>
       <button onclick="adminCreateVehiculo()">+ Agregar</button>
     </div>
-    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
-      <table><tbody id="adminList_vehiculos"></tbody></table>
+    <div class="admin-toolbar">
+      <input type="text" id="search_vehiculos" placeholder="Buscar por código o marca/modelo..." oninput="onAdminSearch('vehiculos', this.value)">
+      <span class="count-badge" id="count_vehiculos">0</span>
+    </div>
+    <div class="table-wrap" style="max-height:50vh; margin-top:10px;">
+      <table>
+        <thead><tr><th>Código</th><th>Marca / modelo</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="adminList_vehiculos"></tbody>
+      </table>
     </div>
   </div>
 
@@ -361,8 +411,15 @@
       <div class="field" style="flex:1;"><label>Nombre del cliente</label><input id="ac_cliente_nombre"></div>
       <button onclick="adminCreateCliente()">+ Agregar</button>
     </div>
-    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
-      <table><tbody id="adminList_clientes"></tbody></table>
+    <div class="admin-toolbar">
+      <input type="text" id="search_clientes" placeholder="Buscar por nombre..." oninput="onAdminSearch('clientes', this.value)">
+      <span class="count-badge" id="count_clientes">0</span>
+    </div>
+    <div class="table-wrap" style="max-height:50vh; margin-top:10px;">
+      <table>
+        <thead><tr><th>Nombre</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="adminList_clientes"></tbody>
+      </table>
     </div>
   </div>
 
@@ -375,8 +432,15 @@
       <button onclick="adminCreateRuta()">+ Agregar</button>
     </div>
     <div class="hint">Estas rutas aparecen como acceso rápido en "Nuevo tramo" para completar origen y destino con un clic.</div>
-    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
-      <table><tbody id="adminList_rutas"></tbody></table>
+    <div class="admin-toolbar">
+      <input type="text" id="search_rutas" placeholder="Buscar por origen, destino o cliente..." oninput="onAdminSearch('rutas', this.value)">
+      <span class="count-badge" id="count_rutas">0</span>
+    </div>
+    <div class="table-wrap" style="max-height:50vh; margin-top:10px;">
+      <table>
+        <thead><tr><th>Origen</th><th>Destino</th><th>Cliente habitual</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="adminList_rutas"></tbody>
+      </table>
     </div>
   </div>
 
@@ -396,8 +460,15 @@
       <button onclick="adminCreateUsuario()">+ Agregar</button>
     </div>
     <div class="hint">Operador: puede cargar y editar tramos y tarifas. Administrador: además gestiona choferes, vehículos, clientes, rutas y usuarios. El login acepta usuario o email.</div>
-    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
-      <table><tbody id="adminList_usuarios"></tbody></table>
+    <div class="admin-toolbar">
+      <input type="text" id="search_usuarios" placeholder="Buscar por usuario, nombre o email..." oninput="onAdminSearch('usuarios', this.value)">
+      <span class="count-badge" id="count_usuarios">0</span>
+    </div>
+    <div class="table-wrap" style="max-height:50vh; margin-top:10px;">
+      <table>
+        <thead><tr><th>Usuario</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="adminList_usuarios"></tbody>
+      </table>
     </div>
   </div>
 
@@ -510,6 +581,20 @@ function toast(msg, type){
   el.textContent = msg;
   wrap.appendChild(el);
   setTimeout(()=>el.remove(), 5000);
+}
+
+let confirmResolve = null;
+function showConfirm(msg, title){
+  return new Promise(resolve=>{
+    confirmResolve = resolve;
+    document.getElementById('confirmModalTitle').textContent = title || 'Confirmar';
+    document.getElementById('confirmModalMsg').textContent = msg;
+    document.getElementById('confirmModalBg').classList.add('open');
+  });
+}
+function closeConfirm(result){
+  document.getElementById('confirmModalBg').classList.remove('open');
+  if(confirmResolve){ confirmResolve(result); confirmResolve = null; }
 }
 function currentMonth(){
   const d = new Date();
@@ -718,23 +803,26 @@ async function loadTramos(){
   renderSummary();
 }
 
+const DETAIL_FIELDS = [
+  ['peajes', 'Peajes', true], ['gastos_varios', 'Gastos varios', true],
+  ['comida_viaje', 'Comida viaje', true], ['comida_internacional', 'Comida internacional', true],
+  ['entrega_retiro_sfco', 'Retiro/Entrega SFCO', true], ['interrupcion', 'Interrupción', true],
+  ['cyd_manual', 'CyD manual', true], ['control_gral', 'Control gral', true],
+  ['descanso', 'Descanso', true], ['km_dobles', 'Km dobles', false],
+  ['cruce_frontera', 'Cruce frontera', false],
+];
+
 function renderTramos(){
   const body = document.getElementById('tramosBody');
+  const foot = document.getElementById('tramosFoot');
   const empty = document.getElementById('emptyMsg');
   if(tramos.length === 0){
     body.innerHTML = '';
+    foot.style.display = 'none';
     empty.style.display = 'block';
     return;
   }
   empty.style.display = 'none';
-  const DETAIL_FIELDS = [
-    ['peajes', 'Peajes', true], ['gastos_varios', 'Gastos varios', true],
-    ['comida_viaje', 'Comida viaje', true], ['comida_internacional', 'Comida internacional', true],
-    ['entrega_retiro_sfco', 'Retiro/Entrega SFCO', true], ['interrupcion', 'Interrupción', true],
-    ['cyd_manual', 'CyD manual', true], ['control_gral', 'Control gral', true],
-    ['descanso', 'Descanso', true], ['km_dobles', 'Km dobles', false],
-    ['cruce_frontera', 'Cruce frontera', false],
-  ];
   body.innerHTML = tramos.map(t=>{
     const pending = String(t.id).startsWith('tmp_');
     const open = expandedRows.has(t.id);
@@ -742,7 +830,7 @@ function renderTramos(){
       `<div class="d-item"><div class="lbl">${label}</div><div class="val">${isMoney?money(t[f]):(t[f]||0)}</div></div>`
     ).join('');
     return `<tr>
-      <td><button class="expand-btn ${open?'open':''}" onclick="toggleExpand('${t.id}')">${open?'▾':'▸'}</button></td>
+      <td><button class="expand-btn ${open?'open':''}" id="expandBtn-${t.id}" onclick="toggleExpand('${t.id}')">${open?'▾':'▸'}</button></td>
       <td>${pending?'<span class="badge pending">pend.</span>':''}</td>
       <td>${t.tractor||''}</td>
       <td>${t.dia_salida||''} ${t.hora_salida||''}</td>
@@ -760,14 +848,32 @@ function renderTramos(){
         <button class="small secondary" onclick="openTramoModal('${t.id}')">Editar</button>
         <button class="small danger" onclick="deleteTramo('${t.id}')">Borrar</button>
       </td>
-    </tr>${open?`<tr class="detail-row"><td></td><td colspan="14"><div class="detail-grid">${detailHtml}</div></td></tr>`:''}`;
+    </tr><tr class="detail-row${open?' open':''}" id="detail-${t.id}"><td></td><td colspan="14"><div class="detail-grid">${detailHtml}</div></td></tr>`;
   }).join('');
+
+  const sum = (f) => tramos.reduce((s,t)=>s+(Number(t[f])||0), 0);
+  foot.style.display = '';
+  foot.innerHTML = `<tr>
+    <td></td><td></td><td colspan="5">TOTAL (${tramos.length} tramo${tramos.length===1?'':'s'})</td>
+    <td class="num">${sum('km_alargue').toLocaleString('es-AR')}</td>
+    <td></td>
+    <td class="num">${money(sum('vale_importe'))}</td>
+    <td class="num">${money(sum('total_gastos'))}</td>
+    <td class="num">${sum('km_recorridos').toLocaleString('es-AR')}</td>
+    <td></td>
+    <td class="num">${sum('permanencia').toLocaleString('es-AR')}</td>
+    <td></td>
+  </tr>`;
 }
 
 function toggleExpand(id){
   if(expandedRows.has(id)) expandedRows.delete(id);
   else expandedRows.add(id);
-  renderTramos();
+  const open = expandedRows.has(id);
+  const btn = document.getElementById('expandBtn-' + id);
+  const row = document.getElementById('detail-' + id);
+  if(btn){ btn.classList.toggle('open', open); btn.textContent = open ? '▾' : '▸'; }
+  if(row){ row.classList.toggle('open', open); }
 }
 
 function renderSummary(){
@@ -793,6 +899,50 @@ function renderSummary(){
     const cls = i===5 ? (saldo>=0?'saldo-pos':'saldo-neg') : '';
     return `<div class="stat ${cls}"><div class="lbl">${s[0]}</div><div class="val">${s[1]}</div></div>`;
   }).join('');
+
+  const choferSel = document.getElementById('selChofer');
+  const choferNombre = choferSel.options[choferSel.selectedIndex] ? choferSel.options[choferSel.selectedIndex].textContent : '';
+  const mes = document.getElementById('selMes').value;
+  const sub = document.getElementById('printHeaderSub');
+  if(sub){
+    sub.textContent = `Chofer: ${choferNombre || '—'}  ·  Mes: ${mes || '—'}  ·  Tarifa km: ${tarifaKm ? money(tarifaKm) : '—'}  ·  Impreso: ${new Date().toLocaleString('es-AR')}`;
+  }
+}
+
+function exportCSV(){
+  if(tramos.length === 0){ toast('No hay tramos para exportar.', 'warn'); return; }
+  const choferSel = document.getElementById('selChofer');
+  const choferNombre = choferSel.options[choferSel.selectedIndex] ? choferSel.options[choferSel.selectedIndex].textContent.trim() : 'chofer';
+  const mes = document.getElementById('selMes').value || 'mes';
+
+  const cols = [
+    ['tractor','Tractor'], ['dia_salida','Dia salida'], ['hora_salida','Hora salida'],
+    ['dia_llegada','Dia llegada'], ['hora_llegada','Hora llegada'], ['origen','Origen'], ['destino','Destino'],
+    ['cliente','Cliente'], ['es_posicionamiento','Posicionamiento'], ['peajes','Peajes'],
+    ['gastos_varios','Gastos varios'], ['km_alargue','Km alargue'], ['comida_viaje','Comida viaje'],
+    ['comida_internacional','Comida internacional'], ['entrega_retiro_sfco','Retiro/Entrega SFCO'],
+    ['interrupcion','Interrupcion'], ['cyd_manual','CyD manual'], ['control_gral','Control gral'],
+    ['descanso','Descanso'], ['vale_nro','Vale N'], ['vale_importe','Vale importe'],
+    ['total_gastos','Total gastos'], ['km_recorridos','Km recorridos'], ['km_dobles','Km dobles'],
+    ['control','Control'], ['permanencia','Permanencia'], ['cruce_frontera','Cruce frontera'],
+  ];
+  const escapeCsv = (v) => {
+    const s = String(v ?? '');
+    return /[",;\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  const lines = [cols.map(c=>c[1]).join(',')];
+  tramos.forEach(t=>{
+    lines.push(cols.map(([f]) => escapeCsv(typeof t[f] === 'boolean' ? (t[f]?'Si':'No') : t[f])).join(','));
+  });
+  const blob = new Blob(['﻿' + lines.join('\r\n')], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rendicion_${choferNombre.replace(/[^a-z0-9]+/gi,'_')}_${mes}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ---------- tramo modal ----------
@@ -892,7 +1042,7 @@ async function submitTramo(ev){
 }
 
 async function deleteTramo(id){
-  if(!confirm('¿Borrar este tramo?')) return;
+  if(!(await showConfirm('¿Borrar este tramo? Esta acción no se puede deshacer.', 'Borrar tramo'))) return;
   const chofer = document.getElementById('selChofer').value;
   const mes = document.getElementById('selMes').value;
   if(!String(id).startsWith('tmp_')){
@@ -912,6 +1062,11 @@ async function deleteTramo(id){
 
 // ---------- panel de administración ----------
 let adminData = { choferes: [], vehiculos: [], clientes: [], rutas: [], usuarios: [] };
+let adminSearch = { choferes: '', vehiculos: '', clientes: '', rutas: '', usuarios: '' };
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 async function openAdmin(){
   if(!isAdmin()){ toast('Solo un administrador puede acceder a esta sección.', 'warn'); return; }
@@ -954,26 +1109,42 @@ function switchAdminTab(tab){
   });
 }
 
+function onAdminSearch(col, value){
+  adminSearch[col] = value.trim().toLowerCase();
+  if(col === 'usuarios'){ renderAdminUsuarios(); } else { renderAdminTab(col); }
+}
+
+const ADMIN_COLUMNS = {
+  choferes: [ ['nombre','Nombre'], ['localidad','Localidad'] ],
+  vehiculos: [ ['codigo','Código'], ['marca_modelo','Marca / modelo'] ],
+  clientes: [ ['nombre','Nombre'] ],
+  rutas: [ ['origen','Origen'], ['destino','Destino'], ['cliente','Cliente habitual'] ],
+};
+
 function renderAdminTab(col){
   const body = document.getElementById('adminList_' + col);
-  const items = adminData[col];
-  if(!items || items.length===0){ body.innerHTML = '<tr><td class="empty">Sin registros todavía.</td></tr>'; return; }
+  const countEl = document.getElementById('count_' + col);
+  const cols = ADMIN_COLUMNS[col];
+  const q = adminSearch[col] || '';
+  const all = adminData[col] || [];
+  const items = q ? all.filter(item => cols.some(([f]) => String(item[f]||'').toLowerCase().includes(q))) : all;
+
+  if(countEl){ countEl.textContent = items.length + (q ? ' de ' + all.length : '') + (items.length===1?' registro':' registros'); }
+
+  if(all.length === 0){ body.innerHTML = `<tr><td class="empty" colspan="${cols.length+2}">Sin registros todavía.</td></tr>`; return; }
+  if(items.length === 0){ body.innerHTML = `<tr><td class="empty" colspan="${cols.length+2}">No hay resultados para "${escapeHtml(q)}".</td></tr>`; return; }
+
   body.innerHTML = items.map(item=>{
     const inactivo = item.activo === false;
-    let title, sub;
-    if(col==='choferes'){ title = item.nombre; sub = item.localidad||''; }
-    else if(col==='vehiculos'){ title = item.codigo; sub = item.marca_modelo||''; }
-    else if(col==='clientes'){ title = item.nombre; sub = ''; }
-    else { title = `${item.origen} → ${item.destino}`; sub = item.cliente||''; }
-    return `<tr><td colspan="99" style="padding:0;">
-      <div class="admin-row ${inactivo?'inactivo':''}">
-        <div class="info"><span class="name">${title}</span>${sub?`<span class="sub">${sub}</span>`:''}</div>
-        <div class="acts">
-          <button class="small secondary" onclick="adminToggleActivo('${col}','${item.id}', ${!inactivo})">${inactivo?'Reactivar':'Desactivar'}</button>
-          <button class="small danger" onclick="adminDelete('${col}','${item.id}')">Borrar</button>
-        </div>
-      </div>
-    </td></tr>`;
+    const cells = cols.map(([f], i) => `<td${i===0?' class="admin-name"':''}>${escapeHtml(item[f]) || (i===0?'—':'')}</td>`).join('');
+    return `<tr class="${inactivo?'inactivo':''}">
+      ${cells}
+      <td>${inactivo?'<span class="badge">Inactivo</span>':'<span class="badge" style="color:var(--ok); border-color:var(--ok);">Activo</span>'}</td>
+      <td class="actions-cell">
+        <button class="small secondary" onclick="adminToggleActivo('${col}','${item.id}', ${!inactivo})">${inactivo?'Reactivar':'Desactivar'}</button>
+        <button class="small danger" onclick="adminDelete('${col}','${item.id}')">Borrar</button>
+      </td>
+    </tr>`;
   }).join('');
 }
 
@@ -991,7 +1162,7 @@ async function adminDelete(col, id){
   if(col === 'usuarios' && auth && auth.user && auth.user.id === id){
     toast('No podés borrar tu propio usuario.', 'warn'); return;
   }
-  if(!confirm('¿Borrar este registro? Esta acción no se puede deshacer.')) return;
+  if(!(await showConfirm('¿Borrar este registro? Esta acción no se puede deshacer.', 'Borrar registro'))) return;
   try{
     await pb('collections/' + col + '/records/' + id, {method:'DELETE'});
     await loadAdminAll();
@@ -1058,24 +1229,31 @@ async function adminCreateRuta(){
 
 function renderAdminUsuarios(){
   const body = document.getElementById('adminList_usuarios');
-  const items = adminData.usuarios || [];
-  if(items.length === 0){ body.innerHTML = '<tr><td class="empty">Sin usuarios todavía.</td></tr>'; return; }
+  const countEl = document.getElementById('count_usuarios');
+  const q = adminSearch.usuarios || '';
+  const all = adminData.usuarios || [];
+  const items = q ? all.filter(u => [u.username,u.nombre,u.email].some(v => String(v||'').toLowerCase().includes(q))) : all;
+
+  if(countEl){ countEl.textContent = items.length + (q ? ' de ' + all.length : '') + (items.length===1?' usuario':' usuarios'); }
+
+  if(all.length === 0){ body.innerHTML = '<tr><td class="empty" colspan="6">Sin usuarios todavía.</td></tr>'; return; }
+  if(items.length === 0){ body.innerHTML = `<tr><td class="empty" colspan="6">No hay resultados para "${escapeHtml(q)}".</td></tr>`; return; }
+
   body.innerHTML = items.map(u=>{
     const inactivo = u.activo === false;
     const isSelf = !!(auth && auth.user && auth.user.id === u.id);
-    return `<tr><td colspan="99" style="padding:0;">
-      <div class="admin-row ${inactivo?'inactivo':''}">
-        <div class="info">
-          <span class="name">${u.nombre || u.username}</span>
-          <span class="sub">${u.username}${u.email?' · '+u.email:''} · ${u.rol==='admin'?'Administrador':'Operador'}${isSelf?' (vos)':''}</span>
-        </div>
-        <div class="acts">
-          <button class="small secondary" onclick="adminToggleRolUsuario('${u.id}','${u.rol}')">${u.rol==='admin'?'Hacer operador':'Hacer admin'}</button>
-          <button class="small secondary" onclick="adminToggleActivo('usuarios','${u.id}', ${!inactivo})" ${isSelf?'disabled':''}>${inactivo?'Reactivar':'Desactivar'}</button>
-          <button class="small danger" onclick="adminDelete('usuarios','${u.id}')" ${isSelf?'disabled':''}>Borrar</button>
-        </div>
-      </div>
-    </td></tr>`;
+    return `<tr class="${inactivo?'inactivo':''}">
+      <td class="admin-name">${escapeHtml(u.username)}${isSelf?' <span class="badge">vos</span>':''}</td>
+      <td>${escapeHtml(u.nombre) || '—'}</td>
+      <td>${escapeHtml(u.email) || '—'}</td>
+      <td>${u.rol==='admin'?'Administrador':'Operador'}</td>
+      <td>${inactivo?'<span class="badge">Inactivo</span>':'<span class="badge" style="color:var(--ok); border-color:var(--ok);">Activo</span>'}</td>
+      <td class="actions-cell">
+        <button class="small secondary" onclick="adminToggleRolUsuario('${u.id}','${u.rol}')">${u.rol==='admin'?'Hacer operador':'Hacer admin'}</button>
+        <button class="small secondary" onclick="adminToggleActivo('usuarios','${u.id}', ${!inactivo})" ${isSelf?'disabled':''}>${inactivo?'Reactivar':'Desactivar'}</button>
+        <button class="small danger" onclick="adminDelete('usuarios','${u.id}')" ${isSelf?'disabled':''}>Borrar</button>
+      </td>
+    </tr>`;
   }).join('');
 }
 
