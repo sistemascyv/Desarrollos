@@ -196,7 +196,11 @@
         <label>Tarifa km del mes ($/km)</label>
         <input type="number" step="0.0001" id="tarifaKm" placeholder="ej: 169.6053">
       </div>
-      <button class="secondary" onclick="saveTarifa()">Guardar tarifa</button>
+      <div class="field">
+        <label>Viático por noche ($) — regla a confirmar</label>
+        <input type="number" step="0.01" id="viaticoNoche" placeholder="ej: 5000">
+      </div>
+      <button class="secondary" onclick="saveTarifa()">Guardar valores del mes</button>
       <button onclick="loadTramos()">Cargar rendición</button>
       <button class="secondary" onclick="openTramoModal()">+ Nuevo tramo</button>
       <button class="secondary" onclick="exportCSV()">⬇ Exportar CSV</button>
@@ -327,9 +331,10 @@
       <label>URL base de PocketBase (ej: https://app.carossiovairolatti.com.ar)</label>
       <input id="cfgPbUrl" style="width:100%;">
     </div>
-    <div class="field" style="margin-bottom:10px;">
-      <label>Valor viático por noche de permanencia ($) — regla a confirmar con la empresa</label>
-      <input type="number" step="0.01" id="cfgViaticoNoche" style="width:100%;">
+    <div class="hint" style="margin-bottom:10px;">
+      El valor de viático por noche se carga junto con la tarifa por km,
+      en la pantalla principal — es un valor por mes, compartido por
+      todos los usuarios (no queda guardado solo en este navegador).
     </div>
     <div class="row" style="justify-content:flex-end;">
       <button class="secondary" onclick="closeSettings()">Cerrar</button>
@@ -503,7 +508,6 @@ const LS = {
 
 let settings = JSON.parse(localStorage.getItem(LS.settings) || '{}');
 settings.pbUrl = settings.pbUrl || (location.origin.startsWith('file') ? '' : location.origin);
-settings.viaticoNoche = settings.viaticoNoche || 0;
 
 let auth = JSON.parse(localStorage.getItem(LS.auth) || 'null');
 
@@ -674,13 +678,11 @@ async function flushQueue(manual){
 // ---------- settings modal ----------
 function openSettings(){
   document.getElementById('cfgPbUrl').value = settings.pbUrl || '';
-  document.getElementById('cfgViaticoNoche').value = settings.viaticoNoche || 0;
   document.getElementById('settingsModalBg').classList.add('open');
 }
 function closeSettings(){ document.getElementById('settingsModalBg').classList.remove('open'); }
 function saveSettings(){
   settings.pbUrl = document.getElementById('cfgPbUrl').value.trim();
-  settings.viaticoNoche = Number(document.getElementById('cfgViaticoNoche').value) || 0;
   localStorage.setItem(LS.settings, JSON.stringify(settings));
   closeSettings();
   toast('Configuración guardada.', 'ok');
@@ -762,24 +764,26 @@ async function loadTarifa(mes){
     tarifaActual = null;
   }
   document.getElementById('tarifaKm').value = tarifaActual ? tarifaActual.tarifa_km : '';
+  document.getElementById('viaticoNoche').value = tarifaActual ? (tarifaActual.valor_viatico_noche || 0) : '';
 }
 async function saveTarifa(){
   const mes = document.getElementById('selMes').value;
   const tarifa_km = Number(document.getElementById('tarifaKm').value);
+  const valor_viatico_noche = Number(document.getElementById('viaticoNoche').value) || 0;
   if(!mes){ toast('Elegí un mes primero.', 'warn'); return; }
   if(!tarifa_km){ toast('Ingresá un valor de tarifa por km.', 'warn'); return; }
   try{
     if(tarifaActual){
-      await pb('collections/tarifas/records/' + tarifaActual.id, {method:'PATCH', body:{tarifa_km}});
+      await pb('collections/tarifas/records/' + tarifaActual.id, {method:'PATCH', body:{tarifa_km, valor_viatico_noche}});
     } else {
-      await pb('collections/tarifas/records', {method:'POST', body:{mes, tarifa_km}});
+      await pb('collections/tarifas/records', {method:'POST', body:{mes, tarifa_km, valor_viatico_noche}});
     }
-    toast('Tarifa guardada.', 'ok');
+    toast('Valores del mes guardados.', 'ok');
     await loadTarifa(mes);
     renderSummary();
   }catch(e){
-    queueOp({type: tarifaActual?'update':'create', collection:'tarifas', id: tarifaActual?tarifaActual.id:undefined, data:{mes, tarifa_km}});
-    toast('Sin conexión: tarifa encolada para sincronizar.', 'warn');
+    queueOp({type: tarifaActual?'update':'create', collection:'tarifas', id: tarifaActual?tarifaActual.id:undefined, data:{mes, tarifa_km, valor_viatico_noche}});
+    toast('Sin conexión: valores encolados para sincronizar.', 'warn');
   }
 }
 
@@ -884,7 +888,8 @@ function renderSummary(){
   const montoAlargue = totalKmAlargue * tarifaKm;
   const totalGastosMes = tramos.reduce((s,t)=>s+(Number(t.total_gastos)||0),0);
   const totalPermanencia = tramos.reduce((s,t)=>s+(Number(t.permanencia)||0),0);
-  const viaticos = totalPermanencia * (Number(settings.viaticoNoche)||0);
+  const valorViatico = tarifaActual ? Number(tarifaActual.valor_viatico_noche)||0 : 0;
+  const viaticos = totalPermanencia * valorViatico;
   const saldo = totalVales - totalGastosMes;
 
   const stats = [
@@ -892,7 +897,7 @@ function renderSummary(){
     ['Km alargue del mes', totalKmAlargue.toLocaleString('es-AR')],
     ['Monto alargue del mes', money(montoAlargue) + (tarifaKm?'':' (falta tarifa)')],
     ['Total gastos del mes', money(totalGastosMes)],
-    ['Viáticos (noches × valor)', money(viaticos)],
+    ['Viáticos (noches × valor)', money(viaticos) + (valorViatico?'':' (falta valor)')],
     ['Saldo (vales − gastos)', money(saldo)],
   ];
   grid.innerHTML = stats.map((s,i)=>{

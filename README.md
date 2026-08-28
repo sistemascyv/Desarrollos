@@ -241,15 +241,19 @@ vez de por HTTPS, hay que configurar ahí mismo la URL pública
 
 1. Abrir el archivo / la URL. Pide **login** (email + contraseña) — ver
    [Bootstrap](#bootstrap-primer-usuario-admin) para la primera cuenta.
-2. `⚙ Config`: cargar la URL de PocketBase (si hace falta, normalmente no
-   porque se sirve del mismo origen) y, opcionalmente, el **valor de
-   viático por noche** (ver nota abajo).
-3. Elegir **chofer** y **mes**, cargar/guardar la **tarifa por km** del mes
-   (se usa para calcular el monto de alargue).
+2. `⚙ Config`: cargar la URL de PocketBase, solo si hace falta (normalmente
+   no, porque se sirve del mismo origen).
+3. Elegir **chofer** y **mes**, cargar/guardar la **tarifa por km** y el
+   **valor de viático por noche** del mes (ver nota abajo) — "Guardar
+   valores del mes".
 4. **+ Nuevo tramo** para cargar cada tramo del viaje. El total de gastos del
    tramo se calcula automáticamente mientras se completa el formulario.
 5. El resumen del mes (arriba de la tabla) muestra: total de vales, km de
-   alargue, monto de alargue, total de gastos, viáticos y saldo.
+   alargue, monto de alargue, total de gastos, viáticos y saldo. Al pie de
+   la tabla de tramos hay una fila de **totales**.
+6. **⬇ Exportar CSV** descarga todos los campos de los tramos cargados
+   (para abrir en Excel); **🖨 Imprimir** genera una vista limpia para
+   imprimir o guardar como PDF, con todos los tramos expandidos.
 
 ### Panel de Administración (solo rol `admin`)
 
@@ -290,14 +294,15 @@ automática) reintenta enviar todo lo pendiente a PocketBase.
 - `total_gastos_mes` = suma de `total_gastos` de todos los tramos del mes.
 - `saldo` = `total_vales_mes` − `total_gastos_mes`.
 - `viaticos` = suma de `permanencia` (noches) de todos los tramos del mes ×
-  **valor de viático por noche** configurado en `⚙ Config`.
+  `valor_viatico_noche` del mes (campo de la colección `tarifas`, se carga
+  junto con la tarifa por km en la pantalla principal).
 
 > **Pendiente de confirmar con la empresa:** la regla exacta de cálculo de
 > `viaticos` no estaba especificada. Se implementó como
-> `noches de permanencia × valor fijo configurable`, con el valor editable
-> en `⚙ Config` (se guarda en el navegador, no en PocketBase). Si la regla
-> real es distinta (por ejemplo, distinto valor según destino, según
-> chofer, o un tope), avisar para ajustar la fórmula.
+> `noches de permanencia × valor fijo por mes`, guardado en PocketBase
+> (compartido por todos los usuarios, no por navegador). Si la regla real
+> es distinta (por ejemplo, distinto valor según destino, según chofer, o
+> un tope), avisar para ajustar la fórmula.
 
 ## Próximos pasos sugeridos (fuera de fase 1)
 
