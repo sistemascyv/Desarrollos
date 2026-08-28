@@ -59,7 +59,8 @@
     "deleteRule": "@request.auth.rol = 'admin'",
     "schema": [
       { "name": "mes", "type": "text", "required": true, "options": {} },
-      { "name": "tarifa_km", "type": "number", "required": true, "options": {} }
+      { "name": "tarifa_km", "type": "number", "required": true, "options": {} },
+      { "name": "valor_viatico_noche", "type": "number", "required": false, "options": {} }
     ]
   },
   {
