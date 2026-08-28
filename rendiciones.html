@@ -110,18 +110,51 @@
   legend{font-size:11px; color:var(--muted); text-transform:uppercase; padding:0 6px;}
   .empty{color:var(--muted); padding:20px; text-align:center;}
   a.link{color:var(--accent); cursor:pointer;}
+  .login-wrap{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .login-card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:32px; width:100%; max-width:380px;}
+  .login-card h1{font-size:18px; margin:0 0 4px;}
+  .login-card p{color:var(--muted); font-size:13px; margin:0 0 18px;}
+  .login-card .field{margin-bottom:12px;}
+  .login-card button[type=submit]{width:100%; margin-top:6px;}
 </style>
 </head>
 <body>
+
+<div id="loginScreen" class="login-wrap">
+  <div class="login-card">
+    <h1>CyV <span style="color:var(--accent);">· Rendiciones de Choferes</span></h1>
+    <p>Iniciá sesión para continuar.</p>
+    <form onsubmit="return doLogin(event)">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="loginEmail" required autocomplete="username" style="width:100%;">
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="loginPassword" required autocomplete="current-password" style="width:100%;">
+      </div>
+      <div class="field">
+        <label>URL del servidor PocketBase</label>
+        <input id="loginPbUrl" placeholder="https://app.carossiovairolatti.com.ar" style="width:100%;">
+      </div>
+      <button type="submit">Ingresar</button>
+      <div id="loginError" class="hint" style="color:var(--err); margin-top:10px; display:none;"></div>
+    </form>
+  </div>
+</div>
+
+<div id="appShell" style="display:none;">
 
 <header>
   <h1>CyV <span>· Rendiciones de Choferes</span></h1>
   <div class="top-actions">
     <span id="netPill" class="pill offline">verificando...</span>
     <span id="queuePill" class="pill">0 pendientes</span>
+    <span id="userPill" class="pill"></span>
     <button class="secondary small" onclick="flushQueue(true)">Sincronizar</button>
     <button class="secondary small" id="navAdminBtn" onclick="openAdmin()">👤 Administración</button>
     <button class="secondary small" onclick="openSettings()">⚙ Config</button>
+    <button class="secondary small" onclick="doLogout()">Salir</button>
   </div>
 </header>
 
@@ -271,10 +304,6 @@
       <input id="cfgPbUrl" style="width:100%;">
     </div>
     <div class="field" style="margin-bottom:10px;">
-      <label>Token de autenticación (opcional, Bearer)</label>
-      <input id="cfgToken" style="width:100%;">
-    </div>
-    <div class="field" style="margin-bottom:10px;">
       <label>Valor viático por noche de permanencia ($) — regla a confirmar con la empresa</label>
       <input type="number" step="0.01" id="cfgViaticoNoche" style="width:100%;">
     </div>
@@ -298,6 +327,7 @@
       <button class="small secondary" id="tabBtn_vehiculos" onclick="switchAdminTab('vehiculos')">Vehículos / Tractores</button>
       <button class="small secondary" id="tabBtn_clientes" onclick="switchAdminTab('clientes')">Clientes</button>
       <button class="small secondary" id="tabBtn_rutas" onclick="switchAdminTab('rutas')">Rutas frecuentes</button>
+      <button class="small secondary" id="tabBtn_usuarios" onclick="switchAdminTab('usuarios')" style="display:none;">Usuarios</button>
     </div>
   </div>
 
@@ -350,7 +380,29 @@
     </div>
   </div>
 
+  <div class="card" id="adminTab_usuarios" style="display:none;">
+    <h2>Usuarios</h2>
+    <div class="row">
+      <div class="field"><label>Nombre</label><input id="ac_usuario_nombre"></div>
+      <div class="field" style="flex:1;"><label>Email</label><input type="email" id="ac_usuario_email"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="ac_usuario_password" placeholder="mín. 8 caracteres"></div>
+      <div class="field"><label>Rol</label>
+        <select id="ac_usuario_rol">
+          <option value="operador">Operador</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <button onclick="adminCreateUsuario()">+ Agregar</button>
+    </div>
+    <div class="hint">Operador: puede cargar y editar tramos y tarifas. Administrador: además gestiona choferes, vehículos, clientes, rutas y usuarios.</div>
+    <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
+      <table><tbody id="adminList_usuarios"></tbody></table>
+    </div>
+  </div>
+
 </main>
+
+</div><!-- /appShell -->
 
 <datalist id="dlVehiculos"></datalist>
 <datalist id="dlClientes"></datalist>
@@ -368,6 +420,7 @@
 
 const LS = {
   settings: 'cyv_settings',
+  auth: 'cyv_auth',
   queue: 'cyv_pending_queue',
   cacheChoferes: 'cyv_cache_choferes',
   cacheVehiculos: 'cyv_cache_vehiculos',
@@ -378,8 +431,9 @@ const LS = {
 
 let settings = JSON.parse(localStorage.getItem(LS.settings) || '{}');
 settings.pbUrl = settings.pbUrl || (location.origin.startsWith('file') ? '' : location.origin);
-settings.token = settings.token || '';
 settings.viaticoNoche = settings.viaticoNoche || 0;
+
+let auth = JSON.parse(localStorage.getItem(LS.auth) || 'null');
 
 let choferes = [];
 let vehiculos = [];
@@ -388,6 +442,60 @@ let rutas = [];
 let tramos = [];
 let tarifaActual = null; // record for mes seleccionado
 let expandedRows = new Set();
+
+// ---------- autenticación ----------
+function isAdmin(){ return !!(auth && auth.user && auth.user.rol === 'admin'); }
+
+function showApp(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display = 'block';
+  document.getElementById('userPill').textContent = (auth.user.nombre || auth.user.email) + (isAdmin() ? ' · admin' : '');
+  document.getElementById('navAdminBtn').style.display = isAdmin() ? '' : 'none';
+}
+function showLogin(msg){
+  document.getElementById('appShell').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginPbUrl').value = settings.pbUrl || '';
+  const err = document.getElementById('loginError');
+  if(msg){ err.textContent = msg; err.style.display = 'block'; } else { err.style.display = 'none'; }
+}
+
+async function doLogin(ev){
+  ev.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const pbUrlInput = document.getElementById('loginPbUrl').value.trim();
+  if(pbUrlInput){ settings.pbUrl = pbUrlInput; localStorage.setItem(LS.settings, JSON.stringify(settings)); }
+  if(!settings.pbUrl){ showLogin('Falta la URL del servidor.'); return false; }
+  try{
+    const res = await fetch(settings.pbUrl.replace(/\/$/,'') + '/api/collections/usuarios/auth-with-password', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({identity: email, password}),
+    });
+    const data = await res.json();
+    if(!res.ok){ throw new Error(data.message || 'Credenciales inválidas.'); }
+    if(data.record.activo === false){ throw new Error('Usuario desactivado. Contactá a un administrador.'); }
+    auth = { token: data.token, user: { id: data.record.id, email: data.record.email, nombre: data.record.nombre, rol: data.record.rol } };
+    localStorage.setItem(LS.auth, JSON.stringify(auth));
+    showApp();
+    bootstrap();
+  }catch(e){
+    showLogin(e.message);
+  }
+  return false;
+}
+
+function forceLogout(msg){
+  auth = null;
+  localStorage.removeItem(LS.auth);
+  showLogin(msg || 'La sesión expiró, iniciá sesión de nuevo.');
+}
+function doLogout(){
+  auth = null;
+  localStorage.removeItem(LS.auth);
+  showLogin();
+}
 
 // ---------- utils ----------
 function money(n){
@@ -413,7 +521,7 @@ async function pb(path, opts){
   opts = opts || {};
   if(!settings.pbUrl){ throw new Error('Falta configurar la URL de PocketBase (⚙ Config).'); }
   const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
-  if(settings.token){ headers['Authorization'] = settings.token; }
+  if(auth && auth.token){ headers['Authorization'] = auth.token; }
   const res = await fetch(settings.pbUrl.replace(/\/$/,'') + '/api/' + path, {
     method: opts.method || 'GET',
     headers,
@@ -422,6 +530,7 @@ async function pb(path, opts){
   if(!res.ok){
     let detail = '';
     try{ detail = (await res.json()).message; }catch(e){}
+    if(res.status === 401 && navigator.onLine){ forceLogout(); }
     throw new Error('PB ' + res.status + (detail? ': '+detail : ''));
   }
   if(res.status === 204) return null;
@@ -479,14 +588,12 @@ async function flushQueue(manual){
 // ---------- settings modal ----------
 function openSettings(){
   document.getElementById('cfgPbUrl').value = settings.pbUrl || '';
-  document.getElementById('cfgToken').value = settings.token || '';
   document.getElementById('cfgViaticoNoche').value = settings.viaticoNoche || 0;
   document.getElementById('settingsModalBg').classList.add('open');
 }
 function closeSettings(){ document.getElementById('settingsModalBg').classList.remove('open'); }
 function saveSettings(){
   settings.pbUrl = document.getElementById('cfgPbUrl').value.trim();
-  settings.token = document.getElementById('cfgToken').value.trim();
   settings.viaticoNoche = Number(document.getElementById('cfgViaticoNoche').value) || 0;
   localStorage.setItem(LS.settings, JSON.stringify(settings));
   closeSettings();
@@ -803,11 +910,13 @@ async function deleteTramo(id){
 }
 
 // ---------- panel de administración ----------
-let adminData = { choferes: [], vehiculos: [], clientes: [], rutas: [] };
+let adminData = { choferes: [], vehiculos: [], clientes: [], rutas: [], usuarios: [] };
 
 async function openAdmin(){
+  if(!isAdmin()){ toast('Solo un administrador puede acceder a esta sección.', 'warn'); return; }
   document.getElementById('mainView').style.display = 'none';
   document.getElementById('adminView').style.display = 'block';
+  document.getElementById('tabBtn_usuarios').style.display = isAdmin() ? '' : 'none';
   await loadAdminAll();
   switchAdminTab('choferes');
 }
@@ -817,7 +926,9 @@ function closeAdmin(){
 }
 
 async function loadAdminAll(){
-  for(const col of ['choferes','vehiculos','clientes','rutas']){
+  const cols = ['choferes','vehiculos','clientes','rutas'];
+  if(isAdmin()) cols.push('usuarios');
+  for(const col of cols){
     try{
       const r = await pb('collections/' + col + '/records?perPage=500&sort=-created');
       adminData[col] = r.items || [];
@@ -830,10 +941,13 @@ async function loadAdminAll(){
   renderAdminTab('vehiculos');
   renderAdminTab('clientes');
   renderAdminTab('rutas');
+  if(isAdmin()) renderAdminUsuarios();
 }
 
 function switchAdminTab(tab){
-  ['choferes','vehiculos','clientes','rutas'].forEach(t=>{
+  const tabs = ['choferes','vehiculos','clientes','rutas'];
+  if(isAdmin()) tabs.push('usuarios');
+  tabs.forEach(t=>{
     document.getElementById('adminTab_'+t).style.display = (t===tab)?'block':'none';
     document.getElementById('tabBtn_'+t).className = 'small' + (t===tab?'':' secondary');
   });
@@ -863,18 +977,24 @@ function renderAdminTab(col){
 }
 
 async function adminToggleActivo(col, id, currentlyActive){
+  if(col === 'usuarios' && auth && auth.user && auth.user.id === id){
+    toast('No podés desactivar tu propio usuario.', 'warn'); return;
+  }
   try{
     await pb('collections/' + col + '/records/' + id, {method:'PATCH', body:{activo: !currentlyActive}});
     await loadAdminAll();
-    await refreshCatalogs();
+    if(col !== 'usuarios'){ await refreshCatalogs(); }
   }catch(e){ toast('Error: ' + e.message, 'err'); }
 }
 async function adminDelete(col, id){
+  if(col === 'usuarios' && auth && auth.user && auth.user.id === id){
+    toast('No podés borrar tu propio usuario.', 'warn'); return;
+  }
   if(!confirm('¿Borrar este registro? Esta acción no se puede deshacer.')) return;
   try{
     await pb('collections/' + col + '/records/' + id, {method:'DELETE'});
     await loadAdminAll();
-    await refreshCatalogs();
+    if(col !== 'usuarios'){ await refreshCatalogs(); }
     toast('Borrado.', 'ok');
   }catch(e){ toast('Error: ' + e.message, 'err'); }
 }
@@ -935,9 +1055,65 @@ async function adminCreateRuta(){
   }catch(e){ toast('Error: ' + e.message, 'err'); }
 }
 
+function renderAdminUsuarios(){
+  const body = document.getElementById('adminList_usuarios');
+  const items = adminData.usuarios || [];
+  if(items.length === 0){ body.innerHTML = '<tr><td class="empty">Sin usuarios todavía.</td></tr>'; return; }
+  body.innerHTML = items.map(u=>{
+    const inactivo = u.activo === false;
+    const isSelf = !!(auth && auth.user && auth.user.id === u.id);
+    return `<tr><td colspan="99" style="padding:0;">
+      <div class="admin-row ${inactivo?'inactivo':''}">
+        <div class="info">
+          <span class="name">${u.nombre||u.email}</span>
+          <span class="sub">${u.email} · ${u.rol==='admin'?'Administrador':'Operador'}${isSelf?' (vos)':''}</span>
+        </div>
+        <div class="acts">
+          <button class="small secondary" onclick="adminToggleRolUsuario('${u.id}','${u.rol}')">${u.rol==='admin'?'Hacer operador':'Hacer admin'}</button>
+          <button class="small secondary" onclick="adminToggleActivo('usuarios','${u.id}', ${!inactivo})" ${isSelf?'disabled':''}>${inactivo?'Reactivar':'Desactivar'}</button>
+          <button class="small danger" onclick="adminDelete('usuarios','${u.id}')" ${isSelf?'disabled':''}>Borrar</button>
+        </div>
+      </div>
+    </td></tr>`;
+  }).join('');
+}
+
+async function adminToggleRolUsuario(id, currentRol){
+  const nuevo = currentRol === 'admin' ? 'operador' : 'admin';
+  try{
+    await pb('collections/usuarios/records/' + id, {method:'PATCH', body:{rol: nuevo}});
+    await loadAdminAll();
+    toast('Rol actualizado.', 'ok');
+  }catch(e){ toast('Error: ' + e.message, 'err'); }
+}
+
+async function adminCreateUsuario(){
+  const nombre = document.getElementById('ac_usuario_nombre').value.trim();
+  const email = document.getElementById('ac_usuario_email').value.trim();
+  const password = document.getElementById('ac_usuario_password').value;
+  const rol = document.getElementById('ac_usuario_rol').value;
+  if(!email || !password){ toast('Faltan email y/o contraseña.', 'warn'); return; }
+  if(password.length < 8){ toast('La contraseña debe tener al menos 8 caracteres.', 'warn'); return; }
+  try{
+    await pb('collections/usuarios/records', {method:'POST', body:{
+      email, password, passwordConfirm: password, nombre, rol, activo: true, emailVisibility: true,
+    }});
+    document.getElementById('ac_usuario_nombre').value = '';
+    document.getElementById('ac_usuario_email').value = '';
+    document.getElementById('ac_usuario_password').value = '';
+    await loadAdminAll();
+    toast('Usuario creado.', 'ok');
+  }catch(e){ toast('Error: ' + e.message, 'err'); }
+}
+
 // ---------- init ----------
 setInterval(()=>flushQueue(false), 30000);
-bootstrap();
+if(auth && auth.token && auth.user){
+  showApp();
+  bootstrap();
+} else {
+  showLogin();
+}
 </script>
 </body>
 </html>
