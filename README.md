@@ -64,19 +64,112 @@ Colecciones resultantes:
 "Cliente" y el selector de "Ruta rápida" al cargar un tramo nuevo, para no
 tener que tipear origen/destino/cliente de memoria cada vez.
 
-### Reglas de acceso (API rules)
+### Login y roles de usuario
 
-El schema trae las reglas de list/view/create/update/delete vacías (`""`),
-es decir **abiertas a cualquiera con acceso a la API** — pensado para uso
-interno detrás de Caddy/HTTPS en la red de la empresa. Si administración va
-a acceder desde fuera de una red confiable, conviene:
+La app requiere iniciar sesión: no se puede ver ni cargar nada sin loguearse.
+Hay una colección de autenticación `usuarios` (además del `email`/`password`
+que trae cualquier colección `auth` de PocketBase, tiene `nombre`, `rol` y
+`activo`) y dos roles:
 
-- Crear una colección de usuarios (`_pb_users_auth_` o similar) para
-  administración, y
-- Cambiar las reglas a algo como `@request.auth.id != ""`.
+- **`operador`**: puede cargar, editar y borrar tramos y tarifas (el uso
+  diario de rendiciones). No ve el botón "👤 Administración".
+- **`admin`**: además de lo anterior, entra al panel de Administración
+  completo — choferes, vehículos, clientes, rutas **y usuarios** (crear
+  cuentas nuevas, cambiar de rol, desactivar, borrar).
 
-La app ya soporta pegar un **token Bearer** en `⚙ Config` para ese caso;
-si las reglas quedan abiertas, el campo de token se puede dejar vacío.
+Reglas de API por colección:
+
+| Colección | Leer (list/view) | Crear/editar/borrar |
+|---|---|---|
+| `tramos`, `tarifas` | cualquier usuario logueado | cualquier usuario logueado |
+| `choferes`, `vehiculos`, `clientes`, `rutas` | cualquier usuario logueado | solo `admin` |
+| `usuarios` | cualquier usuario logueado (ve la lista); el registro propio o cualquiera si es `admin` | solo `admin` (ver [Bootstrap](#bootstrap-primer-usuario-admin) para crear el primero) |
+
+Todas estas reglas ya están en `pb_schema.json`. Como las colecciones base
+(`choferes`, `vehiculos`, `clientes`, `rutas`, `tarifas`, `tramos`) **ya
+existen** en el servidor de producción con reglas abiertas (`""`), hay que
+actualizarlas — ver el script de la siguiente sección.
+
+#### Crear la colección `usuarios` y actualizar las reglas (servidor ya en marcha)
+
+Con `$TOKEN` = token de admin de PocketBase (ver sección de admin más abajo
+o el historial de este README/chat para cómo obtenerlo con
+`./pocketbase admin create` + `/api/admins/auth-with-password`):
+
+```bash
+# 1) Crear la colección de usuarios con roles
+curl -s -X POST http://localhost:8090/api/collections \
+  -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "name":"usuarios","type":"auth",
+    "listRule":"@request.auth.id != \"\"",
+    "viewRule":"@request.auth.id != \"\" && (@request.auth.id = id || @request.auth.rol = \"admin\")",
+    "createRule":"@request.auth.rol = \"admin\"",
+    "updateRule":"@request.auth.rol = \"admin\"",
+    "deleteRule":"@request.auth.rol = \"admin\"",
+    "schema":[
+      {"name":"nombre","type":"text","required":false,"options":{}},
+      {"name":"rol","type":"select","required":true,"options":{"maxSelect":1,"values":["admin","operador"]}},
+      {"name":"activo","type":"bool","required":false,"options":{}}
+    ]
+  }'
+
+# 2) Restringir choferes/vehiculos/clientes/rutas a "solo admin escribe"
+for COL in choferes vehiculos clientes rutas; do
+  curl -s -X PATCH "http://localhost:8090/api/collections/$COL" \
+    -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
+    -d '{
+      "listRule":"@request.auth.id != \"\"",
+      "viewRule":"@request.auth.id != \"\"",
+      "createRule":"@request.auth.rol = \"admin\"",
+      "updateRule":"@request.auth.rol = \"admin\"",
+      "deleteRule":"@request.auth.rol = \"admin\""
+    }'
+done
+
+# 3) tramos y tarifas: cualquier usuario logueado puede leer y escribir
+for COL in tramos tarifas; do
+  curl -s -X PATCH "http://localhost:8090/api/collections/$COL" \
+    -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
+    -d '{
+      "listRule":"@request.auth.id != \"\"",
+      "viewRule":"@request.auth.id != \"\"",
+      "createRule":"@request.auth.id != \"\"",
+      "updateRule":"@request.auth.id != \"\"",
+      "deleteRule":"@request.auth.id != \"\""
+    }'
+done
+```
+
+#### Bootstrap: primer usuario admin
+
+El `createRule` de `usuarios` exige ser `admin` — pero todavía no hay
+ningún usuario. Se resuelve creando el primero **con el token de admin de
+PocketBase** (el superusuario, que se salta todas las reglas de API):
+
+```bash
+curl -s -X POST http://localhost:8090/api/collections/usuarios/records \
+  -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "email":"carossiosistemas@gmail.com",
+    "password":"UNA_CONTRASEÑA_SEGURA",
+    "passwordConfirm":"UNA_CONTRASEÑA_SEGURA",
+    "nombre":"Administración CyV",
+    "rol":"admin",
+    "activo":true,
+    "emailVisibility":true
+  }'
+```
+
+Con esa cuenta ya se puede loguear en `rendiciones.html` y, desde el panel
+de Administración → pestaña **Usuarios**, crear el resto (operadores y
+otros admins) sin volver a tocar la terminal.
+
+> Nota: el token de admin de PocketBase (superusuario, `./pocketbase admin
+> create` / `/api/admins/auth-with-password`) es distinto del login de la
+> app (`usuarios` / `/api/collections/usuarios/auth-with-password`). El
+> primero es para administrar el propio PocketBase (colecciones, reglas);
+> el segundo es el que usa la gente para entrar al formulario.
 
 ### Campos de `tramos`
 
@@ -124,9 +217,11 @@ vez de por HTTPS, hay que configurar ahí mismo la URL pública
 
 ## 3. Uso
 
-1. Abrir el archivo / la URL.
-2. `⚙ Config`: cargar la URL de PocketBase (si hace falta) y, opcionalmente,
-   el **valor de viático por noche** (ver nota abajo).
+1. Abrir el archivo / la URL. Pide **login** (email + contraseña) — ver
+   [Bootstrap](#bootstrap-primer-usuario-admin) para la primera cuenta.
+2. `⚙ Config`: cargar la URL de PocketBase (si hace falta, normalmente no
+   porque se sirve del mismo origen) y, opcionalmente, el **valor de
+   viático por noche** (ver nota abajo).
 3. Elegir **chofer** y **mes**, cargar/guardar la **tarifa por km** del mes
    (se usa para calcular el monto de alargue).
 4. **+ Nuevo tramo** para cargar cada tramo del viaje. El total de gastos del
@@ -134,9 +229,10 @@ vez de por HTTPS, hay que configurar ahí mismo la URL pública
 5. El resumen del mes (arriba de la tabla) muestra: total de vales, km de
    alargue, monto de alargue, total de gastos, viáticos y saldo.
 
-### Panel de Administración
+### Panel de Administración (solo rol `admin`)
 
-Botón **👤 Administración** en el header. Cuatro pestañas:
+Botón **👤 Administración** en el header (no aparece para usuarios con rol
+`operador`). Cinco pestañas:
 
 - **Choferes** y **Vehículos / Tractores**: para no depender del Admin UI de
   PocketBase para altas de rutina.
@@ -145,10 +241,14 @@ Botón **👤 Administración** en el header. Cuatro pestañas:
 - **Rutas frecuentes**: origen + destino (+ cliente habitual opcional).
   Aparecen en el desplegable **"Ruta rápida"** dentro de "Nuevo tramo": al
   elegir una, completa origen, destino y cliente de un clic.
+- **Usuarios**: alta de cuentas (email, contraseña, nombre, rol), cambiar
+  el rol de un usuario existente (Hacer admin / Hacer operador), desactivar
+  y borrar. No se puede desactivar ni borrar el propio usuario logueado
+  (evita quedarse afuera por error).
 
-Cada fila tiene **Desactivar/Reactivar** (no aparece más en los selectores
-pero no se pierde el historial de tramos que la usaron) y **Borrar**
-(elimina el registro; no borra los tramos que ya lo referencian).
+Cada fila (salvo Usuarios) tiene **Desactivar/Reactivar** (no aparece más en
+los selectores pero no se pierde el historial de tramos que la usaron) y
+**Borrar** (elimina el registro; no borra los tramos que ya lo referencian).
 
 ### Offline
 
@@ -179,9 +279,10 @@ automática) reintenta enviar todo lo pendiente a PocketBase.
 
 ## Próximos pasos sugeridos (fuera de fase 1)
 
-- Autenticación real de administración (login) si el acceso deja de ser
-  solo intra-red.
 - Exportar la rendición del mes a PDF/Excel.
 - Cierre de mes (bloquear edición de tramos de meses cerrados).
-- Alta de choferes / vehículos desde la propia UI (hoy se cargan desde
-  PocketBase Admin UI).
+- "Olvidé mi contraseña" / cambio de contraseña propio (hoy solo un `admin`
+  puede resetear la contraseña de otro usuario, editándolo en PocketBase
+  Admin UI o vía API — no hay flujo de auto-servicio en la app).
+- Refresh automático del token de sesión (PocketBase expira los tokens;
+  hoy si expira, la app fuerza el logout y hay que volver a loguearse).

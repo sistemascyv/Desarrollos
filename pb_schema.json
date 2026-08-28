@@ -1,12 +1,26 @@
 [
   {
+    "name": "usuarios",
+    "type": "auth",
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != '' && (@request.auth.id = id || @request.auth.rol = 'admin')",
+    "createRule": "@request.auth.rol = 'admin'",
+    "updateRule": "@request.auth.rol = 'admin'",
+    "deleteRule": "@request.auth.rol = 'admin'",
+    "schema": [
+      { "name": "nombre", "type": "text", "required": false, "options": {} },
+      { "name": "rol", "type": "select", "required": true, "options": { "maxSelect": 1, "values": ["admin", "operador"] } },
+      { "name": "activo", "type": "bool", "required": false, "options": {} }
+    ]
+  },
+  {
     "name": "choferes",
     "type": "base",
-    "listRule": "",
-    "viewRule": "",
-    "createRule": "",
-    "updateRule": "",
-    "deleteRule": "",
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.rol = 'admin'",
+    "updateRule": "@request.auth.rol = 'admin'",
+    "deleteRule": "@request.auth.rol = 'admin'",
     "schema": [
       { "name": "nombre", "type": "text", "required": true, "options": {} },
       { "name": "localidad", "type": "text", "required": false, "options": {} },
@@ -16,11 +30,11 @@
   {
     "name": "vehiculos",
     "type": "base",
-    "listRule": "",
-    "viewRule": "",
-    "createRule": "",
-    "updateRule": "",
-    "deleteRule": "",
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.rol = 'admin'",
+    "updateRule": "@request.auth.rol = 'admin'",
+    "deleteRule": "@request.auth.rol = 'admin'",
     "schema": [
       { "name": "codigo", "type": "text", "required": true, "options": {} },
       { "name": "marca_modelo", "type": "text", "required": false, "options": {} },
@@ -30,11 +44,11 @@
   {
     "name": "tarifas",
     "type": "base",
-    "listRule": "",
-    "viewRule": "",
-    "createRule": "",
-    "updateRule": "",
-    "deleteRule": "",
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.id != ''",
+    "updateRule": "@request.auth.id != ''",
+    "deleteRule": "@request.auth.rol = 'admin'",
     "schema": [
       { "name": "mes", "type": "text", "required": true, "options": {} },
       { "name": "tarifa_km", "type": "number", "required": true, "options": {} }
@@ -43,11 +57,11 @@
   {
     "name": "clientes",
     "type": "base",
-    "listRule": "",
-    "viewRule": "",
-    "createRule": "",
-    "updateRule": "",
-    "deleteRule": "",
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.rol = 'admin'",
+    "updateRule": "@request.auth.rol = 'admin'",
+    "deleteRule": "@request.auth.rol = 'admin'",
     "schema": [
       { "name": "nombre", "type": "text", "required": true, "options": {} },
       { "name": "activo", "type": "bool", "required": false, "options": {} }
@@ -56,11 +70,11 @@
   {
     "name": "rutas",
     "type": "base",
-    "listRule": "",
-    "viewRule": "",
-    "createRule": "",
-    "updateRule": "",
-    "deleteRule": "",
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.rol = 'admin'",
+    "updateRule": "@request.auth.rol = 'admin'",
+    "deleteRule": "@request.auth.rol = 'admin'",
     "schema": [
       { "name": "origen", "type": "text", "required": true, "options": {} },
       { "name": "destino", "type": "text", "required": true, "options": {} },
@@ -71,11 +85,11 @@
   {
     "name": "tramos",
     "type": "base",
-    "listRule": "",
-    "viewRule": "",
-    "createRule": "",
-    "updateRule": "",
-    "deleteRule": "",
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.id != ''",
+    "updateRule": "@request.auth.id != ''",
+    "deleteRule": "@request.auth.id != ''",
     "schema": [
       { "name": "tractor", "type": "text", "options": {} },
       { "name": "dia_salida", "type": "text", "options": {} },
@@ -104,7 +118,13 @@
       { "name": "control", "type": "bool", "options": {} },
       { "name": "permanencia", "type": "number", "options": {} },
       { "name": "cruce_frontera", "type": "number", "options": {} },
-      { "name": "mes", "type": "text", "required": true, "options": {} }
+      { "name": "mes", "type": "text", "required": true, "options": {} },
+      {
+        "name": "chofer",
+        "type": "relation",
+        "required": true,
+        "options": { "collectionId": "REEMPLAZAR_CON_ID_DE_choferes", "cascadeDelete": false, "minSelect": null, "maxSelect": 1, "displayFields": null }
+      }
     ]
   }
 ]
