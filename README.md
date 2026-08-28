@@ -96,6 +96,20 @@ Con `$TOKEN` = token de admin de PocketBase (ver sección de admin más abajo
 o el historial de este README/chat para cómo obtenerlo con
 `./pocketbase admin create` + `/api/admins/auth-with-password`):
 
+> **⚠️ Bug detectado en PocketBase 0.22.20:** al crear una colección `auth`
+> vía `POST /api/collections` sin especificar `options`, PocketBase la crea
+> con `allowEmailAuth: false` **y** `allowUsernameAuth: false` — es decir,
+> ningún método de login queda habilitado, y `auth-with-password` falla
+> siempre con "Failed to authenticate" aunque el usuario y la contraseña
+> sean correctos. El comando de abajo ya incluye el bloque `"options"` con
+> ambos en `true` para evitar este problema. Si de todos modos vuelve a
+> pasar, arreglalo con:
+> ```bash
+> curl -s -X PATCH http://localhost:8090/api/collections/usuarios \
+>   -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
+>   -d '{"options":{"allowEmailAuth":true,"allowUsernameAuth":true,"allowOAuth2Auth":false,"onlyVerified":false,"requireEmail":false,"minPasswordLength":8}}'
+> ```
+
 ```bash
 # 1) Crear la colección de usuarios con roles
 curl -s -X POST http://localhost:8090/api/collections \
@@ -107,6 +121,14 @@ curl -s -X POST http://localhost:8090/api/collections \
     "createRule":"@request.auth.rol = \"admin\"",
     "updateRule":"@request.auth.rol = \"admin\"",
     "deleteRule":"@request.auth.rol = \"admin\"",
+    "options":{
+      "allowEmailAuth":true,
+      "allowUsernameAuth":true,
+      "allowOAuth2Auth":false,
+      "onlyVerified":false,
+      "requireEmail":false,
+      "minPasswordLength":8
+    },
     "schema":[
       {"name":"nombre","type":"text","required":false,"options":{}},
       {"name":"rol","type":"select","required":true,"options":{"maxSelect":1,"values":["admin","operador"]}},

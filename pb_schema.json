@@ -7,6 +7,14 @@
     "createRule": "@request.auth.rol = 'admin'",
     "updateRule": "@request.auth.rol = 'admin'",
     "deleteRule": "@request.auth.rol = 'admin'",
+    "options": {
+      "allowEmailAuth": true,
+      "allowUsernameAuth": true,
+      "allowOAuth2Auth": false,
+      "onlyVerified": false,
+      "requireEmail": false,
+      "minPasswordLength": 8
+    },
     "schema": [
       { "name": "nombre", "type": "text", "required": false, "options": {} },
       { "name": "rol", "type": "select", "required": true, "options": { "maxSelect": 1, "values": ["admin", "operador"] } },
