@@ -126,8 +126,8 @@
     <p>Iniciá sesión para continuar.</p>
     <form onsubmit="return doLogin(event)">
       <div class="field">
-        <label>Email</label>
-        <input type="email" id="loginEmail" required autocomplete="username" style="width:100%;">
+        <label>Usuario o email</label>
+        <input type="text" id="loginEmail" required autocomplete="username" style="width:100%;">
       </div>
       <div class="field">
         <label>Contraseña</label>
@@ -384,7 +384,8 @@
     <h2>Usuarios</h2>
     <div class="row">
       <div class="field"><label>Nombre</label><input id="ac_usuario_nombre"></div>
-      <div class="field" style="flex:1;"><label>Email</label><input type="email" id="ac_usuario_email"></div>
+      <div class="field"><label>Usuario (para loguearse)</label><input id="ac_usuario_username" placeholder="ej: sistemas"></div>
+      <div class="field" style="flex:1;"><label>Email (opcional)</label><input type="email" id="ac_usuario_email"></div>
       <div class="field"><label>Contraseña</label><input type="password" id="ac_usuario_password" placeholder="mín. 8 caracteres"></div>
       <div class="field"><label>Rol</label>
         <select id="ac_usuario_rol">
@@ -394,7 +395,7 @@
       </div>
       <button onclick="adminCreateUsuario()">+ Agregar</button>
     </div>
-    <div class="hint">Operador: puede cargar y editar tramos y tarifas. Administrador: además gestiona choferes, vehículos, clientes, rutas y usuarios.</div>
+    <div class="hint">Operador: puede cargar y editar tramos y tarifas. Administrador: además gestiona choferes, vehículos, clientes, rutas y usuarios. El login acepta usuario o email.</div>
     <div class="table-wrap" style="max-height:55vh; margin-top:12px;">
       <table><tbody id="adminList_usuarios"></tbody></table>
     </div>
@@ -449,7 +450,7 @@ function isAdmin(){ return !!(auth && auth.user && auth.user.rol === 'admin'); }
 function showApp(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appShell').style.display = 'block';
-  document.getElementById('userPill').textContent = (auth.user.nombre || auth.user.email) + (isAdmin() ? ' · admin' : '');
+  document.getElementById('userPill').textContent = (auth.user.nombre || auth.user.username || auth.user.email) + (isAdmin() ? ' · admin' : '');
   document.getElementById('navAdminBtn').style.display = isAdmin() ? '' : 'none';
 }
 function showLogin(msg){
@@ -476,7 +477,7 @@ async function doLogin(ev){
     const data = await res.json();
     if(!res.ok){ throw new Error(data.message || 'Credenciales inválidas.'); }
     if(data.record.activo === false){ throw new Error('Usuario desactivado. Contactá a un administrador.'); }
-    auth = { token: data.token, user: { id: data.record.id, email: data.record.email, nombre: data.record.nombre, rol: data.record.rol } };
+    auth = { token: data.token, user: { id: data.record.id, email: data.record.email, username: data.record.username, nombre: data.record.nombre, rol: data.record.rol } };
     localStorage.setItem(LS.auth, JSON.stringify(auth));
     showApp();
     bootstrap();
@@ -1065,8 +1066,8 @@ function renderAdminUsuarios(){
     return `<tr><td colspan="99" style="padding:0;">
       <div class="admin-row ${inactivo?'inactivo':''}">
         <div class="info">
-          <span class="name">${u.nombre||u.email}</span>
-          <span class="sub">${u.email} · ${u.rol==='admin'?'Administrador':'Operador'}${isSelf?' (vos)':''}</span>
+          <span class="name">${u.nombre || u.username}</span>
+          <span class="sub">${u.username}${u.email?' · '+u.email:''} · ${u.rol==='admin'?'Administrador':'Operador'}${isSelf?' (vos)':''}</span>
         </div>
         <div class="acts">
           <button class="small secondary" onclick="adminToggleRolUsuario('${u.id}','${u.rol}')">${u.rol==='admin'?'Hacer operador':'Hacer admin'}</button>
@@ -1089,16 +1090,18 @@ async function adminToggleRolUsuario(id, currentRol){
 
 async function adminCreateUsuario(){
   const nombre = document.getElementById('ac_usuario_nombre').value.trim();
+  const username = document.getElementById('ac_usuario_username').value.trim();
   const email = document.getElementById('ac_usuario_email').value.trim();
   const password = document.getElementById('ac_usuario_password').value;
   const rol = document.getElementById('ac_usuario_rol').value;
-  if(!email || !password){ toast('Faltan email y/o contraseña.', 'warn'); return; }
+  if(!username || !password){ toast('Faltan usuario y/o contraseña.', 'warn'); return; }
   if(password.length < 8){ toast('La contraseña debe tener al menos 8 caracteres.', 'warn'); return; }
   try{
-    await pb('collections/usuarios/records', {method:'POST', body:{
-      email, password, passwordConfirm: password, nombre, rol, activo: true, emailVisibility: true,
-    }});
+    const body = { username, password, passwordConfirm: password, nombre, rol, activo: true, emailVisibility: true };
+    if(email){ body.email = email; }
+    await pb('collections/usuarios/records', {method:'POST', body});
     document.getElementById('ac_usuario_nombre').value = '';
+    document.getElementById('ac_usuario_username').value = '';
     document.getElementById('ac_usuario_email').value = '';
     document.getElementById('ac_usuario_password').value = '';
     await loadAdminAll();
