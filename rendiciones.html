@@ -420,27 +420,6 @@
   </div>
 </div>
 
-<!-- Modal: configuración -->
-<div class="modal-bg" id="settingsModalBg">
-  <div class="modal">
-    <span class="close-x" onclick="closeSettings()">✕</span>
-    <h3>Configuración</h3>
-    <div class="field" style="margin-bottom:10px;">
-      <label>URL base de PocketBase (ej: https://app.carossiovairolatti.com.ar)</label>
-      <input id="cfgPbUrl" style="width:100%;">
-    </div>
-    <div class="hint" style="margin-bottom:10px;">
-      El valor de viático por noche se carga junto con la tarifa por km,
-      en la pantalla principal — es un valor por mes, compartido por
-      todos los usuarios (no queda guardado solo en este navegador).
-    </div>
-    <div class="row" style="justify-content:flex-end;">
-      <button class="secondary" onclick="closeSettings()">Cerrar</button>
-      <button onclick="saveSettings()">Guardar</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal: confirmación genérica -->
 <div class="modal-bg" id="confirmModalBg">
   <div class="modal" style="max-width:420px;">
@@ -592,10 +571,6 @@
         <tbody id="adminList_usuarios"></tbody>
       </table>
     </div>
-  </div>
-
-  <div style="text-align:right; margin-top:4px;">
-    <a class="link" style="font-size:11px;" onclick="openSettings()">Configuración avanzada</a>
   </div>
 
 </main>
@@ -797,7 +772,7 @@ function uid(){ return 'tmp_' + Date.now() + '_' + Math.random().toString(36).sl
 // ---------- PocketBase REST helper ----------
 async function pb(path, opts){
   opts = opts || {};
-  if(!settings.pbUrl){ throw new Error('Falta configurar la URL de PocketBase (Configuración).'); }
+  if(!settings.pbUrl){ throw new Error('No se pudo determinar la URL del servidor. Si abriste el archivo localmente, completá la URL en la pantalla de login.'); }
   const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
   if(auth && auth.token){ headers['Authorization'] = auth.token; }
   const res = await fetch(settings.pbUrl.replace(/\/$/,'') + '/api/' + path, {
@@ -873,19 +848,6 @@ async function flushQueue(manual){
   if(remaining.length < q.length){ loadTramos(); }
 }
 
-// ---------- settings modal ----------
-function openSettings(){
-  document.getElementById('cfgPbUrl').value = settings.pbUrl || '';
-  document.getElementById('settingsModalBg').classList.add('open');
-}
-function closeSettings(){ document.getElementById('settingsModalBg').classList.remove('open'); }
-function saveSettings(){
-  settings.pbUrl = document.getElementById('cfgPbUrl').value.trim();
-  localStorage.setItem(LS.settings, JSON.stringify(settings));
-  closeSettings();
-  toast('Configuración guardada.', 'ok');
-  bootstrap();
-}
 
 // ---------- bootstrap: load choferes / vehiculos ----------
 async function refreshCatalogs(){
