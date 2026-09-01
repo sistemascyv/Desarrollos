@@ -280,26 +280,21 @@
   </div>
 
   <div class="card">
-    <h2>Seleccionar chofer y mes</h2>
+    <h2>Filtrar tramos</h2>
     <div class="row">
       <div class="field" style="min-width:220px;">
         <label>Chofer</label>
         <select id="selChofer"></select>
       </div>
       <div class="field">
-        <label>Mes</label>
-        <select id="selMes"></select>
+        <label>Desde</label>
+        <input type="date" id="filtroDesde">
       </div>
       <div class="field">
-        <label>Tarifa km del mes ($/km)</label>
-        <input type="number" step="0.0001" id="tarifaKm" placeholder="ej: 169.6053">
+        <label>Hasta</label>
+        <input type="date" id="filtroHasta">
       </div>
-      <div class="field">
-        <label>Viático por noche ($) — regla a confirmar</label>
-        <input type="number" step="0.01" id="viaticoNoche" placeholder="ej: 5000">
-      </div>
-      <button class="secondary" onclick="saveTarifa()">Guardar valores del mes</button>
-      <button onclick="loadTramos()">Cargar rendición</button>
+      <button onclick="loadTramos()">Buscar</button>
       <button class="secondary" onclick="openTramoModal()">+ Nuevo tramo</button>
       <button class="secondary" onclick="exportCSV()">Exportar CSV</button>
       <button class="secondary" onclick="window.print()">Imprimir</button>
@@ -307,7 +302,29 @@
   </div>
 
   <div class="card">
-    <h2>Resumen del mes</h2>
+    <div class="row" style="justify-content:space-between; align-items:center;">
+      <h2 style="margin:0;">Tarifa y viático por mes</h2>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div class="field">
+        <label>Mes</label>
+        <select id="selMesTarifa" onchange="loadTarifa(this.value)"></select>
+      </div>
+      <div class="field">
+        <label>Tarifa km ($/km)</label>
+        <input type="number" step="0.0001" id="tarifaKm" placeholder="ej: 169.6053">
+      </div>
+      <div class="field">
+        <label>Viático por noche ($) — regla a confirmar</label>
+        <input type="number" step="0.01" id="viaticoNoche" placeholder="ej: 5000">
+      </div>
+      <button class="secondary" onclick="saveTarifa()">Guardar valores del mes</button>
+    </div>
+    <div class="hint">Se usa para calcular el monto de alargue y los viáticos de los tramos de ese mes, sin importar qué rango de fechas estés mirando abajo.</div>
+  </div>
+
+  <div class="card">
+    <h2>Resumen</h2>
     <div class="summary-grid" id="summaryGrid"></div>
   </div>
 
@@ -326,7 +343,7 @@
         <tbody id="tramosBody"></tbody>
         <tfoot id="tramosFoot" style="display:none;"></tfoot>
       </table>
-      <div id="emptyMsg" class="empty" style="display:none;">No hay tramos cargados para este chofer / mes.</div>
+      <div id="emptyMsg" class="empty" style="display:none;">No hay tramos para este chofer / rango de fechas.</div>
     </div>
   </div>
 
@@ -781,7 +798,7 @@ function monthLabel(ym){
 }
 
 function populateMesSelect(){
-  const sel = document.getElementById('selMes');
+  const sel = document.getElementById('selMesTarifa');
   const prev = sel.value;
   const now = new Date();
   const options = [];
@@ -793,6 +810,17 @@ function populateMesSelect(){
   }
   sel.innerHTML = options.map(ym => `<option value="${ym}">${monthLabel(ym)}</option>`).join('');
   sel.value = options.includes(prev) ? prev : currentMonth();
+}
+
+function isoDate(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+
+function setDefaultDateRange(){
+  const desdeEl = document.getElementById('filtroDesde');
+  const hastaEl = document.getElementById('filtroHasta');
+  if(desdeEl.value && hastaEl.value) return; // no pisar si el usuario ya eligió algo
+  const now = new Date();
+  desdeEl.value = isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  hastaEl.value = isoDate(now);
 }
 
 // ---------- PocketBase REST helper ----------
@@ -924,7 +952,9 @@ async function refreshCatalogs(){
 
 async function bootstrap(){
   populateMesSelect();
+  setDefaultDateRange();
   await refreshCatalogs();
+  await loadTarifa(document.getElementById('selMesTarifa').value);
   updateNetPill();
   updateQueuePill();
   if(choferes.length){ loadTramos(); }
@@ -941,19 +971,31 @@ function applyRutaQuick(){
   if(r.cliente){ document.getElementById('f_cliente').value = r.cliente; }
 }
 
-// ---------- tarifa ----------
-async function loadTarifa(mes){
+// ---------- tarifa (config mensual, independiente del filtro de tramos) ----------
+let tarifasCache = {}; // mes ("YYYY-MM") -> registro de tarifas | null
+
+async function fetchTarifaFor(mes){
+  if(mes in tarifasCache) return tarifasCache[mes];
   try{
     const r = await pb('collections/tarifas/records?filter=' + encodeURIComponent(`mes='${pbFilterEscape(mes)}'`));
-    tarifaActual = (r.items && r.items[0]) || null;
+    tarifasCache[mes] = (r.items && r.items[0]) || null;
   }catch(e){
-    tarifaActual = null;
+    tarifasCache[mes] = null;
   }
+  return tarifasCache[mes];
+}
+async function ensureTarifasFor(mesesList){
+  await Promise.all(mesesList.map(fetchTarifaFor));
+}
+
+async function loadTarifa(mes){
+  delete tarifasCache[mes]; // forzar refetch por si cambió
+  tarifaActual = await fetchTarifaFor(mes);
   document.getElementById('tarifaKm').value = tarifaActual ? tarifaActual.tarifa_km : '';
   document.getElementById('viaticoNoche').value = tarifaActual ? (tarifaActual.valor_viatico_noche || 0) : '';
 }
 async function saveTarifa(){
-  const mes = document.getElementById('selMes').value;
+  const mes = document.getElementById('selMesTarifa').value;
   const tarifa_km = Number(document.getElementById('tarifaKm').value);
   const valor_viatico_noche = Number(document.getElementById('viaticoNoche').value) || 0;
   if(!mes){ toast('Elegí un mes primero.', 'warn'); return; }
@@ -976,12 +1018,12 @@ async function saveTarifa(){
 // ---------- tramos: load / render ----------
 async function loadTramos(){
   const chofer = document.getElementById('selChofer').value;
-  const mes = document.getElementById('selMes').value;
-  if(!chofer || !mes){ return; }
-  await loadTarifa(mes);
-  const cacheKey = LS.cacheTramos + chofer + '_' + mes;
+  const desde = document.getElementById('filtroDesde').value;
+  const hasta = document.getElementById('filtroHasta').value;
+  if(!chofer || !desde || !hasta){ toast('Elegí chofer y el rango de fechas.', 'warn'); return; }
+  const cacheKey = LS.cacheTramos + chofer + '_' + desde + '_' + hasta;
   try{
-    const filter = `chofer='${pbFilterEscape(chofer)}' && mes='${pbFilterEscape(mes)}'`;
+    const filter = `chofer='${pbFilterEscape(chofer)}' && dia_salida >= '${pbFilterEscape(desde)}' && dia_salida <= '${pbFilterEscape(hasta)}'`;
     const r = await pb('collections/tramos/records?perPage=500&filter=' + encodeURIComponent(filter) + '&sort=dia_salida,hora_salida');
     tramos = r.items || [];
     localStorage.setItem(cacheKey, JSON.stringify(tramos));
@@ -989,6 +1031,7 @@ async function loadTramos(){
     tramos = JSON.parse(localStorage.getItem(cacheKey) || '[]');
     toast('Mostrando datos en caché (sin conexión): ' + e.message, 'warn');
   }
+  await ensureTarifasFor([...new Set(tramos.map(t=>t.mes).filter(Boolean))]);
   renderTramos();
   renderSummary();
 }
@@ -1070,20 +1113,28 @@ function renderSummary(){
   const grid = document.getElementById('summaryGrid');
   const totalVales = tramos.reduce((s,t)=>s+(Number(t.vale_importe)||0),0);
   const totalKmAlargue = tramos.reduce((s,t)=>s+(Number(t.km_alargue)||0),0);
-  const tarifaKm = tarifaActual ? Number(tarifaActual.tarifa_km) : 0;
-  const montoAlargue = totalKmAlargue * tarifaKm;
-  const totalGastosMes = tramos.reduce((s,t)=>s+(Number(t.total_gastos)||0),0);
+  const totalGastos = tramos.reduce((s,t)=>s+(Number(t.total_gastos)||0),0);
   const totalPermanencia = tramos.reduce((s,t)=>s+(Number(t.permanencia)||0),0);
-  const valorViatico = tarifaActual ? Number(tarifaActual.valor_viatico_noche)||0 : 0;
-  const viaticos = totalPermanencia * valorViatico;
-  const saldo = totalVales - totalGastosMes;
+  const saldo = totalVales - totalGastos;
+
+  // el rango de fechas puede cruzar más de un mes, cada tramo usa la tarifa
+  // de SU mes (t.mes), no una única tarifa global
+  const mesesSinTarifa = new Set();
+  let montoAlargue = 0, viaticos = 0;
+  tramos.forEach(t=>{
+    const tar = tarifasCache[t.mes];
+    if(!tar){ if(t.km_alargue || t.permanencia) mesesSinTarifa.add(t.mes); return; }
+    montoAlargue += (Number(t.km_alargue)||0) * (Number(tar.tarifa_km)||0);
+    viaticos += (Number(t.permanencia)||0) * (Number(tar.valor_viatico_noche)||0);
+  });
+  const faltaTarifaTxt = mesesSinTarifa.size ? ` (falta tarifa: ${[...mesesSinTarifa].sort().map(monthLabel).join(', ')})` : '';
 
   const stats = [
-    ['Total vales del mes', money(totalVales)],
-    ['Km alargue del mes', totalKmAlargue.toLocaleString('es-AR')],
-    ['Monto alargue del mes', money(montoAlargue) + (tarifaKm?'':' (falta tarifa)')],
-    ['Total gastos del mes', money(totalGastosMes)],
-    ['Viáticos (noches × valor)', money(viaticos) + (valorViatico?'':' (falta valor)')],
+    ['Total vales', money(totalVales)],
+    ['Km alargue', totalKmAlargue.toLocaleString('es-AR')],
+    ['Monto alargue', money(montoAlargue) + faltaTarifaTxt],
+    ['Total gastos', money(totalGastos)],
+    ['Viáticos (noches × valor)', money(viaticos) + faltaTarifaTxt],
     ['Saldo (vales − gastos)', money(saldo)],
   ];
   grid.innerHTML = stats.map((s,i)=>{
@@ -1093,10 +1144,11 @@ function renderSummary(){
 
   const choferSel = document.getElementById('selChofer');
   const choferNombre = choferSel.options[choferSel.selectedIndex] ? choferSel.options[choferSel.selectedIndex].textContent : '';
-  const mes = document.getElementById('selMes').value;
+  const desde = document.getElementById('filtroDesde').value;
+  const hasta = document.getElementById('filtroHasta').value;
   const sub = document.getElementById('printHeaderSub');
   if(sub){
-    sub.textContent = `Chofer: ${choferNombre || '—'}  ·  Mes: ${mes || '—'}  ·  Tarifa km: ${tarifaKm ? money(tarifaKm) : '—'}  ·  Impreso: ${new Date().toLocaleString('es-AR')}`;
+    sub.textContent = `Chofer: ${choferNombre || '—'}  ·  Del ${desde || '—'} al ${hasta || '—'}  ·  Impreso: ${new Date().toLocaleString('es-AR')}`;
   }
 }
 
@@ -1104,7 +1156,8 @@ function exportCSV(){
   if(tramos.length === 0){ toast('No hay tramos para exportar.', 'warn'); return; }
   const choferSel = document.getElementById('selChofer');
   const choferNombre = choferSel.options[choferSel.selectedIndex] ? choferSel.options[choferSel.selectedIndex].textContent.trim() : 'chofer';
-  const mes = document.getElementById('selMes').value || 'mes';
+  const desde = document.getElementById('filtroDesde').value || 'desde';
+  const hasta = document.getElementById('filtroHasta').value || 'hasta';
 
   const cols = [
     ['tractor','Tractor'], ['dia_salida','Dia salida'], ['hora_salida','Hora salida'],
@@ -1129,7 +1182,7 @@ function exportCSV(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `rendicion_${choferNombre.replace(/[^a-z0-9]+/gi,'_')}_${mes}.csv`;
+  a.download = `rendicion_${choferNombre.replace(/[^a-z0-9]+/gi,'_')}_${desde}_a_${hasta}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1185,11 +1238,20 @@ function recalcTotal(){
   document.getElementById('f_total_preview').textContent = money(calcTotalFromForm());
 }
 
+function tramosCacheKey(){
+  const chofer = document.getElementById('selChofer').value;
+  const desde = document.getElementById('filtroDesde').value;
+  const hasta = document.getElementById('filtroHasta').value;
+  return LS.cacheTramos + chofer + '_' + desde + '_' + hasta;
+}
+
 async function submitTramo(ev){
   ev.preventDefault();
   const chofer = document.getElementById('selChofer').value;
-  const mes = document.getElementById('selMes').value;
-  if(!chofer || !mes){ toast('Elegí chofer y mes primero.', 'warn'); return false; }
+  if(!chofer){ toast('Elegí un chofer primero.', 'warn'); return false; }
+  const dia_salida = document.getElementById('f_dia_salida').value;
+  if(!dia_salida){ toast('Falta el día de salida.', 'warn'); return false; }
+  const mes = dia_salida.slice(0,7);
 
   const data = { chofer, mes };
   FORM_FIELDS.forEach(f=>{
@@ -1212,6 +1274,7 @@ async function submitTramo(ev){
     }
     toast('Tramo guardado.', 'ok');
     closeTramoModal();
+    await ensureTarifasFor([mes]);
     loadTramos();
   }catch(e){
     if(id){
@@ -1223,9 +1286,10 @@ async function submitTramo(ev){
       queueOp({type:'create', collection:'tramos', data});
       tramos.push(Object.assign({id:tempId}, data));
     }
-    localStorage.setItem(LS.cacheTramos + chofer + '_' + mes, JSON.stringify(tramos));
+    localStorage.setItem(tramosCacheKey(), JSON.stringify(tramos));
     toast('Sin conexión: tramo guardado localmente y encolado.', 'warn');
     closeTramoModal();
+    await ensureTarifasFor([mes]);
     renderTramos();
     renderSummary();
   }
@@ -1234,8 +1298,6 @@ async function submitTramo(ev){
 
 async function deleteTramo(id){
   if(!(await showConfirm('¿Borrar este tramo? Esta acción no se puede deshacer.', 'Borrar tramo'))) return;
-  const chofer = document.getElementById('selChofer').value;
-  const mes = document.getElementById('selMes').value;
   if(!String(id).startsWith('tmp_')){
     try{
       await pb('collections/tramos/records/' + id, {method:'DELETE'});
@@ -1246,7 +1308,7 @@ async function deleteTramo(id){
     const q = getQueue().filter(op => !(op.type==='create' && op.data && tramos.find(t=>t.id===id)));
   }
   tramos = tramos.filter(t=>t.id!==id);
-  localStorage.setItem(LS.cacheTramos + chofer + '_' + mes, JSON.stringify(tramos));
+  localStorage.setItem(tramosCacheKey(), JSON.stringify(tramos));
   renderTramos();
   renderSummary();
 }
