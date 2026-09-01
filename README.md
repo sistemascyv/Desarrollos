@@ -1,14 +1,46 @@
-# CyV — Rendiciones de Choferes (Fase 1)
+# Carossio Vairolatti — Sistema Integral
 
-Formulario web para que administración cargue las rendiciones de los choferes,
-reemplazando el Excel actual. Es un único archivo HTML (`rendiciones.html`),
-sin frameworks ni build step, que habla directamente con PocketBase vía REST
+Aplicación web interna de la empresa, pensada como un **shell con módulos**:
+login único, un panel de Inicio con los módulos habilitados para cada
+usuario, y una barra lateral para navegar entre ellos. El primer módulo
+construido es **Planilla Choferes** (grupo "Liquidación"), que reemplaza el
+Excel de rendiciones. Es un único archivo HTML (`rendiciones.html`), sin
+frameworks ni build step, que habla directamente con PocketBase vía REST
 (`fetch`) y funciona offline con una cola en `localStorage`.
+
+## Arquitectura de módulos
+
+Los módulos se definen en un solo lugar del código, la constante `MODULES`
+(al principio del `<script>`):
+
+```js
+const MODULES = [
+  { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación', icon: '🚛' },
+];
+```
+
+Para agregar un módulo nuevo:
+1. Sumar una entrada acá (`id` único, `label`, `group` — la sección donde
+   aparece en la barra lateral —, `icon`).
+2. Agregar su link en el sidebar (`<a class="nav-item" id="navMod_<id>">`)
+   y su vista (`<main id="...">`, siguiendo el patrón de `mainView`).
+3. Sumar el caso correspondiente en `openModule(id)`.
+
+El resto —tarjeta en el Inicio, aparición/ocultamiento en el sidebar según
+permisos, checklist en el alta de usuarios y en "Módulos" por usuario— sale
+solo del registro `MODULES`, no hace falta tocarlo aparte.
+
+**Permisos por usuario:** cada usuario con rol `operador` tiene un array
+`modulos` (campo de la colección `usuarios`) con los ids de los módulos que
+puede ver. Un `admin` ve todos los módulos siempre, sin necesidad de
+asignárselos. Se administra desde 👤 Administración → pestaña Usuarios
+(al crear la cuenta, o después con el botón "Módulos" en cada fila).
 
 ## Archivos
 
 - `rendiciones.html` — la aplicación completa (abrir con doble clic o servir
-  desde Caddy).
+  desde Caddy). El nombre del archivo quedó así por continuidad con la fase
+  1, aunque ya no es solo "rendiciones" — es el shell completo de la app.
 - `pb_schema.json` — definición de las colecciones para importar en PocketBase.
 
 ## 1. Crear las colecciones en PocketBase
@@ -193,6 +225,29 @@ otros admins) sin volver a tocar la terminal.
 > primero es para administrar el propio PocketBase (colecciones, reglas);
 > el segundo es el que usa la gente para entrar al formulario.
 
+#### Agregar el campo `modulos` (si la colección `usuarios` ya existía)
+
+El sistema de módulos agrega un campo `modulos` (JSON, array de ids) a
+`usuarios`. Si la colección se creó en el servidor **antes** de esta
+funcionalidad, hay que agregarle el campo a mano:
+
+```bash
+curl -s http://localhost:8090/api/collections/usuarios -H "Authorization: $TOKEN" > /tmp/usuarios_schema.json
+python3 -c "
+import json
+d = json.load(open('/tmp/usuarios_schema.json'))
+names = [f['name'] for f in d['schema']]
+if 'modulos' not in names:
+    d['schema'].append({'name':'modulos','type':'json','required':False,'options':{}})
+print(json.dumps(d))
+" > /tmp/usuarios_schema_new.json
+curl -s -X PATCH http://localhost:8090/api/collections/usuarios -H "Authorization: $TOKEN" -H "Content-Type: application/json" -d @/tmp/usuarios_schema_new.json
+```
+
+Los usuarios ya logueados en el navegador antes de este cambio no van a
+tener `modulos` en su sesión guardada hasta que vuelvan a loguearse
+(cerrar sesión y entrar de nuevo alcanza).
+
 ### Campos de `tramos`
 
 ```
@@ -260,8 +315,8 @@ vez de por HTTPS, hay que configurar ahí mismo la URL pública
 
 ### Panel de Administración (solo rol `admin`)
 
-Botón **👤 Administración** en el header (no aparece para usuarios con rol
-`operador`). Cinco pestañas:
+Link **👤 Administración** en la barra lateral (no aparece para usuarios con
+rol `operador`). Cinco pestañas:
 
 - **Choferes** y **Vehículos / Tractores**: para no depender del Admin UI de
   PocketBase para altas de rutina.
@@ -270,10 +325,11 @@ Botón **👤 Administración** en el header (no aparece para usuarios con rol
 - **Rutas frecuentes**: origen + destino (+ cliente habitual opcional).
   Aparecen en el desplegable **"Ruta rápida"** dentro de "Nuevo tramo": al
   elegir una, completa origen, destino y cliente de un clic.
-- **Usuarios**: alta de cuentas (email, contraseña, nombre, rol), cambiar
-  el rol de un usuario existente (Hacer admin / Hacer operador), desactivar
-  y borrar. No se puede desactivar ni borrar el propio usuario logueado
-  (evita quedarse afuera por error).
+- **Usuarios**: alta de cuentas (usuario, contraseña, nombre, email
+  opcional, rol y **módulos habilitados**), cambiar el rol (Hacer admin /
+  Hacer operador), editar los módulos de un usuario existente (botón
+  "Módulos" en su fila), desactivar y borrar. No se puede desactivar ni
+  borrar el propio usuario logueado (evita quedarse afuera por error).
 
 Cada fila (salvo Usuarios) tiene **Desactivar/Reactivar** (no aparece más en
 los selectores pero no se pierde el historial de tramos que la usaron) y
