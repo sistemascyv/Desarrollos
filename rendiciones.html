@@ -254,7 +254,6 @@
       <a class="nav-item" id="navMod_planilla_choferes" onclick="openModule('planilla_choferes')">Planilla Choferes</a>
       <div class="nav-sep" id="navAdminSep" style="display:none;"></div>
       <a class="nav-item" id="navAdminBtn" onclick="openAdmin()" style="display:none;">Administración</a>
-      <a class="nav-item" id="navConfigBtn" onclick="openSettings()" style="display:none;">Configuración</a>
     </nav>
     <div class="sidebar-footer">
       <span id="userPill" class="sidebar-user"></span>
@@ -595,6 +594,10 @@
     </div>
   </div>
 
+  <div style="text-align:right; margin-top:4px;">
+    <a class="link" style="font-size:11px;" onclick="openSettings()">Configuración avanzada</a>
+  </div>
+
 </main>
 
   </div><!-- /contentArea -->
@@ -658,7 +661,6 @@ function showApp(){
   document.getElementById('appShell').style.display = 'block';
   document.getElementById('userPill').textContent = (auth.user.nombre || auth.user.username || auth.user.email) + (isAdmin() ? ' · admin' : '');
   document.getElementById('navAdminBtn').style.display = isAdmin() ? '' : 'none';
-  document.getElementById('navConfigBtn').style.display = isAdmin() ? '' : 'none';
   document.getElementById('navAdminSep').style.display = isAdmin() ? '' : 'none';
   MODULES.forEach(m=>{
     const el = document.getElementById('navMod_' + m.id);
