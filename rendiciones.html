@@ -308,7 +308,11 @@
     <div class="row" style="margin-top:10px;">
       <div class="field">
         <label>Mes</label>
-        <select id="selMesTarifa" onchange="loadTarifa(this.value)"></select>
+        <select id="selMesTarifaMes" onchange="onMesTarifaChange()"></select>
+      </div>
+      <div class="field">
+        <label>Año</label>
+        <select id="selAnioTarifa" onchange="onMesTarifaChange()"></select>
       </div>
       <div class="field">
         <label>Tarifa km ($/km)</label>
@@ -797,19 +801,29 @@ function monthLabel(ym){
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+const NOMBRES_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
 function populateMesSelect(){
-  const sel = document.getElementById('selMesTarifa');
-  const prev = sel.value;
+  const mesSel = document.getElementById('selMesTarifaMes');
+  const anioSel = document.getElementById('selAnioTarifa');
   const now = new Date();
-  const options = [];
-  // desde 1 mes hacia adelante hasta 36 meses hacia atrás, más reciente primero
-  for(let i = -1; i <= 36; i++){
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    options.push(ym);
-  }
-  sel.innerHTML = options.map(ym => `<option value="${ym}">${monthLabel(ym)}</option>`).join('');
-  sel.value = options.includes(prev) ? prev : currentMonth();
+  const prevAnio = anioSel.value;
+
+  mesSel.innerHTML = NOMBRES_MESES.map((label,i)=>`<option value="${String(i+1).padStart(2,'0')}">${label}</option>`).join('');
+  mesSel.value = String(now.getMonth()+1).padStart(2,'0');
+
+  const years = [];
+  for(let y = now.getFullYear() + 1; y >= now.getFullYear() - 4; y--){ years.push(y); }
+  anioSel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  anioSel.value = years.includes(Number(prevAnio)) ? prevAnio : String(now.getFullYear());
+}
+
+function selectedMesTarifa(){
+  return document.getElementById('selAnioTarifa').value + '-' + document.getElementById('selMesTarifaMes').value;
+}
+
+function onMesTarifaChange(){
+  loadTarifa(selectedMesTarifa());
 }
 
 function isoDate(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
@@ -954,7 +968,7 @@ async function bootstrap(){
   populateMesSelect();
   setDefaultDateRange();
   await refreshCatalogs();
-  await loadTarifa(document.getElementById('selMesTarifa').value);
+  await loadTarifa(selectedMesTarifa());
   updateNetPill();
   updateQueuePill();
   if(choferes.length){ loadTramos(); }
@@ -995,7 +1009,7 @@ async function loadTarifa(mes){
   document.getElementById('viaticoNoche').value = tarifaActual ? (tarifaActual.valor_viatico_noche || 0) : '';
 }
 async function saveTarifa(){
-  const mes = document.getElementById('selMesTarifa').value;
+  const mes = selectedMesTarifa();
   const tarifa_km = Number(document.getElementById('tarifaKm').value);
   const valor_viatico_noche = Number(document.getElementById('viaticoNoche').value) || 0;
   if(!mes){ toast('Elegí un mes primero.', 'warn'); return; }
