@@ -319,6 +319,37 @@ tiene un error, `reload` no tira el servicio actual, pero mejor no
 arriesgar. Backup rápido antes de tocarlo: `sudo cp /etc/caddy/Caddyfile
 /etc/caddy/Caddyfile.bak`.
 
+## 2b. Publicar la app React (`web/`)
+
+El frontend se migró de un único HTML a una app **React + TypeScript +
+Vite** que vive en `web/`. Mantiene el mismo diseño, las mismas rutas
+limpias (`/inicio`, `/liquidacion/planilla-choferes`,
+`/administracion/:tab`) y habla con PocketBase con el SDK oficial
+(`pocketbase` npm), así que el Caddyfile de arriba (proxy de `/api/*` y
+`/_/*`, `try_files` a `index.html` para todo lo demás) sigue sirviendo tal
+cual — no hay que tocarlo.
+
+Compilar y publicar:
+
+```bash
+cd web
+npm install      # solo la primera vez o si cambió package.json
+npm run build     # tsc -b && vite build -> genera web/dist/
+```
+
+Copiar el resultado a `pb_public` (reemplaza el contenido, no lo mezcla):
+
+```bash
+rm -rf /home/ubuntu/pocketbase/pb_public/assets
+cp -r web/dist/* /home/ubuntu/pocketbase/pb_public/
+sudo chmod -R o+rX /home/ubuntu/pocketbase/pb_public
+```
+
+`web/dist/index.html` reemplaza al `index.html` viejo (el que era una
+copia de `rendiciones.html`); `rendiciones.html` puede quedar en
+`pb_public` como referencia/fallback mientras se termina de validar la
+migración en producción, pero ya no es lo que sirve la app en `/`.
+
 ## 3. Uso
 
 1. Abrir la URL. Pide **login** (usuario/email + contraseña) — ver
