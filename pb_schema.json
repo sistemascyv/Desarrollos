@@ -18,7 +18,8 @@
     "schema": [
       { "name": "nombre", "type": "text", "required": false, "options": {} },
       { "name": "rol", "type": "select", "required": true, "options": { "maxSelect": 1, "values": ["admin", "operador"] } },
-      { "name": "activo", "type": "bool", "required": false, "options": {} }
+      { "name": "activo", "type": "bool", "required": false, "options": {} },
+      { "name": "modulos", "type": "json", "required": false, "options": {} }
     ]
   },
   {
