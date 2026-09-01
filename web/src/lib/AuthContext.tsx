@@ -44,10 +44,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // desde el login. Al abrir la app pedimos una versión fresca al servidor
     // para que los cambios de un admin (agregar/quitar módulos, rol, activo)
     // se reflejen sin que el usuario tenga que volver a loguearse.
-    pb.collection('usuarios').authRefresh().catch(() => {
-      pb.authStore.clear();
-    });
+    pb.collection('usuarios')
+      .authRefresh()
+      .then(() => refetchFullRecord())
+      .catch(() => {
+        pb.authStore.clear();
+      });
   }, []);
+
+  // auth-refresh y auth-with-password no devuelven los campos tipo "json"
+  // (como modulos) en el registro que traen — hay que pedirlo aparte con
+  // una consulta normal y fusionarlo al registro cacheado en el authStore.
+  async function refetchFullRecord() {
+    const id = pb.authStore.record?.id;
+    if (!id) return;
+    try {
+      const full = await pb.collection('usuarios').getOne(id);
+      pb.authStore.save(pb.authStore.token, full);
+    } catch {
+      /* sin conexión: seguimos con lo que había en caché */
+    }
+  }
 
   async function login(identity: string, password: string) {
     const result = await pb.collection('usuarios').authWithPassword(identity, password);
@@ -55,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       pb.authStore.clear();
       throw new Error('Usuario desactivado. Contactá a un administrador.');
     }
+    await refetchFullRecord();
   }
 
   function logout() {
