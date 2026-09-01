@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - claude/cyv-driver-renditions-form-h4l5fu
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias y compilar el frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Configurar clave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Publicar el frontend compilado
+        run: |
+          # Sin --delete: no tocamos rendiciones.html (queda de referencia/fallback)
+          # ni ningún otro archivo que no venga del build.
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            web/dist/ \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/ubuntu/pocketbase/pb_public/"
+
+      - name: Publicar migraciones de PocketBase nuevas
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            pb_migrations/ \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/ubuntu/pocketbase/pb_migrations/"
+
+      - name: Reiniciar PocketBase (aplica migraciones nuevas)
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "sudo systemctl restart pocketbase"
