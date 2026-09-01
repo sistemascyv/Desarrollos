@@ -261,47 +261,69 @@ permanencia, cruce_frontera, chofer (relation → choferes), mes ("2026-08")
 
 ## 2. Publicar el HTML
 
-El Caddyfile actual del servidor es:
+La app usa **rutas reales** (History API — `/inicio`,
+`/liquidacion/planilla-choferes`, `/administracion/usuarios`, etc., sin
+`#`), así que Caddy tiene que saber devolver `index.html` para cualquier
+ruta que no sea la API o el Admin UI de PocketBase (si no, F5 en
+`/administracion` da 404). El Caddyfile actual del servidor es:
 
 ```
 app.carossiovairolatti.com.ar {
+    handle /api/* {
+        reverse_proxy localhost:8090
+    }
+    handle /_/* {
+        reverse_proxy localhost:8090
+    }
+    handle {
+        root * /home/ubuntu/pocketbase/pb_public
+        try_files {path} /index.html
+        file_server
+    }
+}
+
+:80 {
     reverse_proxy localhost:8090
 }
 ```
 
-Es decir, **todo** el dominio ya apunta a PocketBase. PocketBase sirve
-archivos estáticos automáticamente desde su carpeta `pb_public` (al lado del
-binario), así que no hace falta tocar Caddy: alcanza con copiar el HTML ahí.
+`/api/*` (REST + realtime) y `/_/*` (Admin UI de PocketBase) se siguen
+proxeando a PocketBase. Todo lo demás lo sirve Caddy directo desde
+`pb_public`, y si el archivo pedido no existe (porque es una ruta de la
+app, no un archivo real) cae en `index.html` — ahí arranca la app y su
+router de JS (`routeFromPath()`) decide qué mostrar según la URL.
+
+Copiar el HTML sigue siendo así:
 
 ```bash
 mkdir -p /home/ubuntu/pocketbase/pb_public
 cp rendiciones.html /home/ubuntu/pocketbase/pb_public/rendiciones.html
 cp rendiciones.html /home/ubuntu/pocketbase/pb_public/index.html
-sudo systemctl restart pocketbase   # por si hace falta que detecte la carpeta nueva
 ```
 
-Se copia dos veces (mismo contenido, dos nombres) para que la app quede
-disponible tanto en la raíz del dominio como en la URL con nombre:
+(los dos nombres tienen el mismo contenido; `index.html` es el que usa el
+`try_files` de Caddy como fallback, `rendiciones.html` queda como alias por
+compatibilidad con links viejos).
 
+**Permisos:** Caddy corre como usuario `caddy`, que necesita poder leer
+`pb_public` y atravesar las carpetas hasta ahí:
+
+```bash
+sudo chmod o+x /home/ubuntu /home/ubuntu/pocketbase
+sudo chmod -R o+rX /home/ubuntu/pocketbase/pb_public
 ```
-https://app.carossiovairolatti.com.ar/
-https://app.carossiovairolatti.com.ar/rendiciones.html
-```
 
-Como se sirve desde el mismo origen que la API, el campo **"URL base de
-PocketBase"** en `⚙ Config` puede quedar en blanco.
-
-Si en algún momento se prefiere abrir el archivo localmente con doble clic en
-vez de por HTTPS, hay que configurar ahí mismo la URL pública
-(`https://app.carossiovairolatti.com.ar`).
+**Al editar el Caddyfile:** siempre `sudo caddy validate --config
+/etc/caddy/Caddyfile` antes de `sudo systemctl reload caddy` — si la config
+tiene un error, `reload` no tira el servicio actual, pero mejor no
+arriesgar. Backup rápido antes de tocarlo: `sudo cp /etc/caddy/Caddyfile
+/etc/caddy/Caddyfile.bak`.
 
 ## 3. Uso
 
-1. Abrir el archivo / la URL. Pide **login** (email + contraseña) — ver
+1. Abrir la URL. Pide **login** (usuario/email + contraseña) — ver
    [Bootstrap](#bootstrap-primer-usuario-admin) para la primera cuenta.
-2. `⚙ Config`: cargar la URL de PocketBase, solo si hace falta (normalmente
-   no, porque se sirve del mismo origen).
-3. Elegir **chofer** y **mes**, cargar/guardar la **tarifa por km** y el
+2. Elegir **chofer** y **mes**, cargar/guardar la **tarifa por km** y el
    **valor de viático por noche** del mes (ver nota abajo) — "Guardar
    valores del mes".
 4. **+ Nuevo tramo** para cargar cada tramo del viaje. El total de gastos del

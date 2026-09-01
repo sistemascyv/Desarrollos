@@ -659,7 +659,7 @@ function showView(viewId){
 }
 
 function goHome(){
-  if(location.hash !== '#/inicio'){ location.hash = '#/inicio'; }
+  navigate('/inicio');
   showView('homeView');
   setActiveNav('navHomeBtn');
   renderHome();
@@ -686,8 +686,7 @@ function renderHome(){
 function openModule(id){
   const m = MODULES.find(x=>x.id===id);
   if(!m || !canAccessModule(id)){ toast('No tenés acceso a este módulo.', 'warn'); goHome(); return; }
-  const targetHash = '#/' + m.path;
-  if(location.hash !== targetHash){ location.hash = targetHash; }
+  navigate('/' + m.path);
   if(id === 'planilla_choferes'){
     showView('mainView');
     setActiveNav('navMod_' + id);
@@ -737,7 +736,7 @@ function forceLogout(msg){
 function doLogout(){
   auth = null;
   localStorage.removeItem(LS.auth);
-  history.replaceState(null, '', location.pathname + location.search);
+  history.replaceState(null, '', '/');
   showLogin();
 }
 
@@ -1278,8 +1277,7 @@ function renderUsuarioModulesChecklist(){
 }
 
 function switchAdminTab(tab){
-  const targetHash = '#/administracion/' + tab;
-  if(location.hash !== targetHash){ location.hash = targetHash; }
+  navigate('/administracion/' + tab);
   const tabs = ['choferes','vehiculos','clientes','rutas'];
   if(isAdmin()) tabs.push('usuarios');
   tabs.forEach(t=>{
@@ -1501,21 +1499,23 @@ async function saveUserModules(){
 }
 
 // ---------- router (rutas por hash: #/inicio, #/liquidacion/planilla-choferes, #/administracion/usuarios...) ----------
-function routeFromHash(){
-  const hash = location.hash.replace(/^#\/?/, '');
-  const parts = hash.split('/').filter(Boolean);
+function navigate(path){
+  if(location.pathname !== path){ history.pushState(null, '', path); }
+}
+function routeFromPath(){
+  const parts = location.pathname.split('/').filter(Boolean);
   if(parts[0] === 'administracion'){ openAdmin(parts[1]); return; }
   const mod = MODULES.find(m => m.path === parts.join('/'));
   if(mod){ openModule(mod.id); return; }
   goHome();
 }
-window.addEventListener('hashchange', routeFromHash);
+window.addEventListener('popstate', routeFromPath);
 
 // ---------- init ----------
 setInterval(()=>flushQueue(false), 30000);
 if(auth && auth.token && auth.user){
   showApp();
-  routeFromHash();
+  routeFromPath();
   bootstrap();
 } else {
   showLogin();
