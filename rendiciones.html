@@ -149,7 +149,7 @@
         <label>Contraseña</label>
         <input type="password" id="loginPassword" required autocomplete="current-password" style="width:100%;">
       </div>
-      <div class="field">
+      <div class="field" id="loginPbUrlField" style="display:none;">
         <label>URL del servidor PocketBase</label>
         <input id="loginPbUrl" placeholder="https://app.carossiovairolatti.com.ar" style="width:100%;">
       </div>
@@ -169,7 +169,7 @@
     <span id="userPill" class="pill"></span>
     <button class="secondary small" onclick="flushQueue(true)">Sincronizar</button>
     <button class="secondary small" id="navAdminBtn" onclick="openAdmin()">👤 Administración</button>
-    <button class="secondary small" onclick="openSettings()">⚙ Config</button>
+    <button class="secondary small" id="navConfigBtn" onclick="openSettings()">⚙ Config</button>
     <button class="secondary small" onclick="doLogout()">Salir</button>
   </div>
 </header>
@@ -527,11 +527,13 @@ function showApp(){
   document.getElementById('appShell').style.display = 'block';
   document.getElementById('userPill').textContent = (auth.user.nombre || auth.user.username || auth.user.email) + (isAdmin() ? ' · admin' : '');
   document.getElementById('navAdminBtn').style.display = isAdmin() ? '' : 'none';
+  document.getElementById('navConfigBtn').style.display = isAdmin() ? '' : 'none';
 }
 function showLogin(msg){
   document.getElementById('appShell').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('loginPbUrl').value = settings.pbUrl || '';
+  document.getElementById('loginPbUrlField').style.display = settings.pbUrl ? 'none' : '';
   const err = document.getElementById('loginError');
   if(msg){ err.textContent = msg; err.style.display = 'block'; } else { err.style.display = 'none'; }
 }
