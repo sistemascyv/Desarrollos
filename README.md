@@ -350,6 +350,50 @@ copia de `rendiciones.html`); `rendiciones.html` puede quedar en
 `pb_public` como referencia/fallback mientras se termina de validar la
 migración en producción, pero ya no es lo que sirve la app en `/`.
 
+## 2c. Cambios de estructura en la base (`pb_migrations/`)
+
+PocketBase versiona los cambios de esquema (crear una colección, agregar
+un campo, etc.) como archivos JavaScript en una carpeta `pb_migrations/`.
+Con `--automigrate` activado (es el default), cada vez que se edita una
+colección desde el panel (`/_/`), PocketBase escribe solo el archivo de
+migración correspondiente en `/home/ubuntu/pocketbase/pb_migrations/` —
+y al arrancar, aplica automáticamente cualquier migración nueva que
+encuentre ahí.
+
+Esa carpeta del servidor está versionada en este repo (`pb_migrations/`
+en la raíz) para tener el historial completo de la estructura de la base
+a salvo y poder trabajarla como código, en vez de perder cambios como
+pasó una vez con el campo `modulos` de `usuarios` (quedó declarado en
+PocketBase pero la columna real nunca se creó, hasta que se lo volvió a
+agregar desde el panel).
+
+**Flujo para un cambio de estructura nuevo** (agregar un campo/colección):
+
+1. Se escribe el archivo de migración (mismo formato que los que ya hay
+   en `pb_migrations/`) y se sube al repo.
+2. En el servidor:
+   ```bash
+   cd ~/cyv-app
+   git pull
+   cp pb_migrations/<archivo_nuevo>.js /home/ubuntu/pocketbase/pb_migrations/
+   sudo systemctl restart pocketbase   # o como esté corriendo el proceso
+   ```
+   Al reiniciar, PocketBase aplica la migración sola.
+3. Si en cambio el cambio se hizo primero a mano desde el panel (`/_/`),
+   el archivo nuevo aparece solo en `/home/ubuntu/pocketbase/pb_migrations/`
+   — en ese caso el paso es al revés: copiarlo al repo y subirlo:
+   ```bash
+   cp /home/ubuntu/pocketbase/pb_migrations/<archivo_nuevo>.js ~/cyv-app/pb_migrations/
+   cd ~/cyv-app
+   git add pb_migrations/<archivo_nuevo>.js
+   git commit -m "..."
+   git push
+   ```
+
+**Nunca** se versiona `pb_data/` (la base de datos real, con información
+de la empresa y hashes de contraseñas) — el `.gitignore` de la raíz ya lo
+excluye explícitamente.
+
 ## 3. Uso
 
 1. Abrir la URL. Pide **login** (usuario/email + contraseña) — ver

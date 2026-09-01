@@ -1,0 +1,10 @@
+# Nunca versionar los datos reales de PocketBase (contiene la base de
+# datos con información real de la empresa y hashes de contraseñas).
+# Solo pb_migrations/ (el código de la estructura) va al repositorio.
+pb_data/
+*.db
+*.db-shm
+*.db-wal
+
+.env
+.env.local
