@@ -624,7 +624,7 @@ let expandedRows = new Set();
 // mainView + openModule) — el resto (Inicio, sidebar, permisos por
 // usuario) ya lo maneja este registro automáticamente.
 const MODULES = [
-  { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación' },
+  { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación', path: 'liquidacion/planilla-choferes' },
 ];
 
 // ---------- autenticación ----------
@@ -641,7 +641,6 @@ function showApp(){
     const el = document.getElementById('navMod_' + m.id);
     if(el) el.style.display = canAccessModule(m.id) ? '' : 'none';
   });
-  goHome();
 }
 
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
@@ -660,6 +659,7 @@ function showView(viewId){
 }
 
 function goHome(){
+  if(location.hash !== '#/inicio'){ location.hash = '#/inicio'; }
   showView('homeView');
   setActiveNav('navHomeBtn');
   renderHome();
@@ -684,7 +684,10 @@ function renderHome(){
 }
 
 function openModule(id){
-  if(!canAccessModule(id)){ toast('No tenés acceso a este módulo.', 'warn'); return; }
+  const m = MODULES.find(x=>x.id===id);
+  if(!m || !canAccessModule(id)){ toast('No tenés acceso a este módulo.', 'warn'); goHome(); return; }
+  const targetHash = '#/' + m.path;
+  if(location.hash !== targetHash){ location.hash = targetHash; }
   if(id === 'planilla_choferes'){
     showView('mainView');
     setActiveNav('navMod_' + id);
@@ -718,6 +721,7 @@ async function doLogin(ev){
     auth = { token: data.token, user: { id: data.record.id, email: data.record.email, username: data.record.username, nombre: data.record.nombre, rol: data.record.rol, modulos: data.record.modulos || [] } };
     localStorage.setItem(LS.auth, JSON.stringify(auth));
     showApp();
+    goHome();
     bootstrap();
   }catch(e){
     showLogin(e.message);
@@ -733,6 +737,7 @@ function forceLogout(msg){
 function doLogout(){
   auth = null;
   localStorage.removeItem(LS.auth);
+  history.replaceState(null, '', location.pathname + location.search);
   showLogin();
 }
 
@@ -1233,13 +1238,13 @@ function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-async function openAdmin(){
-  if(!isAdmin()){ toast('Solo un administrador puede acceder a esta sección.', 'warn'); return; }
+async function openAdmin(tab){
+  if(!isAdmin()){ toast('Solo un administrador puede acceder a esta sección.', 'warn'); goHome(); return; }
   showView('adminView');
   setActiveNav('navAdminBtn');
   document.getElementById('tabBtn_usuarios').style.display = isAdmin() ? '' : 'none';
   await loadAdminAll();
-  switchAdminTab('choferes');
+  switchAdminTab(tab || 'choferes');
 }
 function closeAdmin(){
   goHome();
@@ -1273,6 +1278,8 @@ function renderUsuarioModulesChecklist(){
 }
 
 function switchAdminTab(tab){
+  const targetHash = '#/administracion/' + tab;
+  if(location.hash !== targetHash){ location.hash = targetHash; }
   const tabs = ['choferes','vehiculos','clientes','rutas'];
   if(isAdmin()) tabs.push('usuarios');
   tabs.forEach(t=>{
@@ -1493,10 +1500,22 @@ async function saveUserModules(){
   }catch(e){ toast('Error: ' + e.message, 'err'); }
 }
 
+// ---------- router (rutas por hash: #/inicio, #/liquidacion/planilla-choferes, #/administracion/usuarios...) ----------
+function routeFromHash(){
+  const hash = location.hash.replace(/^#\/?/, '');
+  const parts = hash.split('/').filter(Boolean);
+  if(parts[0] === 'administracion'){ openAdmin(parts[1]); return; }
+  const mod = MODULES.find(m => m.path === parts.join('/'));
+  if(mod){ openModule(mod.id); return; }
+  goHome();
+}
+window.addEventListener('hashchange', routeFromHash);
+
 // ---------- init ----------
 setInterval(()=>flushQueue(false), 30000);
 if(auth && auth.token && auth.user){
   showApp();
+  routeFromHash();
   bootstrap();
 } else {
   showLogin();
