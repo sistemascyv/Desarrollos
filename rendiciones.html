@@ -288,7 +288,7 @@
       </div>
       <div class="field">
         <label>Mes</label>
-        <input type="month" id="selMes">
+        <select id="selMes"></select>
       </div>
       <div class="field">
         <label>Tarifa km del mes ($/km)</label>
@@ -773,6 +773,28 @@ function currentMonth(){
 }
 function uid(){ return 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
 
+function monthLabel(ym){
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m-1, 1);
+  const s = d.toLocaleDateString('es-AR', {month:'long', year:'numeric'});
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function populateMesSelect(){
+  const sel = document.getElementById('selMes');
+  const prev = sel.value;
+  const now = new Date();
+  const options = [];
+  // desde 1 mes hacia adelante hasta 36 meses hacia atrás, más reciente primero
+  for(let i = -1; i <= 36; i++){
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    options.push(ym);
+  }
+  sel.innerHTML = options.map(ym => `<option value="${ym}">${monthLabel(ym)}</option>`).join('');
+  sel.value = options.includes(prev) ? prev : currentMonth();
+}
+
 // ---------- PocketBase REST helper ----------
 async function pb(path, opts){
   opts = opts || {};
@@ -901,7 +923,7 @@ async function refreshCatalogs(){
 }
 
 async function bootstrap(){
-  document.getElementById('selMes').value = currentMonth();
+  populateMesSelect();
   await refreshCatalogs();
   updateNetPill();
   updateQueuePill();
