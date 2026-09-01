@@ -323,16 +323,26 @@ arriesgar. Backup rápido antes de tocarlo: `sudo cp /etc/caddy/Caddyfile
 
 1. Abrir la URL. Pide **login** (usuario/email + contraseña) — ver
    [Bootstrap](#bootstrap-primer-usuario-admin) para la primera cuenta.
-2. Elegir **chofer** y **mes**, cargar/guardar la **tarifa por km** y el
-   **valor de viático por noche** del mes (ver nota abajo) — "Guardar
-   valores del mes".
-4. **+ Nuevo tramo** para cargar cada tramo del viaje. El total de gastos del
-   tramo se calcula automáticamente mientras se completa el formulario.
-5. El resumen del mes (arriba de la tabla) muestra: total de vales, km de
-   alargue, monto de alargue, total de gastos, viáticos y saldo. Al pie de
-   la tabla de tramos hay una fila de **totales**.
-6. **⬇ Exportar CSV** descarga todos los campos de los tramos cargados
-   (para abrir en Excel); **🖨 Imprimir** genera una vista limpia para
+2. **Filtrar tramos**: elegir **chofer** y un rango **Desde / Hasta**, y
+   "Buscar". Por defecto arranca en el mes actual (día 1 a hoy), pero se
+   puede pedir cualquier rango — un día suelto, una quincena, varios meses.
+3. **Tarifa y viático por mes**: independiente del filtro de arriba. Se
+   elige el mes y se carga/guarda la **tarifa por km** y el **valor de
+   viático por noche** de ese mes (ver nota abajo) — "Guardar valores del
+   mes". Cada tramo usa automáticamente la tarifa del mes al que pertenece
+   su fecha, así que un rango que cruce varios meses calcula bien aunque
+   haya cambiado la tarifa en el medio.
+4. **+ Nuevo tramo** para cargar cada tramo del viaje — pide **día, mes y
+   año completos** (fecha de salida y de llegada). El "mes" que antes se
+   elegía aparte ya no existe como campo separado: se calcula solo a partir
+   de la fecha de salida. El total de gastos del tramo se calcula
+   automáticamente mientras se completa el formulario.
+5. El resumen (arriba de la tabla) muestra: total de vales, km de alargue,
+   monto de alargue, total de gastos, viáticos y saldo, para todos los
+   tramos que entran en el filtro Desde/Hasta. Al pie de la tabla de tramos
+   hay una fila de **totales**.
+6. **Exportar CSV** descarga todos los campos de los tramos filtrados
+   (para abrir en Excel); **Imprimir** genera una vista limpia para
    imprimir o guardar como PDF, con todos los tramos expandidos.
 
 ### Panel de Administración (solo rol `admin`)
@@ -366,17 +376,26 @@ automática) reintenta enviar todo lo pendiente a PocketBase.
 
 ## Cálculos automáticos
 
+Todo se calcula sobre los tramos que entran en el filtro **Desde/Hasta**
+actual (no un mes fijo). Cada tramo guarda su propio campo `mes` (calculado
+solo, `YYYY-MM` de su `dia_salida`) y usa la tarifa/viático **de ese mes**
+— si el rango filtrado cruza dos meses con tarifas distintas, cada tramo
+aporta con la que corresponde a su propia fecha.
+
 - `total_gastos` (por tramo) = suma de peajes + gastos_varios + comida_viaje
   + comida_internacional + entrega_retiro_sfco + interrupcion + cyd_manual
   + control_gral + descanso.
-- `total_vales_mes` = suma de `vale_importe` de todos los tramos del mes.
-- `total_km_alargue_mes` = suma de `km_alargue` del mes.
-- `monto_alargue_mes` = `total_km_alargue_mes` × `tarifa_km` del mes.
-- `total_gastos_mes` = suma de `total_gastos` de todos los tramos del mes.
-- `saldo` = `total_vales_mes` − `total_gastos_mes`.
-- `viaticos` = suma de `permanencia` (noches) de todos los tramos del mes ×
-  `valor_viatico_noche` del mes (campo de la colección `tarifas`, se carga
-  junto con la tarifa por km en la pantalla principal).
+- `total_vales` = suma de `vale_importe` de los tramos filtrados.
+- `total_km_alargue` = suma de `km_alargue` de los tramos filtrados.
+- `monto_alargue` = suma, por cada tramo, de `km_alargue × tarifa_km` del
+  mes de ese tramo.
+- `total_gastos` (resumen) = suma de `total_gastos` de los tramos filtrados.
+- `saldo` = `total_vales` − `total_gastos`.
+- `viaticos` = suma, por cada tramo, de `permanencia × valor_viatico_noche`
+  del mes de ese tramo (`tarifas.valor_viatico_noche`, se carga en la
+  sección "Tarifa y viático por mes", separada del filtro de tramos).
+- Si a algún tramo del filtro le falta la tarifa de su mes, el resumen
+  muestra qué mes falta configurar en vez de calcular mal.
 
 > **Pendiente de confirmar con la empresa:** la regla exacta de cálculo de
 > `viaticos` no estaba especificada. Se implementó como
