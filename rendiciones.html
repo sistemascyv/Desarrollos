@@ -172,9 +172,9 @@
     cursor:pointer; transition:border-color .15s;
   }
   .module-card:hover{border-color:var(--accent);}
-  .module-card .icon{font-size:26px;}
-  .module-card .label{font-size:14px; font-weight:600; margin-top:8px;}
-  .module-card .group{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
+  .module-card .group{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
+  .module-card .label{font-size:15px; font-weight:600; margin-top:6px;}
+  .module-card .module-card-cta{font-size:12px; color:var(--accent); margin-top:12px;}
   .module-checklist{display:flex; flex-direction:column; gap:8px; margin:10px 0;}
   .module-checklist label{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:normal;}
 </style>
@@ -207,7 +207,7 @@
 <div id="appShell" style="display:none;">
 
 <div class="mobile-topbar">
-  <button class="secondary small" onclick="toggleSidebar()">☰</button>
+  <button class="secondary small" onclick="toggleSidebar()">Menú</button>
   <strong>Carossio Vairolatti</strong>
 </div>
 
@@ -218,12 +218,12 @@
       <div class="sub">Sistema Integral</div>
     </div>
     <nav id="sidebarNav">
-      <a class="nav-item" id="navHomeBtn" onclick="goHome()">🏠 Inicio</a>
+      <a class="nav-item" id="navHomeBtn" onclick="goHome()">Inicio</a>
       <div class="nav-group-label">Liquidación</div>
-      <a class="nav-item" id="navMod_planilla_choferes" onclick="openModule('planilla_choferes')">🚛 Planilla Choferes</a>
+      <a class="nav-item" id="navMod_planilla_choferes" onclick="openModule('planilla_choferes')">Planilla Choferes</a>
       <div class="nav-sep" id="navAdminSep" style="display:none;"></div>
-      <a class="nav-item" id="navAdminBtn" onclick="openAdmin()" style="display:none;">👤 Administración</a>
-      <a class="nav-item" id="navConfigBtn" onclick="openSettings()" style="display:none;">⚙ Config</a>
+      <a class="nav-item" id="navAdminBtn" onclick="openAdmin()" style="display:none;">Administración</a>
+      <a class="nav-item" id="navConfigBtn" onclick="openSettings()" style="display:none;">Configuración</a>
     </nav>
     <div class="sidebar-footer">
       <span id="userPill" class="pill"></span>
@@ -275,8 +275,8 @@
       <button class="secondary" onclick="saveTarifa()">Guardar valores del mes</button>
       <button onclick="loadTramos()">Cargar rendición</button>
       <button class="secondary" onclick="openTramoModal()">+ Nuevo tramo</button>
-      <button class="secondary" onclick="exportCSV()">⬇ Exportar CSV</button>
-      <button class="secondary" onclick="window.print()">🖨 Imprimir</button>
+      <button class="secondary" onclick="exportCSV()">Exportar CSV</button>
+      <button class="secondary" onclick="window.print()">Imprimir</button>
     </div>
   </div>
 
@@ -619,7 +619,7 @@ let expandedRows = new Set();
 // mainView + openModule) — el resto (Inicio, sidebar, permisos por
 // usuario) ya lo maneja este registro automáticamente.
 const MODULES = [
-  { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación', icon: '🚛' },
+  { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación' },
 ];
 
 // ---------- autenticación ----------
@@ -672,9 +672,9 @@ function renderHome(){
   }
   grid.innerHTML = accesibles.map(m => `
     <div class="module-card" onclick="openModule('${m.id}')">
-      <div class="icon">${m.icon}</div>
-      <div class="label">${m.label}</div>
       <div class="group">${m.group}</div>
+      <div class="label">${m.label}</div>
+      <div class="module-card-cta">Abrir →</div>
     </div>
   `).join('');
 }
@@ -768,7 +768,7 @@ function uid(){ return 'tmp_' + Date.now() + '_' + Math.random().toString(36).sl
 // ---------- PocketBase REST helper ----------
 async function pb(path, opts){
   opts = opts || {};
-  if(!settings.pbUrl){ throw new Error('Falta configurar la URL de PocketBase (⚙ Config).'); }
+  if(!settings.pbUrl){ throw new Error('Falta configurar la URL de PocketBase (Configuración).'); }
   const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
   if(auth && auth.token){ headers['Authorization'] = auth.token; }
   const res = await fetch(settings.pbUrl.replace(/\/$/,'') + '/api/' + path, {
@@ -1267,7 +1267,7 @@ function renderUsuarioModulesChecklist(){
   const el = document.getElementById('ac_usuario_modulos');
   if(!el) return;
   el.innerHTML = MODULES.map(m =>
-    `<label><input type="checkbox" value="${m.id}"> ${m.icon} ${m.label} <span class="hint" style="margin:0;">(${m.group})</span></label>`
+    `<label><input type="checkbox" value="${m.id}"> ${m.label} <span class="hint" style="margin:0;">(${m.group})</span></label>`
   ).join('');
 }
 
@@ -1473,7 +1473,7 @@ function openUserModulesModal(id){
   document.getElementById('userModulesModalName').textContent = u.nombre || u.username;
   const current = u.modulos || [];
   document.getElementById('userModulesModalList').innerHTML = MODULES.map(m =>
-    `<label><input type="checkbox" value="${m.id}" ${current.includes(m.id)?'checked':''}> ${m.icon} ${m.label} <span class="hint" style="margin:0;">(${m.group})</span></label>`
+    `<label><input type="checkbox" value="${m.id}" ${current.includes(m.id)?'checked':''}> ${m.label} <span class="hint" style="margin:0;">(${m.group})</span></label>`
   ).join('');
   document.getElementById('userModulesModalBg').classList.add('open');
 }
