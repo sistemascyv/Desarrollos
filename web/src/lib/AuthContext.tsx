@@ -38,6 +38,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  useEffect(() => {
+    if (!pb.authStore.isValid) return;
+    // Los datos del usuario (rol, módulos) quedan cacheados en el navegador
+    // desde el login. Al abrir la app pedimos una versión fresca al servidor
+    // para que los cambios de un admin (agregar/quitar módulos, rol, activo)
+    // se reflejen sin que el usuario tenga que volver a loguearse.
+    pb.collection('usuarios').authRefresh().catch(() => {
+      pb.authStore.clear();
+    });
+  }, []);
+
   async function login(identity: string, password: string) {
     const result = await pb.collection('usuarios').authWithPassword(identity, password);
     if (result.record.activo === false) {
