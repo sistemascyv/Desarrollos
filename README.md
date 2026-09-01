@@ -221,12 +221,15 @@ binario), así que no hace falta tocar Caddy: alcanza con copiar el HTML ahí.
 ```bash
 mkdir -p /home/ubuntu/pocketbase/pb_public
 cp rendiciones.html /home/ubuntu/pocketbase/pb_public/rendiciones.html
+cp rendiciones.html /home/ubuntu/pocketbase/pb_public/index.html
 sudo systemctl restart pocketbase   # por si hace falta que detecte la carpeta nueva
 ```
 
-Con eso queda disponible en:
+Se copia dos veces (mismo contenido, dos nombres) para que la app quede
+disponible tanto en la raíz del dominio como en la URL con nombre:
 
 ```
+https://app.carossiovairolatti.com.ar/
 https://app.carossiovairolatti.com.ar/rendiciones.html
 ```
 
