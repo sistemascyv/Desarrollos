@@ -17,6 +17,9 @@ export function AppLayout() {
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) => `nav-item${isActive ? ' active' : ''}`;
 
+  const accesibles = MODULES.filter((m) => canAccessModule(m.id));
+  const grupos = [...new Set(accesibles.map((m) => m.group))];
+
   return (
     <div>
       <div className="mobile-topbar">
@@ -36,15 +39,18 @@ export function AppLayout() {
             <NavLink to="/inicio" className={navLinkClass}>
               Inicio
             </NavLink>
-            <div className="nav-group-label">Liquidación</div>
-            {MODULES.map(
-              (m) =>
-                canAccessModule(m.id) && (
-                  <NavLink key={m.id} to={`/${m.path}`} className={navLinkClass}>
-                    {m.label}
-                  </NavLink>
-                ),
-            )}
+            {grupos.map((grupo) => (
+              <div key={grupo}>
+                <div className="nav-group-label">{grupo}</div>
+                {accesibles
+                  .filter((m) => m.group === grupo)
+                  .map((m) => (
+                    <NavLink key={m.id} to={`/${m.path}`} className={navLinkClass}>
+                      {m.label}
+                    </NavLink>
+                  ))}
+              </div>
+            ))}
             {isAdmin && (
               <>
                 <div className="nav-sep" />

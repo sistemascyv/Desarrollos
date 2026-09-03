@@ -394,6 +394,48 @@ agregar desde el panel).
 de la empresa y hashes de contraseñas) — el `.gitignore` de la raíz ya lo
 excluye explícitamente.
 
+## 2d. Módulo Control de Cheques — configuración de `pb_hooks/`
+
+Este módulo usa dos rutas propias de PocketBase en `pb_hooks/cheques.pb.js`
+(se despliegan igual que `pb_migrations/`, vía el pipeline de CI/CD — no
+hace falta copiarlas a mano):
+
+- `POST /api/cheques/extraer-cuit`: le manda la captura del cheque a la
+  API de Claude (Anthropic) para que identifique el/los CUIT emisor,
+  número de cheque y monto.
+- `GET /api/cheques/bcra/:cuit`: consulta la Central de Deudores del BCRA
+  (cheques rechazados) para ese CUIT.
+
+Ambas corren del lado del servidor para no exponer la clave de Anthropic
+al navegador y para evitar problemas de CORS con la API del BCRA.
+
+**Requiere una variable de entorno `ANTHROPIC_API_KEY` en el servidor**
+(clave de la API de Anthropic/Claude — tiene costo por imagen procesada,
+del orden de centavos de dólar por cheque leído). Se configura una sola
+vez, editando el servicio de systemd:
+
+```bash
+sudo systemctl edit pocketbase
+```
+
+Eso abre un editor para un archivo de override; agregar:
+
+```ini
+[Service]
+Environment=ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Guardar, salir, y:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart pocketbase
+```
+
+Sin esta variable configurada, el módulo devuelve un error 500 claro
+("El servidor no tiene configurada ANTHROPIC_API_KEY") en vez de fallar
+en silencio.
+
 ## 3. Uso
 
 1. Abrir la URL. Pide **login** (usuario/email + contraseña) — ver
