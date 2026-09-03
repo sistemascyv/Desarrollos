@@ -661,6 +661,37 @@ a.link {
   background: var(--panel2);
 }
 
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: 13px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.dropzone:hover,
+.dropzone.dragover {
+  border-color: var(--brand);
+  background: var(--panel);
+}
+.dropzone strong {
+  color: var(--text);
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.dropzone img {
+  max-width: 100%;
+  max-height: 320px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
 .module-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
