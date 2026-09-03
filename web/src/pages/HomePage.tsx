@@ -54,9 +54,6 @@ export function HomePage() {
     items.push({ id: 'administracion', label: 'Administración', group: 'Sistema', path: 'administracion/choferes' });
   }
 
-  const grupos: string[] = [];
-  for (const m of items) if (!grupos.includes(m.group)) grupos.push(m.group);
-
   return (
     <main>
       <div className="home-hero">
@@ -64,22 +61,16 @@ export function HomePage() {
         <p className="hint">Elegí un módulo para empezar.</p>
       </div>
 
-      {grupos.map((grupo) => (
-        <section key={grupo} className="home-section">
-          <h2 className="home-section-title">{grupo}</h2>
-          <div className="module-grid">
-            {items
-              .filter((m) => m.group === grupo)
-              .map((m) => (
-                <Link key={m.id} to={`/${m.path}`} className="module-card">
-                  <div className="module-card-icon">{ICONOS[m.id] || ICONO_DEFECTO}</div>
-                  <div className="label">{m.label}</div>
-                  <div className="module-card-cta">Entrar →</div>
-                </Link>
-              ))}
-          </div>
-        </section>
-      ))}
+      <div className="module-grid">
+        {items.map((m) => (
+          <Link key={m.id} to={`/${m.path}`} className="module-card">
+            <div className="module-card-icon">{ICONOS[m.id] || ICONO_DEFECTO}</div>
+            <div className="group">{m.group}</div>
+            <div className="label">{m.label}</div>
+            <div className="module-card-cta">Entrar →</div>
+          </Link>
+        ))}
+      </div>
 
       {items.length === 0 && (
         <p className="empty">Todavía no tenés módulos asignados. Contactá a un administrador.</p>

@@ -744,43 +744,30 @@ a.link {
   margin: 6px 0 0;
   font-size: 13.5px;
 }
-.home-section {
-  margin-bottom: 28px;
-}
-.home-section-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  margin: 0 0 12px;
-}
-.home-section-title::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
 .module-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 16px;
 }
 .module-card {
+  display: block;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
   cursor: pointer;
+  text-decoration: none;
   transition:
     transform 0.15s,
     border-color 0.15s,
     box-shadow 0.15s;
+}
+.module-card .group {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
 }
 .module-card:hover {
   border-color: var(--brand);
