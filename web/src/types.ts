@@ -77,6 +77,36 @@ export interface Usuario extends BaseRecord {
   modulos?: string[];
 }
 
+export type EstadoCheque = 'pendiente' | 'aceptado' | 'rechazado';
+
+export interface BcraEntidad {
+  entidad?: string;
+  causal?: string;
+  detalle?: Array<{
+    nroCheque?: number | string;
+    fechaRechazo?: string;
+    monto?: number;
+    fechaPago?: string | null;
+    estadoMulta?: string | null;
+    enRevision?: boolean;
+    procesoJud?: boolean;
+  }>;
+}
+
+export interface Cheque extends BaseRecord {
+  imagen: string;
+  cuit_emisor: string;
+  emisor_nombre?: string;
+  numero_cheque?: string;
+  monto?: number;
+  estado: EstadoCheque;
+  bcra_consultado?: boolean;
+  bcra_tiene_rechazados?: boolean;
+  bcra_detalle?: { cuit: string; denominacion: string | null; tieneRechazados: boolean; entidades: BcraEntidad[] };
+  bcra_fecha_consulta?: string;
+  notas?: string;
+}
+
 export interface ModuleDef {
   id: string;
   label: string;
@@ -86,4 +116,5 @@ export interface ModuleDef {
 
 export const MODULES: ModuleDef[] = [
   { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación', path: 'liquidacion/planilla-choferes' },
+  { id: 'control_cheques', label: 'Control de Cheques', group: 'Finanzas', path: 'finanzas/control-cheques' },
 ];

@@ -44,7 +44,14 @@ jobs:
             pb_migrations/ \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/ubuntu/pocketbase/pb_migrations/"
 
-      - name: Reiniciar PocketBase (aplica migraciones nuevas)
+      - name: Publicar hooks de PocketBase (pb_hooks/)
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            pb_hooks/ \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/ubuntu/pocketbase/pb_hooks/"
+
+      - name: Reiniciar PocketBase (aplica migraciones y hooks nuevos)
         run: |
           ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             "sudo systemctl restart pocketbase"
