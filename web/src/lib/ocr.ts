@@ -1,16 +1,22 @@
 import { createWorker } from 'tesseract.js';
 import { extraerCuitsValidos } from './cuit';
 
+export interface ResultadoOcr {
+  cuits: string[];
+  textoCrudo: string;
+}
+
 // OCR 100% en el navegador (Tesseract, código abierto, sin costo ni API
-// externa). Le pedimos que reconozca solo dígitos y guiones — no nos
-// interesa el resto del texto de la captura, y restringir el alfabeto
-// mejora bastante la precisión en los números.
-export async function leerCuitsDeImagen(file: File): Promise<string[]> {
+// externa). Reconocemos el texto completo (no restringimos a dígitos:
+// forzar todo el alfabeto a "0-9" en una captura con mucho texto
+// alrededor del número que buscamos degrada la lectura en vez de
+// mejorarla) y después filtramos con regex + validación de CUIT.
+export async function leerCuitsDeImagen(file: File): Promise<ResultadoOcr> {
   const worker = await createWorker('eng');
   try {
-    await worker.setParameters({ tessedit_char_whitelist: '0123456789-' });
     const { data } = await worker.recognize(file);
-    return extraerCuitsValidos(data.text || '');
+    const textoCrudo = data.text || '';
+    return { cuits: extraerCuitsValidos(textoCrudo), textoCrudo };
   } finally {
     await worker.terminate();
   }

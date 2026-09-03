@@ -28,6 +28,8 @@ export function ControlChequesPage() {
   const [consultandoId, setConsultandoId] = useState<string | null>(null);
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [textoOcr, setTextoOcr] = useState<string | null>(null);
+  const [mostrarTextoOcr, setMostrarTextoOcr] = useState(false);
 
   useEffect(() => {
     load();
@@ -86,8 +88,11 @@ export function ControlChequesPage() {
   async function extraer() {
     if (!selectedFile) { toast('Elegí una imagen primero.', 'warn'); return; }
     setExtrayendo(true);
+    setTextoOcr(null);
+    setMostrarTextoOcr(false);
     try {
-      const cuits = await leerCuitsDeImagen(selectedFile);
+      const { cuits, textoCrudo } = await leerCuitsDeImagen(selectedFile);
+      setTextoOcr(textoCrudo);
       if (cuits.length === 0) {
         toast('No se detectó ningún CUIT válido en la imagen. Cargalo a mano abajo.', 'warn');
       }
@@ -239,6 +244,24 @@ export function ControlChequesPage() {
               <button className="secondary" onClick={() => setCandidatos(null)}>Cancelar</button>
               <button onClick={guardarCandidatos} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar cheques'}</button>
             </div>
+          </div>
+        )}
+
+        {textoOcr != null && (
+          <div style={{ marginTop: 12 }}>
+            <a className="link" onClick={() => setMostrarTextoOcr((v) => !v)}>
+              {mostrarTextoOcr ? 'Ocultar' : 'Ver'} texto que detectó la lectura automática
+            </a>
+            {mostrarTextoOcr && (
+              <pre
+                style={{
+                  marginTop: 8, padding: 10, fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  background: 'var(--input)', border: '1px solid var(--border)', borderRadius: 6, maxHeight: 200, overflow: 'auto',
+                }}
+              >
+                {textoOcr || '(vacío)'}
+              </pre>
+            )}
           </div>
         )}
       </div>

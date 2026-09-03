@@ -16,11 +16,14 @@ export function esCuitValido(cuit: string): boolean {
   return verificador === Number(cuit[10]);
 }
 
-// Extrae del texto crudo de OCR todas las secuencias de 11 dígitos
-// (con o sin guiones, ej. "30-71234567-9" o "30712345679") que además
-// pasan la validación de dígito verificador.
+// Extrae del texto crudo de OCR todas las secuencias de 11 dígitos —
+// con o sin guiones/espacios de por medio (ej. "30-71234567-9",
+// "30712345679" o "307 12345 679", que el OCR a veces separa así) — que
+// además pasan la validación de dígito verificador. Solo espacio y guión
+// como separadores (nunca salto de línea), para no pegar dígitos de
+// celdas o renglones distintos de la captura.
 export function extraerCuitsValidos(textoOcr: string): string[] {
-  const candidatos = textoOcr.match(/\d[\d-]{9,14}\d/g) || [];
+  const candidatos = textoOcr.match(/\d[\d \-]{9,18}\d/g) || [];
   const vistos = new Set<string>();
   const resultado: string[] = [];
   for (const c of candidatos) {
