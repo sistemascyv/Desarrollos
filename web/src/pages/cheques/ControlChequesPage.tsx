@@ -332,7 +332,10 @@ export function ControlChequesPage() {
             </colgroup>
             <thead>
               <tr>
-                <th>CUIT</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th><th>BCRA</th><th></th>
+                <th>CUIT</th><th>Emisor</th><th>N° cheque</th>
+                <th className="num" style={{ paddingRight: 20 }}>Monto</th>
+                <th style={{ paddingLeft: 20 }}>BCRA</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -343,8 +346,8 @@ export function ControlChequesPage() {
                       <td>{c.cuit_emisor}</td>
                       <td>{c.emisor_nombre || '—'}</td>
                       <td>{c.numero_cheque || '—'}</td>
-                      <td className="num">{c.monto != null ? money(c.monto) : '—'}</td>
-                      <td style={{ textAlign: 'center' }}>
+                      <td className="num" style={{ paddingRight: 20 }}>{c.monto != null ? money(c.monto) : '—'}</td>
+                      <td style={{ textAlign: 'center', paddingLeft: 20 }}>
                         {c.bcra_consultado ? (
                           <button className="bcra-link" onClick={() => setDetalleBcraId(c.id)}>
                             {c.bcra_tiene_rechazados ? (
