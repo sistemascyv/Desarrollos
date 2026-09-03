@@ -4,6 +4,7 @@ import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import type { BcraEntidad, Cheque, EstadoCheque } from '../../types';
 import { money } from '../../lib/format';
+import { leerCuitsDeImagen } from '../../lib/ocr';
 
 interface Candidato {
   cuit_emisor: string;
@@ -11,18 +12,6 @@ interface Candidato {
   monto: string;
   emisor_nombre: string;
   incluir: boolean;
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1] || '');
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 export function ControlChequesPage() {
@@ -62,24 +51,13 @@ export function ControlChequesPage() {
     if (!selectedFile) { toast('Elegí una imagen primero.', 'warn'); return; }
     setExtrayendo(true);
     try {
-      const image_base64 = await fileToBase64(selectedFile);
-      const res = await pb.send<{ cheques: Array<{ cuit_emisor: string | null; numero_cheque: string | null; monto: number | null; emisor_nombre: string | null }> }>(
-        '/api/cheques/extraer-cuit',
-        { method: 'POST', body: { image_base64, media_type: selectedFile.type || 'image/jpeg' } },
-      );
-      const list = res.cheques || [];
-      if (list.length === 0) {
-        toast('No se detectó ningún cheque en la imagen. Podés cargarlo a mano abajo.', 'warn');
+      const cuits = await leerCuitsDeImagen(selectedFile);
+      if (cuits.length === 0) {
+        toast('No se detectó ningún CUIT válido en la imagen. Cargalo a mano abajo.', 'warn');
       }
       setCandidatos([
-        ...list.map((c) => ({
-          cuit_emisor: c.cuit_emisor || '',
-          numero_cheque: c.numero_cheque || '',
-          monto: c.monto != null ? String(c.monto) : '',
-          emisor_nombre: c.emisor_nombre || '',
-          incluir: true,
-        })),
-        { cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '', incluir: list.length === 0 },
+        ...cuits.map((cuit) => ({ cuit_emisor: cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: true })),
+        { cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '', incluir: cuits.length === 0 },
       ]);
     } catch (e) {
       toast('Error leyendo la imagen: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -183,7 +161,10 @@ export function ControlChequesPage() {
 
         {candidatos && (
           <div style={{ marginTop: 16 }}>
-            <div className="hint">Revisá los datos antes de guardar — la lectura automática puede equivocarse.</div>
+            <div className="hint">
+              El CUIT se completa solo (validado con el dígito verificador) — revisalo igual antes de guardar.
+              Emisor, N° de cheque y monto se cargan a mano.
+            </div>
             <div className="table-wrap" style={{ marginTop: 8 }}>
               <table>
                 <thead>
