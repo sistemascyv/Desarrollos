@@ -108,11 +108,20 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
     resto = resto.replace(/\b(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}\b/g, ' ');
 
     let monto = '';
-    const montoMatch = resto.match(/\$?\s?\d{1,3}(?:[.,]\d{3})+[.,]\d{2}\b|\$\s?\d+[.,]\d{2}\b/);
+    // El separador final (los 2 dígitos de centavos) a veces lo lee el OCR
+    // como espacio en vez de coma ("52.269.306 00").
+    const montoMatch = resto.match(/\$?\s?\d{1,3}(?:[.,]\d{3})+[.,\s]\d{2}\b|\$\s?\d+[.,]\d{2}\b/);
     if (montoMatch) {
-      const crudo = montoMatch[0].replace(/[^\d.,]/g, '');
-      // Formato AR: "279.515,12" -> separador de miles "." y decimal ",".
-      monto = crudo.replace(/\./g, '').replace(',', '.');
+      const crudo = montoMatch[0].replace(/[^\d.,\s]/g, '').trim();
+      // El OCR a veces confunde la coma decimal con un punto ("298.380.82"
+      // en vez de "298.380,82") — en vez de asumir siempre "punto = miles,
+      // coma = decimal", se toma el ÚLTIMO separador (sea cual sea el
+      // símbolo) como el decimal, y se saca cualquier otro separador antes
+      // (de miles), evitando multiplicar el monto real por 100.
+      const ultimoSep = Math.max(crudo.lastIndexOf('.'), crudo.lastIndexOf(','), crudo.lastIndexOf(' '));
+      const parteEntera = crudo.slice(0, ultimoSep).replace(/[.,\s]/g, '');
+      const parteDecimal = crudo.slice(ultimoSep + 1);
+      monto = parteEntera + '.' + parteDecimal;
       resto = resto.replace(montoMatch[0], ' ');
     }
 
