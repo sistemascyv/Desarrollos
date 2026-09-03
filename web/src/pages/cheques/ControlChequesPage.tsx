@@ -14,6 +14,28 @@ interface Pendiente {
   emisor_nombre: string;
 }
 
+function esperar(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// El BCRA devuelve 429 ("demasiadas consultas") si le pegamos muy
+// seguido, algo esperable al procesar varios cheques de una misma
+// captura uno atrás del otro. En vez de dejar el cheque marcado como
+// "no consultado" a la primera, reintentamos un par de veces con una
+// espera creciente antes de darnos por vencidos.
+async function consultarBcraConReintento(cuit: string, intentos = 3): Promise<BcraResultado> {
+  for (let i = 0; i < intentos; i++) {
+    try {
+      return await pb.send<BcraResultado>(`/api/cheques/bcra/${cuit}`, { method: 'GET' });
+    } catch (e) {
+      const esRateLimit = e instanceof Error && e.message.includes('429');
+      if (!esRateLimit || i === intentos - 1) throw e;
+      await esperar(1500 * (i + 1));
+    }
+  }
+  throw new Error('No se pudo consultar el BCRA.');
+}
+
 export function ControlChequesPage() {
   const toast = useToast();
   const confirm = useConfirm();
@@ -82,8 +104,14 @@ export function ControlChequesPage() {
         toast(`${dudosos.length} CUIT no pasó la validación — revisalo abajo.`, 'warn');
       }
 
-      for (const d of validos) {
+      for (let i = 0; i < validos.length; i++) {
+        const d = validos[i];
         await guardarYConsultar(file, d.cuit, d.numeroCheque, d.monto, d.emisorNombre);
+        // Una pausa chica entre cheque y cheque para no pegarle a la API
+        // del BCRA en ráfaga — si el lote tiene varios cheques seguidos
+        // es más probable que el BCRA responda 429 (demasiadas
+        // consultas) si se mandan todas apenas una atrás de la otra.
+        if (i < validos.length - 1) await esperar(700);
       }
       if (validos.length > 0) {
         toast(`${validos.length} cheque${validos.length === 1 ? '' : 's'} guardado${validos.length === 1 ? '' : 's'} y consultado${validos.length === 1 ? '' : 's'} en el BCRA.`, 'ok');
@@ -108,7 +136,7 @@ export function ControlChequesPage() {
       await load();
 
       try {
-        const res = await pb.send<BcraResultado>(`/api/cheques/bcra/${cuit}`, { method: 'GET' });
+        const res = await consultarBcraConReintento(cuit);
         await pb.collection('cheques').update(registro.id, {
           bcra_consultado: true,
           bcra_tiene_rechazados: res.tieneRechazados,
@@ -191,7 +219,7 @@ export function ControlChequesPage() {
 
   async function consultarBcra(cheque: Cheque) {
     try {
-      const res = await pb.send<BcraResultado>(`/api/cheques/bcra/${cheque.cuit_emisor}`, { method: 'GET' });
+      const res = await consultarBcraConReintento(cheque.cuit_emisor);
       await pb.collection('cheques').update(cheque.id, {
         bcra_consultado: true,
         bcra_tiene_rechazados: res.tieneRechazados,
