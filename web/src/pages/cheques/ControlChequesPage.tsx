@@ -323,12 +323,12 @@ export function ControlChequesPage() {
         <div className="table-wrap">
           <table className="tabla-cheques">
             <colgroup>
-              <col style={{ width: 130 }} />
-              <col />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 130 }} />
-              <col style={{ width: 130 }} />
-              <col style={{ width: 90 }} />
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '27%' }} />
+              <col style={{ width: '13%' }} />
+              <col style={{ width: '17%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '12%' }} />
             </colgroup>
             <thead>
               <tr>
