@@ -1,8 +1,8 @@
 import { createWorker } from 'tesseract.js';
-import { extraerCuitsValidos } from './cuit';
+import { extraerCandidatosCuit, type CandidatoCuit } from './cuit';
 
 export interface ResultadoOcr {
-  cuits: string[];
+  candidatos: CandidatoCuit[];
   textoCrudo: string;
 }
 
@@ -16,7 +16,7 @@ export async function leerCuitsDeImagen(file: File): Promise<ResultadoOcr> {
   try {
     const { data } = await worker.recognize(file);
     const textoCrudo = data.text || '';
-    return { cuits: extraerCuitsValidos(textoCrudo), textoCrudo };
+    return { candidatos: extraerCandidatosCuit(textoCrudo), textoCrudo };
   } finally {
     await worker.terminate();
   }
