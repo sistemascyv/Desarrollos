@@ -2,20 +2,16 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import type { BcraResultado, Cheque, EstadoCheque } from '../../types';
+import type { BcraResultado, Cheque } from '../../types';
 import { money } from '../../lib/format';
-import { leerCuitsDeImagen } from '../../lib/ocr';
+import { leerChequesDeImagen } from '../../lib/ocr';
 import { esCuitValido } from '../../lib/cuit';
 
-interface Candidato {
+interface Pendiente {
   cuit_emisor: string;
   numero_cheque: string;
   monto: string;
   emisor_nombre: string;
-  incluir: boolean;
-  cuitValidado: boolean;
-  bcraEstado: 'idle' | 'consultando' | 'listo' | 'error';
-  bcra?: BcraResultado;
 }
 
 export function ControlChequesPage() {
@@ -24,13 +20,11 @@ export function ControlChequesPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [cheques, setCheques] = useState<Cheque[]>([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [extrayendo, setExtrayendo] = useState(false);
-  const [candidatos, setCandidatos] = useState<Candidato[] | null>(null);
-  const [guardando, setGuardando] = useState(false);
-  const [consultandoId, setConsultandoId] = useState<string | null>(null);
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [procesando, setProcesando] = useState(false);
+  const [pendientes, setPendientes] = useState<Pendiente[]>([]);
+  const [guardandoPendiente, setGuardandoPendiente] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [textoOcr, setTextoOcr] = useState<string | null>(null);
   const [mostrarTextoOcr, setMostrarTextoOcr] = useState(false);
@@ -38,30 +32,6 @@ export function ControlChequesPage() {
   useEffect(() => {
     load();
   }, []);
-
-  // Ctrl+V / clic derecho → Pegar en cualquier parte de la página pega la
-  // imagen del portapapeles, sin necesidad de tener el foco en un campo.
-  const onPickFileRef = useRef<(file: File | null) => void>(() => {});
-  useEffect(() => {
-    function onPaste(e: ClipboardEvent) {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.type.startsWith('image/')) {
-          const file = item.getAsFile();
-          if (file) {
-            onPickFileRef.current(file);
-            toast('Imagen pegada desde el portapapeles.', 'ok');
-          }
-          e.preventDefault();
-          break;
-        }
-      }
-    }
-    window.addEventListener('paste', onPaste);
-    return () => window.removeEventListener('paste', onPaste);
-  }, [toast]);
 
   async function load() {
     try {
@@ -72,15 +42,87 @@ export function ControlChequesPage() {
     }
   }
 
-  function onPickFile(file: File | null) {
-    setSelectedFile(file);
-    setCandidatos(null);
+  // El usuario solo pasa la imagen: apenas hay un archivo, se procesa
+  // solo (lee, guarda lo verificado, consulta el BCRA) — sin botones de
+  // "Leer" ni "Guardar" en el medio.
+  async function procesarImagen(file: File) {
     setPreviewUrl((cur) => {
       if (cur) URL.revokeObjectURL(cur);
-      return file ? URL.createObjectURL(file) : null;
+      return URL.createObjectURL(file);
     });
+    setPendientes([]);
+    setTextoOcr(null);
+    setMostrarTextoOcr(false);
+    setProcesando(true);
+    try {
+      const { cheques: detectados, textoCrudo } = await leerChequesDeImagen(file);
+      setTextoOcr(textoCrudo);
+      if (detectados.length === 0) {
+        toast('No se detectó ningún CUIT válido en la imagen. Podés cargar el cheque a mano abajo.', 'warn');
+        setPendientes([{ cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '' }]);
+        return;
+      }
+
+      const validos = detectados.filter((d) => d.valido);
+      const dudosos = detectados.filter((d) => !d.valido);
+
+      if (dudosos.length > 0) {
+        setPendientes(
+          dudosos.map((d) => ({
+            cuit_emisor: d.cuit,
+            numero_cheque: d.numeroCheque,
+            monto: d.monto,
+            emisor_nombre: d.emisorNombre,
+          })),
+        );
+        toast(`${dudosos.length} CUIT no pasó la validación — revisalo abajo.`, 'warn');
+      }
+
+      for (const d of validos) {
+        await guardarYConsultar(file, d.cuit, d.numeroCheque, d.monto, d.emisorNombre);
+      }
+      if (validos.length > 0) {
+        toast(`${validos.length} cheque${validos.length === 1 ? '' : 's'} guardado${validos.length === 1 ? '' : 's'} y consultado${validos.length === 1 ? '' : 's'} en el BCRA.`, 'ok');
+      }
+    } catch (e) {
+      toast('Error leyendo la imagen: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setProcesando(false);
+    }
   }
-  onPickFileRef.current = onPickFile;
+
+  async function guardarYConsultar(imagen: File, cuit: string, numeroCheque: string, monto: string, emisorNombre: string) {
+    try {
+      const form = new FormData();
+      form.append('imagen', imagen);
+      form.append('cuit_emisor', cuit);
+      form.append('estado', 'pendiente');
+      if (numeroCheque) form.append('numero_cheque', numeroCheque);
+      if (monto) form.append('monto', monto);
+      if (emisorNombre) form.append('emisor_nombre', emisorNombre);
+      const registro = await pb.collection('cheques').create<Cheque>(form);
+      await load();
+
+      try {
+        const res = await pb.send<BcraResultado>(`/api/cheques/bcra/${cuit}`, { method: 'GET' });
+        await pb.collection('cheques').update(registro.id, {
+          bcra_consultado: true,
+          bcra_tiene_rechazados: res.tieneRechazados,
+          bcra_detalle: res,
+          bcra_fecha_consulta: new Date().toISOString(),
+        });
+        await load();
+      } catch (e) {
+        toast('Cheque guardado, pero falló la consulta al BCRA: ' + (e instanceof Error ? e.message : ''), 'warn');
+      }
+    } catch (e) {
+      toast('Error guardando el cheque ' + cuit + ': ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  function onPickFile(file: File | null) {
+    if (file) procesarImagen(file);
+  }
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -89,103 +131,70 @@ export function ControlChequesPage() {
     if (file && file.type.startsWith('image/')) onPickFile(file);
   }
 
-  async function extraer() {
-    if (!selectedFile) { toast('Elegí una imagen primero.', 'warn'); return; }
-    setExtrayendo(true);
-    setTextoOcr(null);
-    setMostrarTextoOcr(false);
-    try {
-      const { candidatos: leidos, textoCrudo } = await leerCuitsDeImagen(selectedFile);
-      setTextoOcr(textoCrudo);
-      const validados = leidos.filter((c) => c.valido);
-      const sinValidar = leidos.filter((c) => !c.valido);
-      if (leidos.length === 0) {
-        toast('No se detectó ningún número de 11 dígitos en la imagen. Cargalo a mano abajo.', 'warn');
-      } else if (validados.length === 0) {
-        toast('Encontró números de 11 dígitos pero ninguno pasó la validación de CUIT — revisalos, seguro el OCR se equivocó en un dígito.', 'warn');
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) onPickFile(file);
+          e.preventDefault();
+          break;
+        }
       }
-      setCandidatos([
-        ...validados.map((c) => ({ cuit_emisor: c.cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: true, cuitValidado: true, bcraEstado: 'idle' as const })),
-        ...sinValidar.map((c) => ({ cuit_emisor: c.cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: false, cuitValidado: false, bcraEstado: 'idle' as const })),
-        { cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '', incluir: leidos.length === 0, cuitValidado: false, bcraEstado: 'idle' as const },
-      ]);
-      // El usuario solo tiene que pasar la captura: apenas hay un CUIT
-      // válido, consultamos el BCRA solos, sin que tenga que apretar nada.
-      validados.forEach((c, idx) => consultarBcraCandidato(idx, c.cuit));
-    } catch (e) {
-      toast('Error leyendo la imagen: ' + (e instanceof Error ? e.message : ''), 'err');
-    } finally {
-      setExtrayendo(false);
     }
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function setPendiente(i: number, patch: Partial<Pendiente>) {
+    setPendientes((cur) => cur.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
   }
 
-  async function consultarBcraCandidato(i: number, cuit: string) {
-    setCandidato(i, { bcraEstado: 'consultando' });
-    try {
-      const res = await pb.send<BcraResultado>(`/api/cheques/bcra/${cuit}`, { method: 'GET' });
-      setCandidato(i, { bcraEstado: 'listo', bcra: res });
-    } catch {
-      setCandidato(i, { bcraEstado: 'error' });
-    }
+  function quitarPendiente(i: number) {
+    setPendientes((cur) => cur.filter((_, idx) => idx !== i));
   }
 
-  function setCandidato(i: number, patch: Partial<Candidato>) {
-    setCandidatos((cur) =>
-      cur
-        ? cur.map((c, idx) => {
-            if (idx !== i) return c;
-            const actualizado = { ...c, ...patch };
-            if ('cuit_emisor' in patch) actualizado.cuitValidado = esCuitValido(actualizado.cuit_emisor);
-            return actualizado;
-          })
-        : cur,
-    );
+  function agregarPendienteVacio() {
+    setPendientes((cur) => [...cur, { cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '' }]);
   }
 
-  async function guardarCandidatos() {
-    if (!candidatos || !selectedFile) return;
-    const aGuardar = candidatos.filter((c) => c.incluir && c.cuit_emisor.trim());
-    if (aGuardar.length === 0) { toast('No hay ningún cheque para guardar (falta el CUIT).', 'warn'); return; }
-    const sinVerificar = aGuardar.filter((c) => !c.cuitValidado);
-    if (sinVerificar.length > 0) {
-      const ok = await confirm(
-        `${sinVerificar.length} CUIT no pasó la validación del dígito verificador (${sinVerificar.map((c) => c.cuit_emisor).join(', ')}). ¿Guardar igual?`,
-        'CUIT sin verificar',
-      );
+  async function guardarPendiente(i: number) {
+    const p = pendientes[i];
+    if (!p.cuit_emisor.trim()) { toast('Falta el CUIT.', 'warn'); return; }
+    if (!esCuitValido(p.cuit_emisor)) {
+      const ok = await confirm(`El CUIT ${p.cuit_emisor} no pasó la validación del dígito verificador. ¿Guardar igual?`, 'CUIT sin verificar');
       if (!ok) return;
     }
-    setGuardando(true);
+    if (!previewUrl) { toast('Se perdió la imagen original, volvé a pegarla.', 'err'); return; }
+    setGuardandoPendiente(i);
     try {
-      for (const c of aGuardar) {
-        const form = new FormData();
-        form.append('imagen', selectedFile);
-        form.append('cuit_emisor', c.cuit_emisor.trim());
-        form.append('estado', 'pendiente');
-        if (c.numero_cheque.trim()) form.append('numero_cheque', c.numero_cheque.trim());
-        if (c.monto.trim()) form.append('monto', c.monto.trim());
-        if (c.emisor_nombre.trim()) form.append('emisor_nombre', c.emisor_nombre.trim());
-        if (c.bcraEstado === 'listo' && c.bcra) {
-          form.append('bcra_consultado', 'true');
-          form.append('bcra_tiene_rechazados', String(c.bcra.tieneRechazados));
-          form.append('bcra_detalle', JSON.stringify(c.bcra));
-          form.append('bcra_fecha_consulta', new Date().toISOString());
-        }
-        await pb.collection('cheques').create(form);
-      }
-      toast(`${aGuardar.length} cheque${aGuardar.length === 1 ? '' : 's'} guardado${aGuardar.length === 1 ? '' : 's'}.`, 'ok');
-      onPickFile(null);
-      if (fileRef.current) fileRef.current.value = '';
-      setCandidatos(null);
-      await load();
+      const res = await fetch(previewUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'cheque.png', { type: blob.type || 'image/png' });
+      await guardarYConsultar(file, p.cuit_emisor.trim(), p.numero_cheque.trim(), p.monto.trim(), p.emisor_nombre.trim());
+      quitarPendiente(i);
+      toast('Cheque guardado.', 'ok');
     } catch (e) {
       toast('Error guardando: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
-      setGuardando(false);
+      setGuardandoPendiente(null);
+    }
+  }
+
+  async function actualizarCampo(cheque: Cheque, campo: 'emisor_nombre' | 'numero_cheque' | 'monto', valor: string) {
+    try {
+      await pb.collection('cheques').update(cheque.id, { [campo]: valor });
+      setCheques((cur) => cur.map((c) => (c.id === cheque.id ? { ...c, [campo]: valor } : c)));
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
     }
   }
 
   async function consultarBcra(cheque: Cheque) {
-    setConsultandoId(cheque.id);
     try {
       const res = await pb.send<BcraResultado>(`/api/cheques/bcra/${cheque.cuit_emisor}`, { method: 'GET' });
       await pb.collection('cheques').update(cheque.id, {
@@ -194,21 +203,9 @@ export function ControlChequesPage() {
         bcra_detalle: res,
         bcra_fecha_consulta: new Date().toISOString(),
       });
-      toast(res.tieneRechazados ? 'Atención: este CUIT tiene cheques rechazados registrados.' : 'Sin cheques rechazados registrados.', res.tieneRechazados ? 'warn' : 'ok');
       await load();
     } catch (e) {
       toast('Error consultando el BCRA: ' + (e instanceof Error ? e.message : ''), 'err');
-    } finally {
-      setConsultandoId(null);
-    }
-  }
-
-  async function cambiarEstado(cheque: Cheque, estado: EstadoCheque) {
-    try {
-      await pb.collection('cheques').update(cheque.id, { estado });
-      await load();
-    } catch (e) {
-      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
     }
   }
 
@@ -250,74 +247,49 @@ export function ControlChequesPage() {
             </>
           )}
         </div>
-        <div className="row" style={{ marginTop: 12 }}>
-          <button onClick={extraer} disabled={!selectedFile || extrayendo}>
-            {extrayendo ? 'Leyendo imagen…' : 'Leer cheques de la imagen'}
-          </button>
-          {selectedFile && (
-            <button className="secondary" onClick={() => { onPickFile(null); if (fileRef.current) fileRef.current.value = ''; }}>
-              Quitar imagen
-            </button>
-          )}
+        <div className="hint" style={{ marginTop: 10 }}>
+          {procesando
+            ? 'Leyendo la imagen, guardando y consultando el BCRA…'
+            : 'Solo tenés que pegar la captura — el CUIT se lee y valida solo, y se consulta el BCRA automáticamente.'}
         </div>
 
-        {candidatos && (
+        {pendientes.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <div className="hint">
-              El CUIT se completa solo (validado con el dígito verificador) y se consulta al BCRA automáticamente.
-              Emisor, N° de cheque y monto se cargan a mano.
+              Estos no se guardaron solos porque el CUIT no pasó la validación (o no se detectó ninguno) — revisá y guardá a mano.
             </div>
             <div className="table-wrap" style={{ marginTop: 8 }}>
               <table>
                 <thead>
-                  <tr><th></th><th>CUIT emisor</th><th></th><th>BCRA</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th></tr>
+                  <tr><th>CUIT emisor</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th><th></th></tr>
                 </thead>
                 <tbody>
-                  {candidatos.map((c, i) => (
+                  {pendientes.map((p, i) => (
                     <tr key={i}>
-                      <td><input type="checkbox" checked={c.incluir} onChange={(e) => setCandidato(i, { incluir: e.target.checked })} /></td>
                       <td>
                         <input
-                          value={c.cuit_emisor}
-                          onChange={(e) => setCandidato(i, { cuit_emisor: e.target.value.replace(/\D/g, '') })}
+                          value={p.cuit_emisor}
+                          onChange={(e) => setPendiente(i, { cuit_emisor: e.target.value.replace(/\D/g, '') })}
                           placeholder="11 dígitos"
                           maxLength={11}
-                          style={{ width: 120, borderColor: c.cuit_emisor && !c.cuitValidado ? 'var(--warn)' : undefined }}
+                          style={{ width: 120, borderColor: p.cuit_emisor && !esCuitValido(p.cuit_emisor) ? 'var(--warn)' : undefined }}
                         />
                       </td>
-                      <td>
-                        {c.cuit_emisor.length === 11 && (
-                          c.cuitValidado
-                            ? <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>OK</span>
-                            : <span className="badge" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }} title="No pasó la validación del dígito verificador — revisalo, seguro el OCR se equivocó en un dígito.">Sin verificar</span>
-                        )}
+                      <td><input value={p.emisor_nombre} onChange={(e) => setPendiente(i, { emisor_nombre: e.target.value })} /></td>
+                      <td><input value={p.numero_cheque} onChange={(e) => setPendiente(i, { numero_cheque: e.target.value })} style={{ width: 110 }} /></td>
+                      <td><input type="number" step="0.01" value={p.monto} onChange={(e) => setPendiente(i, { monto: e.target.value })} style={{ width: 110 }} /></td>
+                      <td className="actions-cell">
+                        <button className="small secondary" onClick={() => guardarPendiente(i)} disabled={guardandoPendiente === i}>
+                          {guardandoPendiente === i ? 'Guardando…' : 'Guardar'}
+                        </button>
+                        <button className="small danger" onClick={() => quitarPendiente(i)}>Descartar</button>
                       </td>
-                      <td>
-                        {c.bcraEstado === 'consultando' && <span className="badge">Consultando…</span>}
-                        {c.bcraEstado === 'error' && (
-                          <button className="small secondary" onClick={() => consultarBcraCandidato(i, c.cuit_emisor)}>Reintentar</button>
-                        )}
-                        {c.bcraEstado === 'listo' && c.bcra && (
-                          c.bcra.tieneRechazados
-                            ? <span className="badge" style={{ color: 'var(--err)', borderColor: 'var(--err)' }} title={`${c.bcra.rechazos.length} cheque(s) rechazado(s) registrado(s)`}>Tiene rechazados</span>
-                            : <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Sin rechazos</span>
-                        )}
-                        {c.bcraEstado === 'idle' && c.cuitValidado && (
-                          <button className="small secondary" onClick={() => consultarBcraCandidato(i, c.cuit_emisor)}>Consultar</button>
-                        )}
-                      </td>
-                      <td><input value={c.emisor_nombre} onChange={(e) => setCandidato(i, { emisor_nombre: e.target.value })} /></td>
-                      <td><input value={c.numero_cheque} onChange={(e) => setCandidato(i, { numero_cheque: e.target.value })} style={{ width: 110 }} /></td>
-                      <td><input type="number" step="0.01" value={c.monto} onChange={(e) => setCandidato(i, { monto: e.target.value })} style={{ width: 110 }} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="row" style={{ marginTop: 10 }}>
-              <button className="secondary" onClick={() => setCandidatos(null)}>Cancelar</button>
-              <button onClick={guardarCandidatos} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar cheques'}</button>
-            </div>
+            <button className="small secondary" style={{ marginTop: 8 }} onClick={agregarPendienteVacio}>+ Agregar otro a mano</button>
           </div>
         )}
 
@@ -346,8 +318,7 @@ export function ControlChequesPage() {
           <table>
             <thead>
               <tr>
-                <th></th><th>CUIT</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th>
-                <th>Estado</th><th>BCRA</th><th></th>
+                <th></th><th>CUIT</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th><th>BCRA</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -368,15 +339,27 @@ export function ControlChequesPage() {
                         )}
                       </td>
                       <td>{c.cuit_emisor}</td>
-                      <td>{c.emisor_nombre || '—'}</td>
-                      <td>{c.numero_cheque || '—'}</td>
-                      <td className="num">{c.monto ? money(c.monto) : '—'}</td>
                       <td>
-                        <select value={c.estado} onChange={(e) => cambiarEstado(c, e.target.value as EstadoCheque)}>
-                          <option value="pendiente">Pendiente</option>
-                          <option value="aceptado">Aceptado</option>
-                          <option value="rechazado">Rechazado</option>
-                        </select>
+                        <input
+                          defaultValue={c.emisor_nombre || ''}
+                          onBlur={(e) => e.target.value !== (c.emisor_nombre || '') && actualizarCampo(c, 'emisor_nombre', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          defaultValue={c.numero_cheque || ''}
+                          style={{ width: 100 }}
+                          onBlur={(e) => e.target.value !== (c.numero_cheque || '') && actualizarCampo(c, 'numero_cheque', e.target.value)}
+                        />
+                      </td>
+                      <td className="num">
+                        <input
+                          type="number"
+                          step="0.01"
+                          defaultValue={c.monto ?? ''}
+                          style={{ width: 100 }}
+                          onBlur={(e) => e.target.value !== String(c.monto ?? '') && actualizarCampo(c, 'monto', e.target.value)}
+                        />
                       </td>
                       <td>
                         {c.bcra_consultado ? (
@@ -386,20 +369,17 @@ export function ControlChequesPage() {
                             <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Sin rechazos</span>
                           )
                         ) : (
-                          <span className="badge">No consultado</span>
+                          <button className="small secondary" onClick={() => consultarBcra(c)}>Consultar BCRA</button>
                         )}
                       </td>
                       <td className="actions-cell">
-                        <button className="small secondary" onClick={() => consultarBcra(c)} disabled={consultandoId === c.id}>
-                          {consultandoId === c.id ? 'Consultando…' : 'Consultar BCRA'}
-                        </button>
                         <button className="small danger" onClick={() => borrar(c)}>Borrar</button>
                       </td>
                     </tr>
                     {tieneDetalle && (
                       <tr className={`detail-row${abierto ? ' open' : ''}`}>
                         <td></td>
-                        <td colSpan={7}>
+                        <td colSpan={6}>
                           <div className="table-wrap">
                             <table>
                               <thead>

@@ -51,3 +51,69 @@ export function extraerCandidatosCuit(textoOcr: string): CandidatoCuit[] {
   // Los válidos primero.
   return resultado.sort((a, b) => Number(b.valido) - Number(a.valido));
 }
+
+export interface ChequeDetectado {
+  cuit: string;
+  valido: boolean;
+  numeroCheque: string;
+  monto: string;
+  emisorNombre: string;
+}
+
+// Palabras de encabezado/UI del banco que no son parte del nombre del
+// emisor, para no meterlas dentro de "emisorNombre" cuando quedan en la
+// misma línea de OCR que los datos del cheque.
+const PALABRAS_IGNORADAS = new Set([
+  'FECHA', 'DE', 'EMISION', 'EMISIÓN', 'PAGO', 'NRO', 'CHEQUE', 'IMPORTE', 'ENVIADO', 'POR',
+  'CUIT', 'RAZON', 'RAZÓN', 'SOCIAL', 'ESTADO', 'EMITIDO', 'EMITIDO-PENDIENTE', 'PENDIENTE',
+  'ACEPTADO', 'RECHAZADO', 'ACEPTAR', 'CANTIDAD', 'SELECCIONADA', 'TOTAL', 'PERSONALIZAR',
+  'VISTA', 'PODES', 'PODÉS', 'SELECCIONAR', 'LAS', 'COLUMNAS', 'MOSTRAR', 'A', 'AE',
+]);
+
+// Reconstruye, a partir de las líneas de texto que detectó el OCR (una
+// línea de tabla = un cheque), el CUIT + emisor + N° de cheque + monto de
+// cada fila. Solo el CUIT tiene una forma de auto-validarse (el dígito
+// verificador); los otros tres campos son "mejor esfuerzo" y quedan
+// editables en la UI por si el OCR se equivocó en algo.
+export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
+  const resultado: ChequeDetectado[] = [];
+  const vistos = new Set<string>();
+
+  for (const lineaOriginal of lineas) {
+    const cuitMatch = lineaOriginal.match(/\b\d{11}\b/);
+    if (!cuitMatch) continue;
+    const cuit = cuitMatch[0];
+    if (vistos.has(cuit)) continue;
+
+    let resto = lineaOriginal.replace(cuit, ' ');
+    resto = resto.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, ' '); // fechas dd/mm/aaaa
+
+    let monto = '';
+    const montoMatch = resto.match(/\$?\s?\d{1,3}(?:[.,]\d{3})+[.,]\d{2}\b|\$\s?\d+[.,]\d{2}\b/);
+    if (montoMatch) {
+      const crudo = montoMatch[0].replace(/[^\d.,]/g, '');
+      // Formato AR: "279.515,12" -> separador de miles "." y decimal ",".
+      monto = crudo.replace(/\./g, '').replace(',', '.');
+      resto = resto.replace(montoMatch[0], ' ');
+    }
+
+    let numeroCheque = '';
+    const nroMatch = resto.match(/\b\d{5,9}\b/);
+    if (nroMatch) {
+      numeroCheque = nroMatch[0];
+      resto = resto.replace(nroMatch[0], ' ');
+    }
+
+    const emisorNombre = resto
+      .split(/\s+/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 1 && /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(p) && !PALABRAS_IGNORADAS.has(p.toUpperCase()))
+      .join(' ')
+      .trim();
+
+    vistos.add(cuit);
+    resultado.push({ cuit, valido: esCuitValido(cuit), numeroCheque, monto, emisorNombre });
+  }
+
+  return resultado;
+}
