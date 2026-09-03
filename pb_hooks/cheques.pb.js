@@ -21,28 +21,17 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
     return c.json(403, { message: "No tenés acceso al módulo de Control de Cheques." });
   }
 
-  // El registro que trae requestInfo(c).authRecord puede no incluir bien
-  // los campos "json" custom (mismo problema ya visto del lado del cliente
-  // con auth-refresh, que tampoco los trae) — auth.get("modulos") venía
-  // vacío para un usuario que SÍ tenía el módulo asignado (confirmado:
-  // la colección "cheques" sí lo dejaba entrar con la misma condición).
-  // Para evitarlo, se vuelve a buscar el registro completo por id.
-  let modulos = auth.get("modulos") || [];
-  let debugErr = "";
-  try {
-    const fresco = $app.dao().findRecordById("usuarios", auth.id);
-    modulos = fresco.get("modulos") || [];
-  } catch (e) {
-    debugErr = " [dao:" + (e && e.message ? e.message : String(e)) + "]";
-  }
-  const modulosTexto = JSON.stringify(modulos).toLowerCase();
+  // auth.get("modulos") (campo "json") no devuelve el array ya
+  // interpretado acá adentro: devuelve los bytes crudos del JSON
+  // guardado, uno por uno, como array de números (confirmado con debug:
+  // [91,34,99,111,...] es exactamente la lista de códigos ASCII de
+  // '["control_cheques"]' letra por letra). Hay que decodificar esos
+  // bytes a texto antes de poder buscar el módulo adentro.
+  const rawModulos = auth.get("modulos");
+  const modulosTexto = (Array.isArray(rawModulos) ? String.fromCharCode.apply(null, rawModulos) : JSON.stringify(rawModulos || [])).toLowerCase();
   const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("control_cheques") !== -1;
   if (!tieneAcceso) {
-    // DEBUG TEMPORAL: se saca en cuanto se confirme la causa real.
-    return c.json(403, {
-      message: "No tenés acceso al módulo de Control de Cheques. [debug rol=" + JSON.stringify(auth.get("rol")) +
-        " modulos=" + modulosTexto + debugErr + "]",
-    });
+    return c.json(403, { message: "No tenés acceso al módulo de Control de Cheques." });
   }
 
   const cuit = c.pathParam("cuit");
