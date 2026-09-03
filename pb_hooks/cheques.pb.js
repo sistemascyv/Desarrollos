@@ -17,16 +17,26 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
   // separada), así que toda la lógica del handler vive acá adentro.
   const info = $apis.requestInfo(c);
   const auth = info.authRecord;
-  // "modulos" es un campo json: comparar con indexOf() contra el array
-  // exige que el elemento sea idéntico carácter por carácter, y eso hizo
-  // que un usuario con el módulo bien asignado (confirmado: la colección
-  // "cheques" sí lo dejaba entrar) se quedara afuera acá igual. Para que
-  // este chequeo sea consistente con la regla de acceso de la colección
-  // (que usa "~", una búsqueda de substring case-insensitive), se compara
-  // igual: por substring sobre el JSON serializado, sin importar
-  // mayúsculas/minúsculas ni la forma exacta del array.
-  const modulosTexto = JSON.stringify((auth && auth.get("modulos")) || []).toLowerCase();
-  const tieneAcceso = !!auth && (auth.get("rol") === "admin" || modulosTexto.indexOf("control_cheques") !== -1);
+  if (!auth) {
+    return c.json(403, { message: "No tenés acceso al módulo de Control de Cheques." });
+  }
+
+  // El registro que trae requestInfo(c).authRecord puede no incluir bien
+  // los campos "json" custom (mismo problema ya visto del lado del cliente
+  // con auth-refresh, que tampoco los trae) — auth.get("modulos") venía
+  // vacío para un usuario que SÍ tenía el módulo asignado (confirmado:
+  // la colección "cheques" sí lo dejaba entrar con la misma condición).
+  // Para evitarlo, se vuelve a buscar el registro completo por id.
+  let modulos = auth.get("modulos") || [];
+  try {
+    const fresco = $app.dao().findRecordById("usuarios", auth.id);
+    modulos = fresco.get("modulos") || [];
+  } catch (e) {
+    // Si esto falla, seguimos con lo que trajo requestInfo (mejor
+    // esfuerzo, no cortamos la request por un problema acá).
+  }
+  const modulosTexto = JSON.stringify(modulos).toLowerCase();
+  const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("control_cheques") !== -1;
   if (!tieneAcceso) {
     return c.json(403, { message: "No tenés acceso al módulo de Control de Cheques." });
   }
