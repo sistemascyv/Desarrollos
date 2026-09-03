@@ -334,7 +334,7 @@ export function ControlChequesPage() {
               <tr>
                 <th>CUIT</th><th>Emisor</th><th>N° cheque</th>
                 <th className="num" style={{ paddingRight: 20 }}>Monto</th>
-                <th style={{ paddingLeft: 20 }}>BCRA</th>
+                <th style={{ paddingLeft: 20, textAlign: 'center' }}>BCRA</th>
                 <th></th>
               </tr>
             </thead>
