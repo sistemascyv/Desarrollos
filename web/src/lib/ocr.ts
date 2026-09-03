@@ -1,8 +1,8 @@
 import { createWorker } from 'tesseract.js';
-import { extraerCandidatosCuit, type CandidatoCuit } from './cuit';
+import { extraerCandidatosCuit, extraerChequesDeLineas, type ChequeDetectado } from './cuit';
 
 export interface ResultadoOcr {
-  candidatos: CandidatoCuit[];
+  cheques: ChequeDetectado[];
   textoCrudo: string;
 }
 
@@ -28,18 +28,54 @@ async function escalarImagen(file: File): Promise<HTMLCanvasElement> {
   return canvas;
 }
 
+// Une los bloques/párrafos/líneas que devuelve Tesseract en una lista
+// plana de líneas de texto — una línea de tabla del banco = una línea de
+// texto, que es la unidad que usamos para reconstruir cada cheque.
+function extraerLineas(page: Tesseract.Page): string[] {
+  const lineas: string[] = [];
+  for (const b of page.blocks || []) {
+    for (const p of b.paragraphs || []) {
+      for (const l of p.lines || []) {
+        const texto = (l.text || '').trim();
+        if (texto) lineas.push(texto);
+      }
+    }
+  }
+  if (lineas.length === 0 && page.text) {
+    return page.text
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return lineas;
+}
+
 // OCR 100% en el navegador (Tesseract, código abierto, sin costo ni API
 // externa). Reconocemos el texto completo (no restringimos a dígitos:
 // forzar todo el alfabeto a "0-9" en una captura con mucho texto
 // alrededor del número que buscamos degrada la lectura en vez de
-// mejorarla) y después filtramos con regex + validación de CUIT.
-export async function leerCuitsDeImagen(file: File): Promise<ResultadoOcr> {
+// mejorarla) y después reconstruimos cada cheque por línea.
+export async function leerChequesDeImagen(file: File): Promise<ResultadoOcr> {
   const worker = await createWorker('eng');
   try {
     const imagen = await escalarImagen(file);
-    const { data } = await worker.recognize(imagen);
+    const { data } = await worker.recognize(imagen, {}, { blocks: true });
     const textoCrudo = data.text || '';
-    return { candidatos: extraerCandidatosCuit(textoCrudo), textoCrudo };
+    const lineas = extraerLineas(data);
+    let cheques = extraerChequesDeLineas(lineas);
+    if (cheques.length === 0) {
+      // Si no se pudo reconstruir por líneas (imagen sin estructura de
+      // tabla clara), al menos rescatamos los CUITs sueltos del texto
+      // completo, sin emisor/N°/monto.
+      cheques = extraerCandidatosCuit(textoCrudo).map((c) => ({
+        cuit: c.cuit,
+        valido: c.valido,
+        numeroCheque: '',
+        monto: '',
+        emisorNombre: '',
+      }));
+    }
+    return { cheques, textoCrudo };
   } finally {
     await worker.terminate();
   }
