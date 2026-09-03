@@ -92,11 +92,14 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
     const cuitMatches = lineaOriginal.match(/\b\d{11}\b/g);
     if (!cuitMatches || cuitMatches.length === 0) continue;
     const cuit = cuitMatches[cuitMatches.length - 1];
-    if (vistos.has(cuit)) continue;
 
     let resto = lineaOriginal;
     for (const m of cuitMatches) resto = resto.replace(m, ' ');
     resto = resto.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, ' '); // fechas dd/mm/aaaa
+    // A veces el OCR pierde las barras y la fecha queda pegada como un
+    // bloque de 8 dígitos (ddmmaaaa) — sin esto, ese bloque se confundía
+    // con el N° de cheque (ambos tienen forma de "varios dígitos seguidos").
+    resto = resto.replace(/\b(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}\b/g, ' ');
 
     let monto = '';
     const montoMatch = resto.match(/\$?\s?\d{1,3}(?:[.,]\d{3})+[.,]\d{2}\b|\$\s?\d+[.,]\d{2}\b/);
@@ -116,12 +119,20 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
 
     const emisorNombre = resto
       .split(/\s+/)
-      .map((p) => p.trim())
-      .filter((p) => p.length > 1 && /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(p) && !PALABRAS_IGNORADAS.has(p.toUpperCase()))
+      // Saca símbolos sueltos que el OCR pega a la primera/última palabra
+      // (checkbox de la fila, guiones, corchetes) — solo dejamos letras.
+      .map((p) => p.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ-]/g, '').trim())
+      .filter((p) => p.length > 2 && !PALABRAS_IGNORADAS.has(p.toUpperCase()))
       .join(' ')
       .trim();
 
-    vistos.add(cuit);
+    // Dos cheques distintos pueden tener el mismo CUIT emisor (misma
+    // empresa, cheques distintos) — lo que no puede repetirse es el N° de
+    // cheque, así que deduplicamos por cuit+número y no solo por cuit.
+    const clave = cuit + '|' + numeroCheque;
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+
     resultado.push({ cuit, valido: esCuitValido(cuit), numeroCheque, monto, emisorNombre });
   }
 
