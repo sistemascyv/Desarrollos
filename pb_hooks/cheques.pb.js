@@ -17,8 +17,16 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
   // separada), así que toda la lógica del handler vive acá adentro.
   const info = $apis.requestInfo(c);
   const auth = info.authRecord;
-  const modulos = (auth && auth.get("modulos")) || [];
-  const tieneAcceso = !!auth && (auth.get("rol") === "admin" || modulos.indexOf("control_cheques") !== -1);
+  // "modulos" es un campo json: comparar con indexOf() contra el array
+  // exige que el elemento sea idéntico carácter por carácter, y eso hizo
+  // que un usuario con el módulo bien asignado (confirmado: la colección
+  // "cheques" sí lo dejaba entrar) se quedara afuera acá igual. Para que
+  // este chequeo sea consistente con la regla de acceso de la colección
+  // (que usa "~", una búsqueda de substring case-insensitive), se compara
+  // igual: por substring sobre el JSON serializado, sin importar
+  // mayúsculas/minúsculas ni la forma exacta del array.
+  const modulosTexto = JSON.stringify((auth && auth.get("modulos")) || []).toLowerCase();
+  const tieneAcceso = !!auth && (auth.get("rol") === "admin" || modulosTexto.indexOf("control_cheques") !== -1);
   if (!tieneAcceso) {
     return c.json(403, { message: "No tenés acceso al módulo de Control de Cheques." });
   }
