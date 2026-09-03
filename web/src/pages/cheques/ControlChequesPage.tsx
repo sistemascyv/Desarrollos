@@ -5,6 +5,7 @@ import { useConfirm } from '../../lib/ConfirmContext';
 import type { BcraResultado, Cheque, EstadoCheque } from '../../types';
 import { money } from '../../lib/format';
 import { leerCuitsDeImagen } from '../../lib/ocr';
+import { esCuitValido } from '../../lib/cuit';
 
 interface Candidato {
   cuit_emisor: string;
@@ -12,6 +13,7 @@ interface Candidato {
   monto: string;
   emisor_nombre: string;
   incluir: boolean;
+  cuitValidado: boolean;
 }
 
 export function ControlChequesPage() {
@@ -91,14 +93,19 @@ export function ControlChequesPage() {
     setTextoOcr(null);
     setMostrarTextoOcr(false);
     try {
-      const { cuits, textoCrudo } = await leerCuitsDeImagen(selectedFile);
+      const { candidatos: leidos, textoCrudo } = await leerCuitsDeImagen(selectedFile);
       setTextoOcr(textoCrudo);
-      if (cuits.length === 0) {
-        toast('No se detectó ningún CUIT válido en la imagen. Cargalo a mano abajo.', 'warn');
+      const validados = leidos.filter((c) => c.valido);
+      const sinValidar = leidos.filter((c) => !c.valido);
+      if (leidos.length === 0) {
+        toast('No se detectó ningún número de 11 dígitos en la imagen. Cargalo a mano abajo.', 'warn');
+      } else if (validados.length === 0) {
+        toast('Encontró números de 11 dígitos pero ninguno pasó la validación de CUIT — revisalos, seguro el OCR se equivocó en un dígito.', 'warn');
       }
       setCandidatos([
-        ...cuits.map((cuit) => ({ cuit_emisor: cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: true })),
-        { cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '', incluir: cuits.length === 0 },
+        ...validados.map((c) => ({ cuit_emisor: c.cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: true, cuitValidado: true })),
+        ...sinValidar.map((c) => ({ cuit_emisor: c.cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: false, cuitValidado: false })),
+        { cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '', incluir: leidos.length === 0, cuitValidado: false },
       ]);
     } catch (e) {
       toast('Error leyendo la imagen: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -108,13 +115,30 @@ export function ControlChequesPage() {
   }
 
   function setCandidato(i: number, patch: Partial<Candidato>) {
-    setCandidatos((cur) => (cur ? cur.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) : cur));
+    setCandidatos((cur) =>
+      cur
+        ? cur.map((c, idx) => {
+            if (idx !== i) return c;
+            const actualizado = { ...c, ...patch };
+            if ('cuit_emisor' in patch) actualizado.cuitValidado = esCuitValido(actualizado.cuit_emisor);
+            return actualizado;
+          })
+        : cur,
+    );
   }
 
   async function guardarCandidatos() {
     if (!candidatos || !selectedFile) return;
     const aGuardar = candidatos.filter((c) => c.incluir && c.cuit_emisor.trim());
     if (aGuardar.length === 0) { toast('No hay ningún cheque para guardar (falta el CUIT).', 'warn'); return; }
+    const sinVerificar = aGuardar.filter((c) => !c.cuitValidado);
+    if (sinVerificar.length > 0) {
+      const ok = await confirm(
+        `${sinVerificar.length} CUIT no pasó la validación del dígito verificador (${sinVerificar.map((c) => c.cuit_emisor).join(', ')}). ¿Guardar igual?`,
+        'CUIT sin verificar',
+      );
+      if (!ok) return;
+    }
     setGuardando(true);
     try {
       for (const c of aGuardar) {
@@ -225,13 +249,28 @@ export function ControlChequesPage() {
             <div className="table-wrap" style={{ marginTop: 8 }}>
               <table>
                 <thead>
-                  <tr><th></th><th>CUIT emisor</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th></tr>
+                  <tr><th></th><th>CUIT emisor</th><th></th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th></tr>
                 </thead>
                 <tbody>
                   {candidatos.map((c, i) => (
                     <tr key={i}>
                       <td><input type="checkbox" checked={c.incluir} onChange={(e) => setCandidato(i, { incluir: e.target.checked })} /></td>
-                      <td><input value={c.cuit_emisor} onChange={(e) => setCandidato(i, { cuit_emisor: e.target.value.replace(/\D/g, '') })} placeholder="11 dígitos" style={{ width: 120 }} /></td>
+                      <td>
+                        <input
+                          value={c.cuit_emisor}
+                          onChange={(e) => setCandidato(i, { cuit_emisor: e.target.value.replace(/\D/g, '') })}
+                          placeholder="11 dígitos"
+                          maxLength={11}
+                          style={{ width: 120, borderColor: c.cuit_emisor && !c.cuitValidado ? 'var(--warn)' : undefined }}
+                        />
+                      </td>
+                      <td>
+                        {c.cuit_emisor.length === 11 && (
+                          c.cuitValidado
+                            ? <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>OK</span>
+                            : <span className="badge" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }} title="No pasó la validación del dígito verificador — revisalo, seguro el OCR se equivocó en un dígito.">Sin verificar</span>
+                        )}
+                      </td>
                       <td><input value={c.emisor_nombre} onChange={(e) => setCandidato(i, { emisor_nombre: e.target.value })} /></td>
                       <td><input value={c.numero_cheque} onChange={(e) => setCandidato(i, { numero_cheque: e.target.value })} style={{ width: 110 }} /></td>
                       <td><input type="number" step="0.01" value={c.monto} onChange={(e) => setCandidato(i, { monto: e.target.value })} style={{ width: 110 }} /></td>
