@@ -79,18 +79,24 @@ export interface Usuario extends BaseRecord {
 
 export type EstadoCheque = 'pendiente' | 'aceptado' | 'rechazado';
 
-export interface BcraEntidad {
-  entidad?: string;
-  causal?: string;
-  detalle?: Array<{
-    nroCheque?: number | string;
-    fechaRechazo?: string;
-    monto?: number;
-    fechaPago?: string | null;
-    estadoMulta?: string | null;
-    enRevision?: boolean;
-    procesoJud?: boolean;
-  }>;
+export interface BcraRechazo {
+  causal: string | null;
+  entidad: number | null;
+  nroCheque: number | string;
+  fechaRechazo: string;
+  monto: number;
+  fechaPago: string | null;
+  fechaPagoMulta: string | null;
+  estadoMulta: string | null;
+  enRevision: boolean;
+  procesoJud: boolean;
+}
+
+export interface BcraResultado {
+  cuit: string;
+  denominacion: string | null;
+  tieneRechazados: boolean;
+  rechazos: BcraRechazo[];
 }
 
 export interface Cheque extends BaseRecord {
@@ -102,7 +108,7 @@ export interface Cheque extends BaseRecord {
   estado: EstadoCheque;
   bcra_consultado?: boolean;
   bcra_tiene_rechazados?: boolean;
-  bcra_detalle?: { cuit: string; denominacion: string | null; tieneRechazados: boolean; entidades: BcraEntidad[] };
+  bcra_detalle?: BcraResultado;
   bcra_fecha_consulta?: string;
   notas?: string;
 }

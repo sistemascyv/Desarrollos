@@ -36,19 +36,52 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
 
   if (res.statusCode === 404) {
     // El BCRA devuelve 404 cuando el CUIT no tiene cheques rechazados registrados.
-    return c.json(200, { cuit: cuit, tieneRechazados: false, entidades: [] });
+    return c.json(200, { cuit: cuit, denominacion: null, tieneRechazados: false, rechazos: [] });
   }
   if (res.statusCode !== 200) {
     return c.json(502, { message: "Error consultando la API del BCRA.", detalle: res.json });
   }
 
   const body = res.json || {};
-  const entidades = (body.results && body.results.entidades) || body.entidades || [];
+  // Forma real de la respuesta (ChequeResponse -> ChequeRechazado, ver
+  // https://www.bcra.gob.ar/archivos/Catalogo/Content/files/json/central-deudores-v1.json):
+  //   { status, results: { identificacion, denominacion, causales: [
+  //       { causal, entidades: [ { entidad, detalle: [
+  //           { nroCheque, fechaRechazo, monto, fechaPago, fechaPagoMulta,
+  //             estadoMulta, ctaPersonal, denomJuridica, enRevision, procesoJud }
+  //       ] } ]
+  //   ] } }
+  // Lo aplanamos acá a una lista simple (un item por cheque) para que el
+  // frontend no tenga que iterar 3 niveles de anidamiento.
+  const results = body.results || {};
+  const causales = results.causales || [];
+  const rechazos = [];
+  for (const c2 of causales) {
+    const entidades = c2.entidades || [];
+    for (const e of entidades) {
+      const detalle = e.detalle || [];
+      for (const d of detalle) {
+        rechazos.push({
+          causal: c2.causal || null,
+          entidad: e.entidad != null ? e.entidad : null,
+          nroCheque: d.nroCheque,
+          fechaRechazo: d.fechaRechazo,
+          monto: d.monto,
+          fechaPago: d.fechaPago || null,
+          fechaPagoMulta: d.fechaPagoMulta || null,
+          estadoMulta: d.estadoMulta || null,
+          enRevision: !!d.enRevision,
+          procesoJud: !!d.procesoJud,
+        });
+      }
+    }
+  }
+
   return c.json(200, {
     cuit: cuit,
-    denominacion: body.denominacion || (body.results && body.results.denominacion) || null,
-    tieneRechazados: Array.isArray(entidades) && entidades.length > 0,
-    entidades: entidades,
+    denominacion: results.denominacion || null,
+    tieneRechazados: rechazos.length > 0,
+    rechazos: rechazos,
     crudo: body,
   });
 }, $apis.requireRecordAuth("usuarios"));
