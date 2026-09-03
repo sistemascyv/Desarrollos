@@ -185,15 +185,6 @@ export function ControlChequesPage() {
     }
   }
 
-  async function actualizarCampo(cheque: Cheque, campo: 'emisor_nombre' | 'numero_cheque' | 'monto', valor: string) {
-    try {
-      await pb.collection('cheques').update(cheque.id, { [campo]: valor });
-      setCheques((cur) => cur.map((c) => (c.id === cheque.id ? { ...c, [campo]: valor } : c)));
-    } catch (e) {
-      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
-    }
-  }
-
   async function consultarBcra(cheque: Cheque) {
     try {
       const res = await pb.send<BcraResultado>(`/api/cheques/bcra/${cheque.cuit_emisor}`, { method: 'GET' });
@@ -215,6 +206,18 @@ export function ControlChequesPage() {
       await pb.collection('cheques').delete(cheque.id);
       await load();
       toast('Borrado.', 'ok');
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  async function limpiarLista() {
+    if (cheques.length === 0) return;
+    if (!(await confirm(`¿Borrar los ${cheques.length} cheques de la lista? Esta acción no se puede deshacer.`, 'Limpiar lista'))) return;
+    try {
+      await Promise.all(cheques.map((c) => pb.collection('cheques').delete(c.id)));
+      await load();
+      toast('Lista limpiada.', 'ok');
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
     }
@@ -313,7 +316,10 @@ export function ControlChequesPage() {
       </div>
 
       <div className="card">
-        <h2>Cheques cargados</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2>Cheques cargados</h2>
+          <button className="small danger" onClick={limpiarLista} disabled={cheques.length === 0}>Limpiar lista</button>
+        </div>
         <div className="table-wrap">
           <table>
             <thead>
@@ -328,21 +334,8 @@ export function ControlChequesPage() {
                     <tr>
                       <td></td>
                       <td>{c.cuit_emisor}</td>
-                      <td>
-                        <input
-                          className="inline-edit"
-                          defaultValue={c.emisor_nombre || ''}
-                          onBlur={(e) => e.target.value !== (c.emisor_nombre || '') && actualizarCampo(c, 'emisor_nombre', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="inline-edit"
-                          defaultValue={c.numero_cheque || ''}
-                          style={{ width: 100 }}
-                          onBlur={(e) => e.target.value !== (c.numero_cheque || '') && actualizarCampo(c, 'numero_cheque', e.target.value)}
-                        />
-                      </td>
+                      <td>{c.emisor_nombre || '—'}</td>
+                      <td>{c.numero_cheque || '—'}</td>
                       <td className="num">{c.monto != null ? money(c.monto) : '—'}</td>
                       <td>
                         {c.bcra_consultado ? (
