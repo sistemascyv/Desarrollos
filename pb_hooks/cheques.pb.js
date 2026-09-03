@@ -9,17 +9,17 @@
 // navegador (OCR con Tesseract, sin costo ni servicio externo) — ver
 // web/src/lib/ocr.ts.
 
-function checkAccesoControlCheques(info) {
-  const auth = info.authRecord;
-  if (!auth) return false;
-  if (auth.get("rol") === "admin") return true;
-  const modulos = auth.get("modulos") || [];
-  return modulos.indexOf("control_cheques") !== -1;
-}
-
 routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
+  // El chequeo de acceso va inline (no como función aparte arriba del
+  // archivo): PocketBase corre el callback de routerAdd en un contexto
+  // que no siempre tiene visibilidad de funciones declaradas fuera de él
+  // ("ReferenceError: ... is not defined" en producción con una función
+  // separada), así que toda la lógica del handler vive acá adentro.
   const info = $apis.requestInfo(c);
-  if (!checkAccesoControlCheques(info)) {
+  const auth = info.authRecord;
+  const modulos = (auth && auth.get("modulos")) || [];
+  const tieneAcceso = !!auth && (auth.get("rol") === "admin" || modulos.indexOf("control_cheques") !== -1);
+  if (!tieneAcceso) {
     return c.json(403, { message: "No tenés acceso al módulo de Control de Cheques." });
   }
 
