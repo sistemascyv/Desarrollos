@@ -71,6 +71,12 @@ const PALABRAS_IGNORADAS = new Set([
   'ACTIVO-PENDIENTE',
 ]);
 
+// Palabras cortas (2 letras) que sí son parte real de una razón social
+// ("DE SEADO SAS", "ARAUCO S.A.") — el filtro de basura de 2 letras que
+// pega el OCR (checkbox de la fila, guiones sueltos: "Od", "ad", "[J")
+// se las comía a todas por igual solo por el largo.
+const PALABRAS_CORTAS_VALIDAS = new Set(['DE', 'LA', 'EL', 'SA', 'Y']);
+
 // Reconstruye, a partir de las líneas de texto que detectó el OCR (una
 // línea de tabla = un cheque), el CUIT + emisor + N° de cheque + monto de
 // cada fila. Solo el CUIT tiene una forma de auto-validarse (el dígito
@@ -122,7 +128,7 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
       // Saca símbolos sueltos que el OCR pega a la primera/última palabra
       // (checkbox de la fila, guiones, corchetes) — solo dejamos letras.
       .map((p) => p.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ-]/g, '').trim())
-      .filter((p) => p.length > 2 && !PALABRAS_IGNORADAS.has(p.toUpperCase()))
+      .filter((p) => (p.length > 2 || PALABRAS_CORTAS_VALIDAS.has(p.toUpperCase())) && !PALABRAS_IGNORADAS.has(p.toUpperCase()))
       .join(' ')
       .trim();
 
