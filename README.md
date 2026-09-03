@@ -396,45 +396,22 @@ excluye explícitamente.
 
 ## 2d. Módulo Control de Cheques — configuración de `pb_hooks/`
 
-Este módulo usa dos rutas propias de PocketBase en `pb_hooks/cheques.pb.js`
-(se despliegan igual que `pb_migrations/`, vía el pipeline de CI/CD — no
-hace falta copiarlas a mano):
+`pb_hooks/cheques.pb.js` agrega una única ruta propia de PocketBase (se
+despliega igual que `pb_migrations/`, vía el pipeline de CI/CD — no hace
+falta copiarla a mano):
 
-- `POST /api/cheques/extraer-cuit`: le manda la captura del cheque a la
-  API de Claude (Anthropic) para que identifique el/los CUIT emisor,
-  número de cheque y monto.
 - `GET /api/cheques/bcra/:cuit`: consulta la Central de Deudores del BCRA
-  (cheques rechazados) para ese CUIT.
+  (cheques rechazados) para ese CUIT. Corre del lado del servidor para
+  evitar problemas de CORS pegándole directo a una API de gobierno desde
+  el navegador.
 
-Ambas corren del lado del servidor para no exponer la clave de Anthropic
-al navegador y para evitar problemas de CORS con la API del BCRA.
-
-**Requiere una variable de entorno `ANTHROPIC_API_KEY` en el servidor**
-(clave de la API de Anthropic/Claude — tiene costo por imagen procesada,
-del orden de centavos de dólar por cheque leído). Se configura una sola
-vez, editando el servicio de systemd:
-
-```bash
-sudo systemctl edit pocketbase
-```
-
-Eso abre un editor para un archivo de override; agregar:
-
-```ini
-[Service]
-Environment=ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Guardar, salir, y:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart pocketbase
-```
-
-Sin esta variable configurada, el módulo devuelve un error 500 claro
-("El servidor no tiene configurada ANTHROPIC_API_KEY") en vez de fallar
-en silencio.
+La lectura del CUIT desde la foto/captura del cheque se hace **100% en
+el navegador** con OCR de código abierto (Tesseract, sin costo ni clave
+de API — ver `web/src/lib/ocr.ts` y `web/src/lib/cuit.ts`), validando
+cada número de 11 dígitos que encuentra contra el algoritmo oficial del
+dígito verificador del CUIT antes de sugerirlo, para descartar falsos
+positivos (montos, números de cuenta, fechas). No requiere ninguna
+variable de entorno ni secreto adicional en el servidor.
 
 ## 3. Uso
 
