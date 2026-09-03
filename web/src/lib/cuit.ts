@@ -64,10 +64,10 @@ export interface ChequeDetectado {
 // emisor, para no meterlas dentro de "emisorNombre" cuando quedan en la
 // misma línea de OCR que los datos del cheque.
 const PALABRAS_IGNORADAS = new Set([
-  'FECHA', 'DE', 'EMISION', 'EMISIÓN', 'EMISOR', 'PAGO', 'NRO', 'CHEQUE', 'IMPORTE', 'ENVIADO', 'POR',
+  'FECHA', 'EMISION', 'EMISIÓN', 'EMISOR', 'PAGO', 'NRO', 'CHEQUE', 'IMPORTE', 'ENVIADO', 'POR',
   'CUIT', 'RAZON', 'RAZÓN', 'SOCIAL', 'ESTADO', 'EMITIDO', 'EMITIDO-PENDIENTE', 'PENDIENTE',
   'ACEPTADO', 'RECHAZADO', 'ACEPTAR', 'CANTIDAD', 'SELECCIONADA', 'TOTAL', 'PERSONALIZAR',
-  'VISTA', 'PODES', 'PODÉS', 'SELECCIONAR', 'LAS', 'COLUMNAS', 'MOSTRAR', 'A', 'AE', 'ACTIVO',
+  'VISTA', 'PODES', 'PODÉS', 'SELECCIONAR', 'LAS', 'COLUMNAS', 'MOSTRAR', 'AE', 'ACTIVO',
   'ACTIVO-PENDIENTE',
 ]);
 

@@ -28,17 +28,21 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
   // la colección "cheques" sí lo dejaba entrar con la misma condición).
   // Para evitarlo, se vuelve a buscar el registro completo por id.
   let modulos = auth.get("modulos") || [];
+  let debugErr = "";
   try {
     const fresco = $app.dao().findRecordById("usuarios", auth.id);
     modulos = fresco.get("modulos") || [];
   } catch (e) {
-    // Si esto falla, seguimos con lo que trajo requestInfo (mejor
-    // esfuerzo, no cortamos la request por un problema acá).
+    debugErr = " [dao:" + (e && e.message ? e.message : String(e)) + "]";
   }
   const modulosTexto = JSON.stringify(modulos).toLowerCase();
   const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("control_cheques") !== -1;
   if (!tieneAcceso) {
-    return c.json(403, { message: "No tenés acceso al módulo de Control de Cheques." });
+    // DEBUG TEMPORAL: se saca en cuanto se confirme la causa real.
+    return c.json(403, {
+      message: "No tenés acceso al módulo de Control de Cheques. [debug rol=" + JSON.stringify(auth.get("rol")) +
+        " modulos=" + modulosTexto + debugErr + "]",
+    });
   }
 
   const cuit = c.pathParam("cuit");
