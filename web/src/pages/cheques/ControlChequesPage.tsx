@@ -14,6 +14,8 @@ interface Candidato {
   emisor_nombre: string;
   incluir: boolean;
   cuitValidado: boolean;
+  bcraEstado: 'idle' | 'consultando' | 'listo' | 'error';
+  bcra?: BcraResultado;
 }
 
 export function ControlChequesPage() {
@@ -103,14 +105,27 @@ export function ControlChequesPage() {
         toast('Encontró números de 11 dígitos pero ninguno pasó la validación de CUIT — revisalos, seguro el OCR se equivocó en un dígito.', 'warn');
       }
       setCandidatos([
-        ...validados.map((c) => ({ cuit_emisor: c.cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: true, cuitValidado: true })),
-        ...sinValidar.map((c) => ({ cuit_emisor: c.cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: false, cuitValidado: false })),
-        { cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '', incluir: leidos.length === 0, cuitValidado: false },
+        ...validados.map((c) => ({ cuit_emisor: c.cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: true, cuitValidado: true, bcraEstado: 'idle' as const })),
+        ...sinValidar.map((c) => ({ cuit_emisor: c.cuit, numero_cheque: '', monto: '', emisor_nombre: '', incluir: false, cuitValidado: false, bcraEstado: 'idle' as const })),
+        { cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '', incluir: leidos.length === 0, cuitValidado: false, bcraEstado: 'idle' as const },
       ]);
+      // El usuario solo tiene que pasar la captura: apenas hay un CUIT
+      // válido, consultamos el BCRA solos, sin que tenga que apretar nada.
+      validados.forEach((c, idx) => consultarBcraCandidato(idx, c.cuit));
     } catch (e) {
       toast('Error leyendo la imagen: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
       setExtrayendo(false);
+    }
+  }
+
+  async function consultarBcraCandidato(i: number, cuit: string) {
+    setCandidato(i, { bcraEstado: 'consultando' });
+    try {
+      const res = await pb.send<BcraResultado>(`/api/cheques/bcra/${cuit}`, { method: 'GET' });
+      setCandidato(i, { bcraEstado: 'listo', bcra: res });
+    } catch {
+      setCandidato(i, { bcraEstado: 'error' });
     }
   }
 
@@ -149,6 +164,12 @@ export function ControlChequesPage() {
         if (c.numero_cheque.trim()) form.append('numero_cheque', c.numero_cheque.trim());
         if (c.monto.trim()) form.append('monto', c.monto.trim());
         if (c.emisor_nombre.trim()) form.append('emisor_nombre', c.emisor_nombre.trim());
+        if (c.bcraEstado === 'listo' && c.bcra) {
+          form.append('bcra_consultado', 'true');
+          form.append('bcra_tiene_rechazados', String(c.bcra.tieneRechazados));
+          form.append('bcra_detalle', JSON.stringify(c.bcra));
+          form.append('bcra_fecha_consulta', new Date().toISOString());
+        }
         await pb.collection('cheques').create(form);
       }
       toast(`${aGuardar.length} cheque${aGuardar.length === 1 ? '' : 's'} guardado${aGuardar.length === 1 ? '' : 's'}.`, 'ok');
@@ -243,13 +264,13 @@ export function ControlChequesPage() {
         {candidatos && (
           <div style={{ marginTop: 16 }}>
             <div className="hint">
-              El CUIT se completa solo (validado con el dígito verificador) — revisalo igual antes de guardar.
+              El CUIT se completa solo (validado con el dígito verificador) y se consulta al BCRA automáticamente.
               Emisor, N° de cheque y monto se cargan a mano.
             </div>
             <div className="table-wrap" style={{ marginTop: 8 }}>
               <table>
                 <thead>
-                  <tr><th></th><th>CUIT emisor</th><th></th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th></tr>
+                  <tr><th></th><th>CUIT emisor</th><th></th><th>BCRA</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th></tr>
                 </thead>
                 <tbody>
                   {candidatos.map((c, i) => (
@@ -269,6 +290,20 @@ export function ControlChequesPage() {
                           c.cuitValidado
                             ? <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>OK</span>
                             : <span className="badge" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }} title="No pasó la validación del dígito verificador — revisalo, seguro el OCR se equivocó en un dígito.">Sin verificar</span>
+                        )}
+                      </td>
+                      <td>
+                        {c.bcraEstado === 'consultando' && <span className="badge">Consultando…</span>}
+                        {c.bcraEstado === 'error' && (
+                          <button className="small secondary" onClick={() => consultarBcraCandidato(i, c.cuit_emisor)}>Reintentar</button>
+                        )}
+                        {c.bcraEstado === 'listo' && c.bcra && (
+                          c.bcra.tieneRechazados
+                            ? <span className="badge" style={{ color: 'var(--err)', borderColor: 'var(--err)' }} title={`${c.bcra.rechazos.length} cheque(s) rechazado(s) registrado(s)`}>Tiene rechazados</span>
+                            : <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Sin rechazos</span>
+                        )}
+                        {c.bcraEstado === 'idle' && c.cuitValidado && (
+                          <button className="small secondary" onClick={() => consultarBcraCandidato(i, c.cuit_emisor)}>Consultar</button>
                         )}
                       </td>
                       <td><input value={c.emisor_nombre} onChange={(e) => setCandidato(i, { emisor_nombre: e.target.value })} /></td>
