@@ -20,7 +20,6 @@ export function ControlChequesPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [cheques, setCheques] = useState<Cheque[]>([]);
-  const [expandidoId, setExpandidoId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [procesando, setProcesando] = useState(false);
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
@@ -28,6 +27,7 @@ export function ControlChequesPage() {
   const [dragOver, setDragOver] = useState(false);
   const [textoOcr, setTextoOcr] = useState<string | null>(null);
   const [mostrarTextoOcr, setMostrarTextoOcr] = useState(false);
+  const [detalleBcraId, setDetalleBcraId] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -323,30 +323,21 @@ export function ControlChequesPage() {
             </thead>
             <tbody>
               {cheques.map((c) => {
-                const tieneDetalle = !!(c.bcra_tiene_rechazados && c.bcra_detalle?.rechazos?.length);
-                const abierto = expandidoId === c.id;
                 return (
                   <Fragment key={c.id}>
                     <tr>
-                      <td>
-                        {tieneDetalle && (
-                          <button
-                            className={`expand-btn${abierto ? ' open' : ''}`}
-                            onClick={() => setExpandidoId(abierto ? null : c.id)}
-                          >
-                            {abierto ? '▾' : '▸'}
-                          </button>
-                        )}
-                      </td>
+                      <td></td>
                       <td>{c.cuit_emisor}</td>
                       <td>
                         <input
+                          className="inline-edit"
                           defaultValue={c.emisor_nombre || ''}
                           onBlur={(e) => e.target.value !== (c.emisor_nombre || '') && actualizarCampo(c, 'emisor_nombre', e.target.value)}
                         />
                       </td>
                       <td>
                         <input
+                          className="inline-edit"
                           defaultValue={c.numero_cheque || ''}
                           style={{ width: 100 }}
                           onBlur={(e) => e.target.value !== (c.numero_cheque || '') && actualizarCampo(c, 'numero_cheque', e.target.value)}
@@ -354,6 +345,7 @@ export function ControlChequesPage() {
                       </td>
                       <td className="num">
                         <input
+                          className="inline-edit"
                           type="number"
                           step="0.01"
                           defaultValue={c.monto ?? ''}
@@ -363,11 +355,13 @@ export function ControlChequesPage() {
                       </td>
                       <td>
                         {c.bcra_consultado ? (
-                          c.bcra_tiene_rechazados ? (
-                            <span className="badge" style={{ color: 'var(--err)', borderColor: 'var(--err)' }}>Tiene rechazados</span>
-                          ) : (
-                            <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Sin rechazos</span>
-                          )
+                          <button className="bcra-link" onClick={() => setDetalleBcraId(c.id)}>
+                            {c.bcra_tiene_rechazados ? (
+                              <span className="badge" style={{ color: 'var(--err)', borderColor: 'var(--err)' }}>Tiene rechazados</span>
+                            ) : (
+                              <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Sin rechazos</span>
+                            )}
+                          </button>
                         ) : (
                           <button className="small secondary" onClick={() => consultarBcra(c)}>Consultar BCRA</button>
                         )}
@@ -376,36 +370,6 @@ export function ControlChequesPage() {
                         <button className="small danger" onClick={() => borrar(c)}>Borrar</button>
                       </td>
                     </tr>
-                    {tieneDetalle && (
-                      <tr className={`detail-row${abierto ? ' open' : ''}`}>
-                        <td></td>
-                        <td colSpan={6}>
-                          <div className="table-wrap">
-                            <table>
-                              <thead>
-                                <tr>
-                                  <th>Entidad</th><th>N° cheque</th><th>Fecha rechazo</th>
-                                  <th className="num">Monto</th><th>Causal</th><th>Pagado</th><th>En proceso judicial</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {c.bcra_detalle!.rechazos.map((r, i) => (
-                                  <tr key={i}>
-                                    <td>{r.entidad ?? '—'}</td>
-                                    <td>{r.nroCheque}</td>
-                                    <td>{r.fechaRechazo}</td>
-                                    <td className="num">{money(r.monto)}</td>
-                                    <td>{r.causal || '—'}</td>
-                                    <td>{r.fechaPago ? r.fechaPago : 'No'}</td>
-                                    <td>{r.procesoJud ? 'Sí' : 'No'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
                   </Fragment>
                 );
               })}
@@ -414,6 +378,64 @@ export function ControlChequesPage() {
           {cheques.length === 0 && <div className="empty">No hay cheques cargados todavía.</div>}
         </div>
       </div>
+
+      {detalleBcraId && (() => {
+        const c = cheques.find((x) => x.id === detalleBcraId);
+        if (!c) return null;
+        const det = c.bcra_detalle;
+        const rechazos = det?.rechazos || [];
+        return (
+          <div className="modal-bg" onClick={() => setDetalleBcraId(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <h3>Info BCRA — {c.emisor_nombre || c.cuit_emisor}</h3>
+              <div className="row"><strong>CUIT:</strong> {c.cuit_emisor}</div>
+              <div className="row"><strong>Denominación (BCRA):</strong> {det?.denominacion || '—'}</div>
+              <div className="row">
+                <strong>Estado:</strong>{' '}
+                {c.bcra_tiene_rechazados ? (
+                  <span className="badge" style={{ color: 'var(--err)', borderColor: 'var(--err)' }}>Tiene rechazados</span>
+                ) : (
+                  <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Sin rechazos</span>
+                )}
+              </div>
+              {c.bcra_fecha_consulta && (
+                <div className="row"><strong>Consultado:</strong> {new Date(c.bcra_fecha_consulta).toLocaleString('es-AR')}</div>
+              )}
+              {rechazos.length > 0 && (
+                <div className="row">
+                  <strong>Cheques rechazados:</strong>
+                  <div className="table-wrap" style={{ marginTop: 8 }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Entidad</th><th>N° cheque</th><th>Fecha rechazo</th>
+                          <th className="num">Monto</th><th>Causal</th><th>Pagado</th><th>En proceso judicial</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rechazos.map((r, i) => (
+                          <tr key={i}>
+                            <td>{r.entidad ?? '—'}</td>
+                            <td>{r.nroCheque}</td>
+                            <td>{r.fechaRechazo}</td>
+                            <td className="num">{money(r.monto)}</td>
+                            <td>{r.causal || '—'}</td>
+                            <td>{r.fechaPago ? r.fechaPago : 'No'}</td>
+                            <td>{r.procesoJud ? 'Sí' : 'No'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              <div className="row" style={{ textAlign: 'right', marginTop: 16 }}>
+                <button className="secondary" onClick={() => setDetalleBcraId(null)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </main>
   );
 }
