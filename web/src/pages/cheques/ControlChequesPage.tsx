@@ -27,10 +27,35 @@ export function ControlChequesPage() {
   const [guardando, setGuardando] = useState(false);
   const [consultandoId, setConsultandoId] = useState<string | null>(null);
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     load();
   }, []);
+
+  // Ctrl+V / clic derecho → Pegar en cualquier parte de la página pega la
+  // imagen del portapapeles, sin necesidad de tener el foco en un campo.
+  const onPickFileRef = useRef<(file: File | null) => void>(() => {});
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            onPickFileRef.current(file);
+            toast('Imagen pegada desde el portapapeles.', 'ok');
+          }
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [toast]);
 
   async function load() {
     try {
@@ -44,8 +69,18 @@ export function ControlChequesPage() {
   function onPickFile(file: File | null) {
     setSelectedFile(file);
     setCandidatos(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(file ? URL.createObjectURL(file) : null);
+    setPreviewUrl((cur) => {
+      if (cur) URL.revokeObjectURL(cur);
+      return file ? URL.createObjectURL(file) : null;
+    });
+  }
+  onPickFileRef.current = onPickFile;
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) onPickFile(file);
   }
 
   async function extraer() {
@@ -142,20 +177,39 @@ export function ControlChequesPage() {
     <main>
       <div className="card">
         <h2>Cargar cheques desde una captura</h2>
-        <div className="row">
-          <div className="field">
-            <label>Captura de pantalla (app del banco)</label>
-            <input ref={fileRef} type="file" accept="image/*" onChange={(e) => onPickFile(e.target.files?.[0] || null)} />
-          </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={(e) => onPickFile(e.target.files?.[0] || null)}
+        />
+        <div
+          className={`dropzone${dragOver ? ' dragover' : ''}`}
+          onClick={() => fileRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+        >
+          {previewUrl ? (
+            <img src={previewUrl} alt="Captura elegida" />
+          ) : (
+            <>
+              <strong>Hacé clic para elegir una imagen</strong>
+              o arrastrala acá, o pegala con Ctrl+V (o clic derecho → Pegar)
+            </>
+          )}
+        </div>
+        <div className="row" style={{ marginTop: 12 }}>
           <button onClick={extraer} disabled={!selectedFile || extrayendo}>
             {extrayendo ? 'Leyendo imagen…' : 'Leer cheques de la imagen'}
           </button>
+          {selectedFile && (
+            <button className="secondary" onClick={() => { onPickFile(null); if (fileRef.current) fileRef.current.value = ''; }}>
+              Quitar imagen
+            </button>
+          )}
         </div>
-        {previewUrl && (
-          <div style={{ marginTop: 12 }}>
-            <img src={previewUrl} alt="preview" style={{ maxWidth: 260, borderRadius: 8, border: '1px solid var(--border)' }} />
-          </div>
-        )}
 
         {candidatos && (
           <div style={{ marginTop: 16 }}>
