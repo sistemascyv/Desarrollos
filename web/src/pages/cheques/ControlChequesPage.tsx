@@ -321,10 +321,18 @@ export function ControlChequesPage() {
           <button className="small danger" onClick={limpiarLista} disabled={cheques.length === 0}>Limpiar lista</button>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="tabla-cheques">
+            <colgroup>
+              <col style={{ width: 130 }} />
+              <col />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 90 }} />
+            </colgroup>
             <thead>
               <tr>
-                <th></th><th>CUIT</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th><th>BCRA</th><th></th>
+                <th>CUIT</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th><th>BCRA</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -332,12 +340,11 @@ export function ControlChequesPage() {
                 return (
                   <Fragment key={c.id}>
                     <tr>
-                      <td></td>
                       <td>{c.cuit_emisor}</td>
                       <td>{c.emisor_nombre || '—'}</td>
                       <td>{c.numero_cheque || '—'}</td>
                       <td className="num">{c.monto != null ? money(c.monto) : '—'}</td>
-                      <td>
+                      <td style={{ textAlign: 'center' }}>
                         {c.bcra_consultado ? (
                           <button className="bcra-link" onClick={() => setDetalleBcraId(c.id)}>
                             {c.bcra_tiene_rechazados ? (
