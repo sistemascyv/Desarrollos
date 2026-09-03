@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import type { BcraEntidad, Cheque, EstadoCheque } from '../../types';
+import type { BcraResultado, Cheque, EstadoCheque } from '../../types';
 import { money } from '../../lib/format';
 import { leerCuitsDeImagen } from '../../lib/ocr';
 
@@ -26,6 +26,7 @@ export function ControlChequesPage() {
   const [candidatos, setCandidatos] = useState<Candidato[] | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [consultandoId, setConsultandoId] = useState<string | null>(null);
+  const [expandidoId, setExpandidoId] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -101,10 +102,7 @@ export function ControlChequesPage() {
   async function consultarBcra(cheque: Cheque) {
     setConsultandoId(cheque.id);
     try {
-      const res = await pb.send<{ cuit: string; denominacion: string | null; tieneRechazados: boolean; entidades: BcraEntidad[] }>(
-        `/api/cheques/bcra/${cheque.cuit_emisor}`,
-        { method: 'GET' },
-      );
+      const res = await pb.send<BcraResultado>(`/api/cheques/bcra/${cheque.cuit_emisor}`, { method: 'GET' });
       await pb.collection('cheques').update(cheque.id, {
         bcra_consultado: true,
         bcra_tiene_rechazados: res.tieneRechazados,
@@ -197,43 +195,89 @@ export function ControlChequesPage() {
           <table>
             <thead>
               <tr>
-                <th>CUIT</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th>
+                <th></th><th>CUIT</th><th>Emisor</th><th>N° cheque</th><th className="num">Monto</th>
                 <th>Estado</th><th>BCRA</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {cheques.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.cuit_emisor}</td>
-                  <td>{c.emisor_nombre || '—'}</td>
-                  <td>{c.numero_cheque || '—'}</td>
-                  <td className="num">{c.monto ? money(c.monto) : '—'}</td>
-                  <td>
-                    <select value={c.estado} onChange={(e) => cambiarEstado(c, e.target.value as EstadoCheque)}>
-                      <option value="pendiente">Pendiente</option>
-                      <option value="aceptado">Aceptado</option>
-                      <option value="rechazado">Rechazado</option>
-                    </select>
-                  </td>
-                  <td>
-                    {c.bcra_consultado ? (
-                      c.bcra_tiene_rechazados ? (
-                        <span className="badge" style={{ color: 'var(--err)', borderColor: 'var(--err)' }}>Tiene rechazados</span>
-                      ) : (
-                        <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Sin rechazos</span>
-                      )
-                    ) : (
-                      <span className="badge">No consultado</span>
+              {cheques.map((c) => {
+                const tieneDetalle = !!(c.bcra_tiene_rechazados && c.bcra_detalle?.rechazos?.length);
+                const abierto = expandidoId === c.id;
+                return (
+                  <Fragment key={c.id}>
+                    <tr>
+                      <td>
+                        {tieneDetalle && (
+                          <button
+                            className={`expand-btn${abierto ? ' open' : ''}`}
+                            onClick={() => setExpandidoId(abierto ? null : c.id)}
+                          >
+                            {abierto ? '▾' : '▸'}
+                          </button>
+                        )}
+                      </td>
+                      <td>{c.cuit_emisor}</td>
+                      <td>{c.emisor_nombre || '—'}</td>
+                      <td>{c.numero_cheque || '—'}</td>
+                      <td className="num">{c.monto ? money(c.monto) : '—'}</td>
+                      <td>
+                        <select value={c.estado} onChange={(e) => cambiarEstado(c, e.target.value as EstadoCheque)}>
+                          <option value="pendiente">Pendiente</option>
+                          <option value="aceptado">Aceptado</option>
+                          <option value="rechazado">Rechazado</option>
+                        </select>
+                      </td>
+                      <td>
+                        {c.bcra_consultado ? (
+                          c.bcra_tiene_rechazados ? (
+                            <span className="badge" style={{ color: 'var(--err)', borderColor: 'var(--err)' }}>Tiene rechazados</span>
+                          ) : (
+                            <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Sin rechazos</span>
+                          )
+                        ) : (
+                          <span className="badge">No consultado</span>
+                        )}
+                      </td>
+                      <td className="actions-cell">
+                        <button className="small secondary" onClick={() => consultarBcra(c)} disabled={consultandoId === c.id}>
+                          {consultandoId === c.id ? 'Consultando…' : 'Consultar BCRA'}
+                        </button>
+                        <button className="small danger" onClick={() => borrar(c)}>Borrar</button>
+                      </td>
+                    </tr>
+                    {tieneDetalle && (
+                      <tr className={`detail-row${abierto ? ' open' : ''}`}>
+                        <td></td>
+                        <td colSpan={7}>
+                          <div className="table-wrap">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>Entidad</th><th>N° cheque</th><th>Fecha rechazo</th>
+                                  <th className="num">Monto</th><th>Causal</th><th>Pagado</th><th>En proceso judicial</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {c.bcra_detalle!.rechazos.map((r, i) => (
+                                  <tr key={i}>
+                                    <td>{r.entidad ?? '—'}</td>
+                                    <td>{r.nroCheque}</td>
+                                    <td>{r.fechaRechazo}</td>
+                                    <td className="num">{money(r.monto)}</td>
+                                    <td>{r.causal || '—'}</td>
+                                    <td>{r.fechaPago ? r.fechaPago : 'No'}</td>
+                                    <td>{r.procesoJud ? 'Sí' : 'No'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td className="actions-cell">
-                    <button className="small secondary" onClick={() => consultarBcra(c)} disabled={consultandoId === c.id}>
-                      {consultandoId === c.id ? 'Consultando…' : 'Consultar BCRA'}
-                    </button>
-                    <button className="small danger" onClick={() => borrar(c)}>Borrar</button>
-                  </td>
-                </tr>
-              ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
           {cheques.length === 0 && <div className="empty">No hay cheques cargados todavía.</div>}
