@@ -774,24 +774,6 @@ a.link {
   box-shadow: 0 8px 20px rgba(98, 60, 46, 0.12);
   transform: translateY(-2px);
 }
-.module-card-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--panel2);
-  color: var(--brand-dark);
-  margin-bottom: 14px;
-}
-:root[data-theme='dark'] .module-card-icon {
-  color: var(--brand);
-}
-.module-card-icon svg {
-  width: 24px;
-  height: 24px;
-}
 .module-card .label {
   font-family: var(--font-display);
   font-size: 20px;
