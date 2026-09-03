@@ -35,7 +35,11 @@ export function ControlChequesPage() {
 
   async function load() {
     try {
-      const items = await pb.collection('cheques').getFullList<Cheque>({ sort: '-created' });
+      // Ascendente: los cheques se guardan uno por uno en el mismo orden
+      // en que aparecen en la captura (de arriba hacia abajo), así que
+      // ordenar por fecha de creación ascendente los deja en ese mismo
+      // orden en la tabla — con "-created" quedaban al revés.
+      const items = await pb.collection('cheques').getFullList<Cheque>({ sort: 'created' });
       setCheques(items);
     } catch (e) {
       toast('No se pudieron cargar los cheques: ' + (e instanceof Error ? e.message : ''), 'err');
