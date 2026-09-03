@@ -15,10 +15,13 @@ const ANCHO_MAXIMO_ESCALADO = 4800;
 const FACTOR_ESCALA = 3;
 // Texto gris clarito de una tabla de banco (poco contraste contra el
 // fondo) es donde más se le escapan palabras enteras a Tesseract, no
-// solo dígitos parecidos — separar bien negro de blanco antes de leer
-// ayuda más que solo agrandar la imagen.
-const CONTRASTE = 1.6;
-const UMBRAL_BLANCO_NEGRO = 165;
+// solo dígitos parecidos — subirle el contraste antes de leer ayuda.
+// OJO: binarizar a blanco/negro puro (probado antes) ayudaba a leer
+// palabras enteras como "DE" pero de paso borraba detalles finos como
+// una coma chica o el signo "$" (quedaban leídos como punto o como el
+// dígito "5"), así que ahora solo se sube el contraste en escala de
+// grises, sin forzar cada píxel a 0 o 255.
+const CONTRASTE = 1.5;
 
 async function escalarImagen(file: File): Promise<HTMLCanvasElement> {
   const bitmap = await createImageBitmap(file);
@@ -36,9 +39,8 @@ async function escalarImagen(file: File): Promise<HTMLCanvasElement> {
   const px = img.data;
   for (let i = 0; i < px.length; i += 4) {
     const gris = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
-    const conContraste = (gris - 128) * CONTRASTE + 128;
-    const bn = conContraste > UMBRAL_BLANCO_NEGRO ? 255 : 0;
-    px[i] = px[i + 1] = px[i + 2] = bn;
+    const conContraste = Math.max(0, Math.min(255, (gris - 128) * CONTRASTE + 128));
+    px[i] = px[i + 1] = px[i + 2] = conContraste;
   }
   ctx.putImageData(img, 0, 0);
   return canvas;
