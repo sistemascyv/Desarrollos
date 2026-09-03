@@ -343,16 +343,7 @@ export function ControlChequesPage() {
                           onBlur={(e) => e.target.value !== (c.numero_cheque || '') && actualizarCampo(c, 'numero_cheque', e.target.value)}
                         />
                       </td>
-                      <td className="num">
-                        <input
-                          className="inline-edit"
-                          type="number"
-                          step="0.01"
-                          defaultValue={c.monto ?? ''}
-                          style={{ width: 100 }}
-                          onBlur={(e) => e.target.value !== String(c.monto ?? '') && actualizarCampo(c, 'monto', e.target.value)}
-                        />
-                      </td>
+                      <td className="num">{c.monto != null ? money(c.monto) : '—'}</td>
                       <td>
                         {c.bcra_consultado ? (
                           <button className="bcra-link" onClick={() => setDetalleBcraId(c.id)}>
