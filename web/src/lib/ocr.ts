@@ -11,8 +11,14 @@ export interface ResultadoOcr {
 // necesita cierta altura en píxeles por carácter para distinguir bien
 // dígitos parecidos (5/8, 0/9). Agrandar la imagen antes de leerla ayuda
 // bastante, aunque sea la misma resolución "estirada".
-const ANCHO_MAXIMO_ESCALADO = 4000;
-const FACTOR_ESCALA = 2.5;
+const ANCHO_MAXIMO_ESCALADO = 4800;
+const FACTOR_ESCALA = 3;
+// Texto gris clarito de una tabla de banco (poco contraste contra el
+// fondo) es donde más se le escapan palabras enteras a Tesseract, no
+// solo dígitos parecidos — separar bien negro de blanco antes de leer
+// ayuda más que solo agrandar la imagen.
+const CONTRASTE = 1.6;
+const UMBRAL_BLANCO_NEGRO = 165;
 
 async function escalarImagen(file: File): Promise<HTMLCanvasElement> {
   const bitmap = await createImageBitmap(file);
@@ -25,6 +31,16 @@ async function escalarImagen(file: File): Promise<HTMLCanvasElement> {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const px = img.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const gris = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
+    const conContraste = (gris - 128) * CONTRASTE + 128;
+    const bn = conContraste > UMBRAL_BLANCO_NEGRO ? 255 : 0;
+    px[i] = px[i + 1] = px[i + 2] = bn;
+  }
+  ctx.putImageData(img, 0, 0);
   return canvas;
 }
 
