@@ -661,6 +661,32 @@ a.link {
   background: var(--panel2);
 }
 
+.inline-edit {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.inline-edit:hover {
+  border-color: var(--border);
+  background: var(--input);
+}
+.inline-edit:focus {
+  border-color: var(--accent);
+  background: var(--input);
+  outline: none;
+}
+
+.bcra-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: inherit;
+}
+
 .dropzone {
   border: 2px dashed var(--border);
   border-radius: 10px;
