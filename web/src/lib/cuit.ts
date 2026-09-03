@@ -64,10 +64,11 @@ export interface ChequeDetectado {
 // emisor, para no meterlas dentro de "emisorNombre" cuando quedan en la
 // misma línea de OCR que los datos del cheque.
 const PALABRAS_IGNORADAS = new Set([
-  'FECHA', 'DE', 'EMISION', 'EMISIÓN', 'PAGO', 'NRO', 'CHEQUE', 'IMPORTE', 'ENVIADO', 'POR',
+  'FECHA', 'DE', 'EMISION', 'EMISIÓN', 'EMISOR', 'PAGO', 'NRO', 'CHEQUE', 'IMPORTE', 'ENVIADO', 'POR',
   'CUIT', 'RAZON', 'RAZÓN', 'SOCIAL', 'ESTADO', 'EMITIDO', 'EMITIDO-PENDIENTE', 'PENDIENTE',
   'ACEPTADO', 'RECHAZADO', 'ACEPTAR', 'CANTIDAD', 'SELECCIONADA', 'TOTAL', 'PERSONALIZAR',
-  'VISTA', 'PODES', 'PODÉS', 'SELECCIONAR', 'LAS', 'COLUMNAS', 'MOSTRAR', 'A', 'AE',
+  'VISTA', 'PODES', 'PODÉS', 'SELECCIONAR', 'LAS', 'COLUMNAS', 'MOSTRAR', 'A', 'AE', 'ACTIVO',
+  'ACTIVO-PENDIENTE',
 ]);
 
 // Reconstruye, a partir de las líneas de texto que detectó el OCR (una
@@ -75,17 +76,26 @@ const PALABRAS_IGNORADAS = new Set([
 // cada fila. Solo el CUIT tiene una forma de auto-validarse (el dígito
 // verificador); los otros tres campos son "mejor esfuerzo" y quedan
 // editables en la UI por si el OCR se equivocó en algo.
+//
+// La vista personalizada del banco puede traer DOS CUIT por fila:
+// "Enviado por CUIT" (quien reenvía/gestiona el cobro, puede ser un
+// tercero que agrupa cheques de varios clientes) y "Emisor CUIT" (el
+// verdadero librador del cheque, que es a quien hay que consultarle el
+// historial en el BCRA). Cuando aparecen los dos, "Emisor CUIT" es la
+// columna más a la derecha, así que nos quedamos con el último match de
+// la fila en vez del primero.
 export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
   const resultado: ChequeDetectado[] = [];
   const vistos = new Set<string>();
 
   for (const lineaOriginal of lineas) {
-    const cuitMatch = lineaOriginal.match(/\b\d{11}\b/);
-    if (!cuitMatch) continue;
-    const cuit = cuitMatch[0];
+    const cuitMatches = lineaOriginal.match(/\b\d{11}\b/g);
+    if (!cuitMatches || cuitMatches.length === 0) continue;
+    const cuit = cuitMatches[cuitMatches.length - 1];
     if (vistos.has(cuit)) continue;
 
-    let resto = lineaOriginal.replace(cuit, ' ');
+    let resto = lineaOriginal;
+    for (const m of cuitMatches) resto = resto.replace(m, ' ');
     resto = resto.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, ' '); // fechas dd/mm/aaaa
 
     let monto = '';
