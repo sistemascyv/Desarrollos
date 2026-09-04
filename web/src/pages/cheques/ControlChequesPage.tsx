@@ -14,6 +14,13 @@ interface Pendiente {
   emisor_nombre: string;
 }
 
+// Carga manual: solo CUIT + N° de cheque, para cuando no hay captura
+// (o el OCR no detectó nada) y no vale la pena pedir más datos a mano.
+interface Manual {
+  cuit_emisor: string;
+  numero_cheque: string;
+}
+
 function esperar(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -46,6 +53,8 @@ export function ControlChequesPage() {
   const [procesando, setProcesando] = useState(false);
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const [guardandoPendiente, setGuardandoPendiente] = useState<number | null>(null);
+  const [manuales, setManuales] = useState<Manual[]>([]);
+  const [guardandoManual, setGuardandoManual] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [textoOcr, setTextoOcr] = useState<string | null>(null);
   const [mostrarTextoOcr, setMostrarTextoOcr] = useState(false);
@@ -77,6 +86,7 @@ export function ControlChequesPage() {
       return URL.createObjectURL(file);
     });
     setPendientes([]);
+    setManuales([]);
     setTextoOcr(null);
     setMostrarTextoOcr(false);
     setProcesando(true);
@@ -84,8 +94,8 @@ export function ControlChequesPage() {
       const { cheques: detectados, textoCrudo } = await leerChequesDeImagen(file);
       setTextoOcr(textoCrudo);
       if (detectados.length === 0) {
-        toast('No se detectó ningún CUIT válido en la imagen. Podés cargar el cheque a mano abajo.', 'warn');
-        setPendientes([{ cuit_emisor: '', numero_cheque: '', monto: '', emisor_nombre: '' }]);
+        toast('No se detectó ningún CUIT válido en la imagen. Cargá el CUIT y el N° de cheque a mano abajo.', 'warn');
+        setManuales([{ cuit_emisor: '', numero_cheque: '' }]);
         return;
       }
 
@@ -123,10 +133,10 @@ export function ControlChequesPage() {
     }
   }
 
-  async function guardarYConsultar(imagen: File, cuit: string, numeroCheque: string, monto: string, emisorNombre: string) {
+  async function guardarYConsultar(imagen: File | undefined, cuit: string, numeroCheque: string, monto: string, emisorNombre: string) {
     try {
       const form = new FormData();
-      form.append('imagen', imagen);
+      if (imagen) form.append('imagen', imagen);
       form.append('cuit_emisor', cuit);
       form.append('estado', 'pendiente');
       if (numeroCheque) form.append('numero_cheque', numeroCheque);
@@ -217,6 +227,45 @@ export function ControlChequesPage() {
     }
   }
 
+  function setManual(i: number, patch: Partial<Manual>) {
+    setManuales((cur) => cur.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  }
+
+  function quitarManual(i: number) {
+    setManuales((cur) => cur.filter((_, idx) => idx !== i));
+  }
+
+  function agregarManualVacio() {
+    setManuales((cur) => [...cur, { cuit_emisor: '', numero_cheque: '' }]);
+  }
+
+  async function guardarManual(i: number) {
+    const m = manuales[i];
+    if (!m.cuit_emisor.trim()) { toast('Falta el CUIT.', 'warn'); return; }
+    if (!esCuitValido(m.cuit_emisor)) {
+      const ok = await confirm(`El CUIT ${m.cuit_emisor} no pasó la validación del dígito verificador. ¿Guardar igual?`, 'CUIT sin verificar');
+      if (!ok) return;
+    }
+    setGuardandoManual(i);
+    try {
+      // Si hay una captura pegada (aunque el OCR no haya podido leerla),
+      // se la asocia igual al cheque cargado a mano.
+      let imagen: File | undefined;
+      if (previewUrl) {
+        const res = await fetch(previewUrl);
+        const blob = await res.blob();
+        imagen = new File([blob], 'cheque.png', { type: blob.type || 'image/png' });
+      }
+      await guardarYConsultar(imagen, m.cuit_emisor.trim(), m.numero_cheque.trim(), '', '');
+      quitarManual(i);
+      toast('Cheque guardado.', 'ok');
+    } catch (e) {
+      toast('Error guardando: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setGuardandoManual(null);
+    }
+  }
+
   async function consultarBcra(cheque: Cheque) {
     try {
       const res = await consultarBcraConReintento(cheque.cuit_emisor);
@@ -287,6 +336,43 @@ export function ControlChequesPage() {
             ? 'Leyendo la imagen, guardando y consultando el BCRA…'
             : 'Solo tenés que pegar la captura — el CUIT se lee y valida solo, y se consulta el BCRA automáticamente.'}
         </div>
+        <button className="small secondary" style={{ marginTop: 8 }} onClick={agregarManualVacio}>+ Agregar cheque a mano (sin foto)</button>
+
+        {manuales.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div className="hint">Solo hace falta el CUIT y el N° de cheque — el emisor y el monto quedan sin cargar.</div>
+            <div className="table-wrap" style={{ marginTop: 8 }}>
+              <table>
+                <thead>
+                  <tr><th>CUIT emisor</th><th>N° cheque</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {manuales.map((m, i) => (
+                    <tr key={i}>
+                      <td>
+                        <input
+                          value={m.cuit_emisor}
+                          onChange={(e) => setManual(i, { cuit_emisor: e.target.value.replace(/\D/g, '') })}
+                          placeholder="11 dígitos"
+                          maxLength={11}
+                          style={{ width: 120, borderColor: m.cuit_emisor && !esCuitValido(m.cuit_emisor) ? 'var(--warn)' : undefined }}
+                        />
+                      </td>
+                      <td><input value={m.numero_cheque} onChange={(e) => setManual(i, { numero_cheque: e.target.value })} style={{ width: 110 }} /></td>
+                      <td className="actions-cell">
+                        <button className="small secondary" onClick={() => guardarManual(i)} disabled={guardandoManual === i}>
+                          {guardandoManual === i ? 'Guardando…' : 'Guardar'}
+                        </button>
+                        <button className="small danger" onClick={() => quitarManual(i)}>Descartar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button className="small secondary" style={{ marginTop: 8 }} onClick={agregarManualVacio}>+ Agregar otro a mano</button>
+          </div>
+        )}
 
         {pendientes.length > 0 && (
           <div style={{ marginTop: 16 }}>
