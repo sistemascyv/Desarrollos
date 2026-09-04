@@ -74,10 +74,6 @@ export function CentralDeudoresPage() {
     <main>
       <div className="card">
         <h2>Central de Deudores</h2>
-        <div className="hint" style={{ marginBottom: 12 }}>
-          Reporte de riesgo crediticio armado con datos gratuitos del BCRA: deuda actual, evolución de los últimos 24 meses y
-          cheques rechazados. No incluye Score ni consultas (eso es de servicios pagos como Equifax, no del BCRA).
-        </div>
         <div className="row">
           <div className="field">
             <label>CUIT a consultar</label>
