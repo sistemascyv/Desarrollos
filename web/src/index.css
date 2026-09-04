@@ -339,9 +339,15 @@ tbody tr:hover {
   color: var(--ok);
   border-color: var(--ok);
 }
+/* Nunca display:flex directo en un <td> — rompe cómo el navegador
+   alinea el borde inferior de esa celda contra las demás de la fila
+   (queda "salteado" justo donde empiezan los botones). Los botones
+   quedan en flujo normal, con el espacio entre ellos por margen. */
 .actions-cell {
-  display: flex;
-  gap: 4px;
+  white-space: nowrap;
+}
+.actions-cell button + button {
+  margin-left: 4px;
 }
 .expand-btn {
   background: transparent;
