@@ -115,6 +115,24 @@ const RE_NRO_CHEQUE = /\d{5,9}/;
 // seguido de 2 dígitos exactos.
 const RE_MONTO = /\$?\s?\d[\d.,\s]*[.,\s]\d{2}\b/;
 
+// Saca símbolos sueltos que el OCR pega a la primera/última palabra
+// (checkbox de la fila, guiones, corchetes), encabezados de la UI del
+// banco y restos de la columna Estado, dejando solo lo que parece parte
+// real de un nombre.
+function limpiarNombre(texto: string): string {
+  return texto
+    .split(/\s+/)
+    .map((p) => p.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ-]/g, '').replace(/^-+|-+$/g, '').trim())
+    .filter((p) => {
+      const larga = p.length > 2 || PALABRAS_CORTAS_VALIDAS.has(p.toUpperCase());
+      if (!larga || PALABRAS_IGNORADAS.has(p.toUpperCase())) return false;
+      const low = p.toLowerCase();
+      return !(low.length >= 4 && RUIDO_ESTADO.includes(low));
+    })
+    .join(' ')
+    .trim();
+}
+
 export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
   const resultado: ChequeDetectado[] = [];
   const vistos = new Set<string>();
@@ -124,8 +142,21 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
     // agrupa cheques de varios clientes) y "Emisor CUIT" — el verdadero
     // librador, al que hay que consultarle el historial en el BCRA, en la
     // columna más a la derecha. Nos quedamos con el último match.
+    // Una razón social larga ("SUCESORES DE ALFREDO WILLINER") no entra en
+    // el ancho de la columna y el banco la parte en dos líneas visuales —
+    // el OCR las lee como líneas separadas. Esta función pega el texto
+    // sobrante de una de esas líneas de continuación al cheque anterior.
+    const pegarComoColaDelAnterior = (texto: string) => {
+      const cola = limpiarNombre(texto);
+      const anterior = resultado[resultado.length - 1];
+      if (cola && anterior) anterior.emisorNombre = (anterior.emisorNombre + ' ' + cola).trim();
+    };
+
     const cuitMatches = lineaOriginal.match(/\b\d{11}\b/g);
-    if (!cuitMatches || cuitMatches.length === 0) continue;
+    if (!cuitMatches || cuitMatches.length === 0) {
+      pegarComoColaDelAnterior(lineaOriginal);
+      continue;
+    }
     const cuit = cuitMatches[cuitMatches.length - 1];
 
     let resto = lineaOriginal;
@@ -140,6 +171,13 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
     if (nroMatch && nroMatch.index != null) {
       numeroCheque = nroMatch[0];
       cursor += nroMatch.index + nroMatch[0].length;
+    } else {
+      // Un CUIT sin N° de cheque no es una fila nueva de verdad: es el
+      // Emisor CUIT que quedó solo en la línea de continuación de un
+      // nombre envuelto (ver arriba). Sin este chequeo quedaba un cheque
+      // fantasma vacío duplicado.
+      pegarComoColaDelAnterior(resto);
+      continue;
     }
 
     let monto = '';
@@ -150,20 +188,7 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
     }
 
     // Lo que queda (razón social + Estado) es de donde sale el nombre.
-    const emisorNombre = resto
-      .slice(cursor)
-      .split(/\s+/)
-      // Saca símbolos sueltos que el OCR pega a la primera/última palabra
-      // (checkbox de la fila, guiones, corchetes) — solo dejamos letras.
-      .map((p) => p.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ-]/g, '').replace(/^-+|-+$/g, '').trim())
-      .filter((p) => {
-        const larga = p.length > 2 || PALABRAS_CORTAS_VALIDAS.has(p.toUpperCase());
-        if (!larga || PALABRAS_IGNORADAS.has(p.toUpperCase())) return false;
-        const low = p.toLowerCase();
-        return !(low.length >= 4 && RUIDO_ESTADO.includes(low));
-      })
-      .join(' ')
-      .trim();
+    const emisorNombre = limpiarNombre(resto.slice(cursor));
 
     // Dos cheques distintos pueden tener el mismo CUIT emisor (misma
     // empresa, cheques distintos) — lo que no puede repetirse es el N° de
