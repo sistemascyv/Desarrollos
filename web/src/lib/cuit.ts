@@ -84,18 +84,20 @@ const PALABRAS_CORTAS_VALIDAS = new Set(['DE', 'LA', 'EL', 'SA', 'Y']);
 // contra las frases completas conocidas en vez de match exacto.
 const RUIDO_ESTADO = 'activo-pendiente emitido-pendiente rechazado aceptado';
 
-// Convierte el texto de un monto ya recortado ("298.380,82", "298.380.82",
-// "2.269.306 00"...) al formato con punto decimal que espera el backend.
-// El OCR a veces confunde la coma decimal con un punto o un espacio — en
-// vez de asumir siempre "punto = miles, coma = decimal", se toma el
-// ÚLTIMO separador (sea cual sea el símbolo) como el decimal, y se saca
-// cualquier otro separador antes (de miles), evitando multiplicar el
-// monto real por 100.
+// Convierte el texto de un monto ya recortado al formato con punto
+// decimal que espera el backend. El OCR suele leer bien los DÍGITOS de
+// un importe, pero pierde o mueve los separadores de forma impredecible
+// (coma leída como punto, como espacio, o directamente perdida del
+// todo: "298.380,82" a veces sale "298.380.82" o incluso "29838082"
+// pegado sin ningún separador). En vez de tratar de ubicar cuál
+// carácter es el separador de miles y cuál el decimal, se sacan TODOS
+// los separadores y se toman siempre los últimos 2 dígitos como
+// centavos — que es la única parte del formato que el OCR no suele
+// mover de lugar.
 function normalizarMonto(crudo: string): string {
-  const ultimoSep = Math.max(crudo.lastIndexOf('.'), crudo.lastIndexOf(','), crudo.lastIndexOf(' '));
-  const parteEntera = crudo.slice(0, ultimoSep).replace(/[.,\s]/g, '');
-  const parteDecimal = crudo.slice(ultimoSep + 1);
-  return parteEntera + '.' + parteDecimal;
+  const soloDigitos = crudo.replace(/\D/g, '');
+  if (soloDigitos.length <= 2) return '0.' + soloDigitos.padStart(2, '0');
+  return soloDigitos.slice(0, -2) + '.' + soloDigitos.slice(-2);
 }
 
 // La fila de la tabla del banco siempre trae los campos en el MISMO
@@ -108,12 +110,10 @@ function normalizarMonto(crudo: string): string {
 // anterior, nunca antes.
 const RE_FECHA = /\d{1,2}\/\d{1,2}\/\d{2,4}|(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}/;
 const RE_NRO_CHEQUE = /\d{5,9}/;
-// El inicio es libre en cantidad de dígitos (un monto puede empezar con
-// más de 3 dígitos antes del primer separador de miles, ej. "1.346.108");
-// lo único que identifica "esto es un monto" es que termine en un
-// separador (coma, punto, o el espacio en que a veces lo lee el OCR)
-// seguido de 2 dígitos exactos.
-const RE_MONTO = /\$?\s?\d[\d.,\s]*[.,\s]\d{2}\b/;
+// Agarra todo el bloque de dígitos/separadores que sigue (no importa
+// cuántos separadores tenga ni dónde caigan) — normalizarMonto() es la
+// que decide qué son centavos, no esta regex.
+const RE_MONTO = /\$?\s?\d[\d.,\s]{2,}\d\b/;
 
 // Saca símbolos sueltos que el OCR pega a la primera/última palabra
 // (checkbox de la fila, guiones, corchetes), encabezados de la UI del
@@ -176,7 +176,7 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
     let monto = '';
     const montoMatch = resto.slice(cursor).match(RE_MONTO);
     if (montoMatch && montoMatch.index != null) {
-      monto = normalizarMonto(montoMatch[0].replace(/[^\d.,\s]/g, '').trim());
+      monto = normalizarMonto(montoMatch[0]);
       cursor += montoMatch.index + montoMatch[0].length;
     }
 
