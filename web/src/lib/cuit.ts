@@ -16,6 +16,54 @@ export function esCuitValido(cuit: string): boolean {
   return verificador === Number(cuit[10]);
 }
 
+// El prefijo del CUIT (los primeros 2 dígitos) ya indica si es una
+// persona física o jurídica — no hace falta consultar nada para saberlo.
+// 20/23/24/27 = personas físicas, 30/33/34 = personas jurídicas
+// (sociedades, empresas). El resto (50, etc.) son casos poco comunes,
+// se dejan sin clasificar en vez de adivinar.
+export function tipoPersonaPorCuit(cuit: string): 'Física' | 'Jurídica' | null {
+  const prefijo = cuit.slice(0, 2);
+  if (['30', '33', '34'].includes(prefijo)) return 'Jurídica';
+  if (['20', '23', '24', '27'].includes(prefijo)) return 'Física';
+  return null;
+}
+
+// El BCRA solo manda un código de situación (1 a 6) — la traducción a
+// rango de días de atraso es la clasificación oficial de deudores del
+// BCRA (Comunicación "A" de deudores del sistema financiero), no un
+// dato extra que haya que salir a buscar a otro lado.
+export function situacionADias(situacion: number): string {
+  if (situacion <= 1) return 'Hasta 31 días (situación normal)';
+  if (situacion === 2) return '32 a 90 días';
+  if (situacion === 3) return '91 a 180 días';
+  if (situacion === 4) return '181 a 365 días';
+  return 'Más de 365 días';
+}
+
+// Tipos societarios comunes en la razón social ("DREAN S. A." -> "S.A.")
+// — mejor esfuerzo con lo que ya devuelve el BCRA, sin consultar nada
+// aparte. Los más largos van primero para no cortar "SACI" como "SA".
+const SUFIJOS_SOCIETARIOS: [RegExp, string][] = [
+  [/\bS\.?\s*A\.?\s*C\.?\s*I\.?\s*F\.?\s*I\.?\b\.?$/i, 'S.A.C.I.F.I.'],
+  [/\bS\.?\s*A\.?\s*C\.?\s*I\.?\s*F\.?\b\.?$/i, 'S.A.C.I.F.'],
+  [/\bS\.?\s*A\.?\s*C\.?\s*I\.?\b\.?$/i, 'S.A.C.I.'],
+  [/\bS\.?\s*A\.?\s*S\.?\b\.?$/i, 'S.A.S.'],
+  [/\bS\.?\s*R\.?\s*L\.?\b\.?$/i, 'S.R.L.'],
+  [/\bS\.?\s*C\.?\s*A\.?\b\.?$/i, 'S.C.A.'],
+  [/\bS\.?\s*A\.?\b\.?$/i, 'S.A.'],
+  [/\bCOOP(?:ERATIVA)?\.?\s*(?:LTDA\.?)?$/i, 'Cooperativa'],
+  [/\bASOC(?:IACI[OÓ]N)?\.?\s*CIVIL\.?$/i, 'Asociación Civil'],
+  [/\bFUND(?:ACI[OÓ]N)?\.?$/i, 'Fundación'],
+];
+
+export function tipoSociedadDeDenominacion(denominacion: string | null): string | null {
+  if (!denominacion) return null;
+  for (const [patron, etiqueta] of SUFIJOS_SOCIETARIOS) {
+    if (patron.test(denominacion.trim())) return etiqueta;
+  }
+  return null;
+}
+
 export interface CandidatoCuit {
   cuit: string;
   valido: boolean;
