@@ -77,6 +77,13 @@ const PALABRAS_IGNORADAS = new Set([
 // se las comía a todas por igual solo por el largo.
 const PALABRAS_CORTAS_VALIDAS = new Set(['DE', 'LA', 'EL', 'SA', 'Y']);
 
+// Cuando la columna "Estado" no entra en una línea (ACTIVO-PENDIENTE /
+// EMITIDO-PENDIENTE) el OCR la corta rara: "EMITIDO-" sin la segunda
+// palabra, o "ENDIENTE" con la "P" perdida. La lista exacta de arriba no
+// las agarra por ser fragmentos distintos — acá se filtra por substring
+// contra las frases completas conocidas en vez de match exacto.
+const RUIDO_ESTADO = 'activo-pendiente emitido-pendiente rechazado aceptado';
+
 // Reconstruye, a partir de las líneas de texto que detectó el OCR (una
 // línea de tabla = un cheque), el CUIT + emisor + N° de cheque + monto de
 // cada fila. Solo el CUIT tiene una forma de auto-validarse (el dígito
@@ -136,8 +143,13 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
       .split(/\s+/)
       // Saca símbolos sueltos que el OCR pega a la primera/última palabra
       // (checkbox de la fila, guiones, corchetes) — solo dejamos letras.
-      .map((p) => p.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ-]/g, '').trim())
-      .filter((p) => (p.length > 2 || PALABRAS_CORTAS_VALIDAS.has(p.toUpperCase())) && !PALABRAS_IGNORADAS.has(p.toUpperCase()))
+      .map((p) => p.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ-]/g, '').replace(/^-+|-+$/g, '').trim())
+      .filter((p) => {
+        const larga = p.length > 2 || PALABRAS_CORTAS_VALIDAS.has(p.toUpperCase());
+        if (!larga || PALABRAS_IGNORADAS.has(p.toUpperCase())) return false;
+        const low = p.toLowerCase();
+        return !(low.length >= 4 && RUIDO_ESTADO.includes(low));
+      })
       .join(' ')
       .trim();
 
