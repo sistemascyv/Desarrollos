@@ -133,30 +133,32 @@ function limpiarNombre(texto: string): string {
     .trim();
 }
 
+interface Ancla {
+  idxLinea: number;
+  cuit: string;
+  numeroCheque: string;
+  monto: string;
+  nombreBase: string;
+}
+
 export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
-  const resultado: ChequeDetectado[] = [];
+  // Primera pasada: una fila "ancla" es una línea que trae CUIT + N° de
+  // cheque — las dos únicas cosas que identifican de verdad una fila real
+  // de la tabla. Todo lo demás (líneas sin CUIT, o con CUIT pero sin N°
+  // de cheque) son restos de columnas que se envolvieron en dos líneas
+  // visuales (nombre largo, "Estado" cortado) y se resuelven en la
+  // segunda pasada.
+  const anclas: Ancla[] = [];
+  const idxAncla = new Set<number>();
   const vistos = new Set<string>();
 
-  for (const lineaOriginal of lineas) {
+  lineas.forEach((lineaOriginal, idxLinea) => {
+    const cuitMatches = lineaOriginal.match(/\b\d{11}\b/g);
+    if (!cuitMatches || cuitMatches.length === 0) return;
     // Dos CUIT por fila: "Enviado por CUIT" (puede ser un tercero que
     // agrupa cheques de varios clientes) y "Emisor CUIT" — el verdadero
     // librador, al que hay que consultarle el historial en el BCRA, en la
     // columna más a la derecha. Nos quedamos con el último match.
-    // Una razón social larga ("SUCESORES DE ALFREDO WILLINER") no entra en
-    // el ancho de la columna y el banco la parte en dos líneas visuales —
-    // el OCR las lee como líneas separadas. Esta función pega el texto
-    // sobrante de una de esas líneas de continuación al cheque anterior.
-    const pegarComoColaDelAnterior = (texto: string) => {
-      const cola = limpiarNombre(texto);
-      const anterior = resultado[resultado.length - 1];
-      if (cola && anterior) anterior.emisorNombre = (anterior.emisorNombre + ' ' + cola).trim();
-    };
-
-    const cuitMatches = lineaOriginal.match(/\b\d{11}\b/g);
-    if (!cuitMatches || cuitMatches.length === 0) {
-      pegarComoColaDelAnterior(lineaOriginal);
-      continue;
-    }
     const cuit = cuitMatches[cuitMatches.length - 1];
 
     let resto = lineaOriginal;
@@ -166,19 +168,10 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
     const fechaMatch = resto.slice(cursor).match(RE_FECHA);
     if (fechaMatch && fechaMatch.index != null) cursor += fechaMatch.index + fechaMatch[0].length;
 
-    let numeroCheque = '';
     const nroMatch = resto.slice(cursor).match(RE_NRO_CHEQUE);
-    if (nroMatch && nroMatch.index != null) {
-      numeroCheque = nroMatch[0];
-      cursor += nroMatch.index + nroMatch[0].length;
-    } else {
-      // Un CUIT sin N° de cheque no es una fila nueva de verdad: es el
-      // Emisor CUIT que quedó solo en la línea de continuación de un
-      // nombre envuelto (ver arriba). Sin este chequeo quedaba un cheque
-      // fantasma vacío duplicado.
-      pegarComoColaDelAnterior(resto);
-      continue;
-    }
+    if (!nroMatch || nroMatch.index == null) return; // sin N° de cheque no es una fila real
+    const numeroCheque = nroMatch[0];
+    cursor += nroMatch.index + nroMatch[0].length;
 
     let monto = '';
     const montoMatch = resto.slice(cursor).match(RE_MONTO);
@@ -187,18 +180,58 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
       cursor += montoMatch.index + montoMatch[0].length;
     }
 
-    // Lo que queda (razón social + Estado) es de donde sale el nombre.
-    const emisorNombre = limpiarNombre(resto.slice(cursor));
-
-    // Dos cheques distintos pueden tener el mismo CUIT emisor (misma
-    // empresa, cheques distintos) — lo que no puede repetirse es el N° de
-    // cheque, así que deduplicamos por cuit+número y no solo por cuit.
     const clave = cuit + '|' + numeroCheque;
-    if (vistos.has(clave)) continue;
+    if (vistos.has(clave)) return;
     vistos.add(clave);
+    idxAncla.add(idxLinea);
+    anclas.push({ idxLinea, cuit, numeroCheque, monto, nombreBase: limpiarNombre(resto.slice(cursor)) });
+  });
 
-    resultado.push({ cuit, valido: esCuitValido(cuit), numeroCheque, monto, emisorNombre });
-  }
+  // Segunda pasada: una razón social larga ("SUCESORES DE ALFREDO
+  // WILLINER") no entra en el ancho de la columna y el banco la parte en
+  // dos líneas visuales, y el OCR las lee como líneas sueltas — a veces
+  // ANTES de la línea con los datos de esa fila (si el nombre queda
+  // arriba del todo en una fila más alta de lo normal), a veces después.
+  // Cada línea que no es un ancla se pega al ancla más cercana por
+  // posición, sea anterior o posterior, en vez de asumir siempre "la
+  // fila anterior".
+  // Cada fragmento (el propio de la ancla + los que se le peguen) guarda
+  // su idxLinea, para poder ordenar el nombre final por posición real en
+  // vez de "ancla primero, extras después" (que invertía el orden cuando
+  // el fragmento envuelto venía ANTES de la línea ancla).
+  const fragmentos: { idxLinea: number; texto: string }[][] = anclas.map((a) => [
+    { idxLinea: a.idxLinea, texto: a.nombreBase },
+  ]);
 
-  return resultado;
+  lineas.forEach((lineaOriginal, idxLinea) => {
+    if (idxAncla.has(idxLinea) || anclas.length === 0) return;
+    const cola = limpiarNombre(lineaOriginal);
+    if (!cola) return;
+    let mejor = 0;
+    let mejorDist = Infinity;
+    anclas.forEach((a, i) => {
+      const d = Math.abs(a.idxLinea - idxLinea);
+      // En un empate (misma distancia a la fila anterior y a la
+      // siguiente) gana la siguiente: un nombre envuelto casi siempre es
+      // el arranque del nombre de la fila que viene, no la cola de la
+      // anterior.
+      if (d <= mejorDist) {
+        mejorDist = d;
+        mejor = i;
+      }
+    });
+    fragmentos[mejor].push({ idxLinea, texto: cola });
+  });
+
+  return anclas.map((a, i) => ({
+    cuit: a.cuit,
+    valido: esCuitValido(a.cuit),
+    numeroCheque: a.numeroCheque,
+    monto: a.monto,
+    emisorNombre: fragmentos[i]
+      .sort((x, y) => x.idxLinea - y.idxLinea)
+      .map((f) => f.texto)
+      .filter(Boolean)
+      .join(' '),
+  }));
 }
