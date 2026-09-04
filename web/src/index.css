@@ -186,6 +186,20 @@ input[type='checkbox'] {
 .stat.saldo-neg .val {
   color: var(--err);
 }
+.summary-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+.summary-grid-compact .stat {
+  padding: 7px 9px;
+}
+.summary-grid-compact .stat .lbl {
+  font-size: 10px;
+}
+.summary-grid-compact .stat .val {
+  font-size: 14px;
+  margin-top: 1px;
+}
 
 .bar-chart-legend {
   display: flex;

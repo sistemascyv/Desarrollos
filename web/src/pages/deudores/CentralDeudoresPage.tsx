@@ -99,7 +99,7 @@ export function CentralDeudoresPage() {
           <div className="card">
             <h2>{reporte.denominacion || reporte.cuit}</h2>
             <div className="hint" style={{ marginBottom: 12 }}>CUIT {reporte.cuit}</div>
-            <div className="summary-grid">
+            <div className="summary-grid summary-grid-compact">
               <div className="stat">
                 <div className="lbl">Tipo de persona</div>
                 <div className="val">{tipoPersona || '—'}</div>
