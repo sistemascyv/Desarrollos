@@ -115,15 +115,6 @@ const RE_NRO_CHEQUE = /\d{5,9}/;
 // seguido de 2 dígitos exactos.
 const RE_MONTO = /\$?\s?\d[\d.,\s]*[.,\s]\d{2}\b/;
 
-// Líneas de encabezado / UI del banco ("Fecha de pago", "Nro. de
-// cheque"...) no tienen CUIT, así que en la segunda pasada calificarían
-// como "línea suelta para pegar a la ancla más cercana" igual que un
-// nombre envuelto. Palabras cortas como "de" (válidas en una razón
-// social real, ver PALABRAS_CORTAS_VALIDAS) sobreviven al filtro
-// palabra por palabra en frases como "Fecha DE pago" — hay que sacar la
-// línea entera antes de llegar a ese filtro, no solo palabra por palabra.
-const RE_ENCABEZADO = /fecha de pago|nro\.? de cheque|enviado por (cuit|raz)|emisor cuit|personalizar vista|columnas a mostrar/i;
-
 // Saca símbolos sueltos que el OCR pega a la primera/última palabra
 // (checkbox de la fila, guiones, corchetes), encabezados de la UI del
 // banco y restos de la columna Estado, dejando solo lo que parece parte
@@ -214,9 +205,15 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
 
   lineas.forEach((lineaOriginal, idxLinea) => {
     if (idxAncla.has(idxLinea) || anclas.length === 0) return;
-    if (RE_ENCABEZADO.test(lineaOriginal)) return;
     const cola = limpiarNombre(lineaOriginal);
     if (!cola) return;
+    // El encabezado del banco ("Fecha de / Nro. de...") también se parte
+    // en dos líneas visuales, así que buscar la frase completa no
+    // alcanza — puede quedar solo "de de" (las palabras cortas que sí
+    // dejamos pasar en un nombre real, ver PALABRAS_CORTAS_VALIDAS) sin
+    // ninguna palabra de contenido real detrás. Exigimos al menos una
+    // palabra de más de 2 letras para considerarlo parte de un nombre.
+    if (!cola.split(' ').some((p) => p.length > 2)) return;
     let mejor = 0;
     let mejorDist = Infinity;
     anclas.forEach((a, i) => {
