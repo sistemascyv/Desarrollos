@@ -84,68 +84,74 @@ const PALABRAS_CORTAS_VALIDAS = new Set(['DE', 'LA', 'EL', 'SA', 'Y']);
 // contra las frases completas conocidas en vez de match exacto.
 const RUIDO_ESTADO = 'activo-pendiente emitido-pendiente rechazado aceptado';
 
-// Reconstruye, a partir de las líneas de texto que detectó el OCR (una
-// línea de tabla = un cheque), el CUIT + emisor + N° de cheque + monto de
-// cada fila. Solo el CUIT tiene una forma de auto-validarse (el dígito
-// verificador); los otros tres campos son "mejor esfuerzo" y quedan
-// editables en la UI por si el OCR se equivocó en algo.
-//
-// La vista personalizada del banco puede traer DOS CUIT por fila:
-// "Enviado por CUIT" (quien reenvía/gestiona el cobro, puede ser un
-// tercero que agrupa cheques de varios clientes) y "Emisor CUIT" (el
-// verdadero librador del cheque, que es a quien hay que consultarle el
-// historial en el BCRA). Cuando aparecen los dos, "Emisor CUIT" es la
-// columna más a la derecha, así que nos quedamos con el último match de
-// la fila en vez del primero.
+// Convierte el texto de un monto ya recortado ("298.380,82", "298.380.82",
+// "2.269.306 00"...) al formato con punto decimal que espera el backend.
+// El OCR a veces confunde la coma decimal con un punto o un espacio — en
+// vez de asumir siempre "punto = miles, coma = decimal", se toma el
+// ÚLTIMO separador (sea cual sea el símbolo) como el decimal, y se saca
+// cualquier otro separador antes (de miles), evitando multiplicar el
+// monto real por 100.
+function normalizarMonto(crudo: string): string {
+  const ultimoSep = Math.max(crudo.lastIndexOf('.'), crudo.lastIndexOf(','), crudo.lastIndexOf(' '));
+  const parteEntera = crudo.slice(0, ultimoSep).replace(/[.,\s]/g, '');
+  const parteDecimal = crudo.slice(ultimoSep + 1);
+  return parteEntera + '.' + parteDecimal;
+}
+
+// La fila de la tabla del banco siempre trae los campos en el MISMO
+// orden: Fecha de pago, N° de cheque, Importe, Enviado por CUIT, Enviado
+// por razón social, Estado, Emisor CUIT. Antes se buscaba cada campo
+// suelto en toda la línea, así que si uno salía mal leído (ej. una fecha
+// sin las barras) su basura podía colarse en la búsqueda de otro campo
+// vecino. Ahora se recorre la línea de izquierda a derecha respetando
+// ese orden fijo: cada campo se busca solo a partir de donde terminó el
+// anterior, nunca antes.
+const RE_FECHA = /\d{1,2}\/\d{1,2}\/\d{2,4}|(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}/;
+const RE_NRO_CHEQUE = /\d{5,9}/;
+// El inicio es libre en cantidad de dígitos (un monto puede empezar con
+// más de 3 dígitos antes del primer separador de miles, ej. "1.346.108");
+// lo único que identifica "esto es un monto" es que termine en un
+// separador (coma, punto, o el espacio en que a veces lo lee el OCR)
+// seguido de 2 dígitos exactos.
+const RE_MONTO = /\$?\s?\d[\d.,\s]*[.,\s]\d{2}\b/;
+
 export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
   const resultado: ChequeDetectado[] = [];
   const vistos = new Set<string>();
 
   for (const lineaOriginal of lineas) {
+    // Dos CUIT por fila: "Enviado por CUIT" (puede ser un tercero que
+    // agrupa cheques de varios clientes) y "Emisor CUIT" — el verdadero
+    // librador, al que hay que consultarle el historial en el BCRA, en la
+    // columna más a la derecha. Nos quedamos con el último match.
     const cuitMatches = lineaOriginal.match(/\b\d{11}\b/g);
     if (!cuitMatches || cuitMatches.length === 0) continue;
     const cuit = cuitMatches[cuitMatches.length - 1];
 
     let resto = lineaOriginal;
     for (const m of cuitMatches) resto = resto.replace(m, ' ');
-    resto = resto.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, ' '); // fechas dd/mm/aaaa
-    // A veces el OCR pierde las barras y la fecha queda pegada como un
-    // bloque de 8 dígitos (ddmmaaaa) — sin esto, ese bloque se confundía
-    // con el N° de cheque (ambos tienen forma de "varios dígitos seguidos").
-    resto = resto.replace(/\b(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}\b/g, ' ');
 
-    let monto = '';
-    // El primer grupo (antes del primer separador de miles) puede tener
-    // más de 3 dígitos si el OCR se come ESE separador puntual (ej.
-    // "1.346.108,96" leído "1346.108.96") — exigir como antes \d{1,3} al
-    // principio hacía que la regex arrancara un dígito más adelante y
-    // perdiera el "1". Ahora el inicio es libre en cantidad de dígitos;
-    // lo único que identifica "esto es un monto" es que termine en un
-    // separador (coma, punto o el espacio en que a veces lo lee el OCR)
-    // seguido de 2 dígitos exactos.
-    const montoMatch = resto.match(/\$?\s?\d[\d.,\s]*[.,\s]\d{2}\b/);
-    if (montoMatch) {
-      const crudo = montoMatch[0].replace(/[^\d.,\s]/g, '').trim();
-      // El OCR a veces confunde la coma decimal con un punto ("298.380.82"
-      // en vez de "298.380,82") — en vez de asumir siempre "punto = miles,
-      // coma = decimal", se toma el ÚLTIMO separador (sea cual sea el
-      // símbolo) como el decimal, y se saca cualquier otro separador antes
-      // (de miles), evitando multiplicar el monto real por 100.
-      const ultimoSep = Math.max(crudo.lastIndexOf('.'), crudo.lastIndexOf(','), crudo.lastIndexOf(' '));
-      const parteEntera = crudo.slice(0, ultimoSep).replace(/[.,\s]/g, '');
-      const parteDecimal = crudo.slice(ultimoSep + 1);
-      monto = parteEntera + '.' + parteDecimal;
-      resto = resto.replace(montoMatch[0], ' ');
-    }
+    let cursor = 0;
+    const fechaMatch = resto.slice(cursor).match(RE_FECHA);
+    if (fechaMatch && fechaMatch.index != null) cursor += fechaMatch.index + fechaMatch[0].length;
 
     let numeroCheque = '';
-    const nroMatch = resto.match(/\b\d{5,9}\b/);
-    if (nroMatch) {
+    const nroMatch = resto.slice(cursor).match(RE_NRO_CHEQUE);
+    if (nroMatch && nroMatch.index != null) {
       numeroCheque = nroMatch[0];
-      resto = resto.replace(nroMatch[0], ' ');
+      cursor += nroMatch.index + nroMatch[0].length;
     }
 
+    let monto = '';
+    const montoMatch = resto.slice(cursor).match(RE_MONTO);
+    if (montoMatch && montoMatch.index != null) {
+      monto = normalizarMonto(montoMatch[0].replace(/[^\d.,\s]/g, '').trim());
+      cursor += montoMatch.index + montoMatch[0].length;
+    }
+
+    // Lo que queda (razón social + Estado) es de donde sale el nombre.
     const emisorNombre = resto
+      .slice(cursor)
       .split(/\s+/)
       // Saca símbolos sueltos que el OCR pega a la primera/última palabra
       // (checkbox de la fila, guiones, corchetes) — solo dejamos letras.
