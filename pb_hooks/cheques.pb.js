@@ -4,12 +4,7 @@
 // (así el navegador no pega directo a una API de gobierno con problemas
 // de CORS, y de paso queda registrado quién consulta qué).
 //   GET /api/cheques/bcra/:cuit -> consulta la Central de Deudores del
-//       BCRA: cheques rechazados, deuda actual y deuda histórica (24
-//       meses) por entidad financiera. Es la única info de "riesgo
-//       crediticio" que existe gratis para este CUIT — cosas como el
-//       Score, consultas o relacionados (que se ven en un informe de
-//       Equifax, por ejemplo) son de un servicio comercial pago, no del
-//       BCRA, y no tienen equivalente gratuito.
+//       BCRA y devuelve si ese CUIT tiene cheques rechazados.
 // La lectura del CUIT desde la imagen del cheque se hace 100% en el
 // navegador (OCR con Tesseract, sin costo ni servicio externo) — ver
 // web/src/lib/ocr.ts.
@@ -44,33 +39,29 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
     return c.json(400, { message: "CUIT inválido: debe tener 11 dígitos sin guiones." });
   }
 
-  // Wrapper único para las 3 consultas (misma URL base, mismo manejo de
-  // conexión caída / 404 / status raro) — evita repetir el try/catch de
-  // $http.send tres veces.
-  function llamarBcra(path) {
-    try {
-      const res = $http.send({
-        url: "https://api.bcra.gob.ar/centraldedeudores/v1.0/" + path,
-        method: "GET",
-        headers: { Accept: "application/json" },
-      });
-      if (res.statusCode === 404) return { ok: true, body: null };
-      if (res.statusCode !== 200) return { ok: false, error: "La API del BCRA devolvió " + res.statusCode + " para " + path };
-      return { ok: true, body: res.json || {} };
-    } catch (e) {
-      return { ok: false, error: "No se pudo conectar con la API del BCRA: " + (e && e.message ? e.message : String(e)) };
-    }
-  }
-
-  const resRechazados = llamarBcra("Deudas/ChequesRechazados/" + cuit);
-  if (!resRechazados.ok) {
-    return c.json(502, { message: resRechazados.error });
-  }
-
+  let res;
   try {
-    let denominacion = null;
-    const rechazos = [];
-    if (resRechazados.body) {
+    res = $http.send({
+      url: "https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/ChequesRechazados/" + cuit,
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+  } catch (e) {
+    // $http.send tira excepción si no puede conectar (DNS, TLS, timeout,
+    // etc.) — sin este catch, esa excepción explota como un error genérico
+    // de PocketBase ("Something went wrong") que no dice nada útil.
+    return c.json(502, { message: "No se pudo conectar con la API del BCRA: " + (e && e.message ? e.message : String(e)) });
+  }
+
+  if (res.statusCode !== 200 && res.statusCode !== 404) {
+    return c.json(502, { message: "La API del BCRA devolvió " + res.statusCode + ".", detalle: res.json || res.raw });
+  }
+
+  let denominacion = null;
+  let rechazos = [];
+  try {
+    if (res.statusCode === 200) {
+      const body = res.json || {};
       // Forma real de la respuesta (ChequeResponse -> ChequeRechazado, ver
       // https://www.bcra.gob.ar/archivos/Catalogo/Content/files/json/central-deudores-v1.json):
       //   { status, results: { identificacion, denominacion, causales: [
@@ -81,7 +72,7 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
       //   ] } }
       // Lo aplanamos acá a una lista simple (un item por cheque) para que el
       // frontend no tenga que iterar 3 niveles de anidamiento.
-      const results = resRechazados.body.results || {};
+      const results = body.results || {};
       denominacion = results.denominacion || null;
       const causales = results.causales || [];
       for (const c2 of causales) {
@@ -105,52 +96,27 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
         }
       }
     }
-
-    // Deuda actual: { results: { denominacion, periodos: [ { periodo,
-    // entidades: [ { entidad, situacion, monto, diasAtrasoPago,
-    // refinanciaciones, situacionJuridica, procesoJud, ... } ] } ] } } —
-    // el primer período es el más reciente. Se pide siempre (no solo
-    // cuando falta la denominación) porque acá sale también la deuda
-    // actual por entidad, que antes se descartaba.
-    let deudaActual = [];
-    const resDeuda = llamarBcra("Deudas/" + cuit);
-    if (resDeuda.ok && resDeuda.body) {
-      const results = resDeuda.body.results || {};
-      if (!denominacion) denominacion = results.denominacion || null;
-      const periodos = results.periodos || [];
-      const entidades = (periodos[0] && periodos[0].entidades) || [];
-      deudaActual = entidades.map((e) => ({
-        entidad: e.entidad || null,
-        situacion: e.situacion != null ? e.situacion : null,
-        monto: e.monto != null ? e.monto : null,
-        diasAtrasoPago: e.diasAtrasoPago != null ? e.diasAtrasoPago : null,
-        refinanciaciones: !!e.refinanciaciones,
-        situacionJuridica: !!e.situacionJuridica,
-        procesoJud: !!e.procesoJud,
-      }));
-    }
-    // Best-effort: si esta consulta falla, seguimos sin deuda actual en
-    // vez de romper toda la respuesta.
-
-    // Deuda histórica: misma forma pero un período por mes, hasta 24
-    // meses — es la tabla "Evolución" que un informe de riesgo crediticio
-    // (ej. Equifax) también arma a partir de esta misma fuente del BCRA.
-    // Se aplana a una lista simple de filas (periodo + entidad) para que
-    // el frontend no tenga que anidar.
-    let deudaHistorica = [];
-    const resHist = llamarBcra("Deudas/Historicas/" + cuit);
-    if (resHist.ok && resHist.body) {
-      const periodos = (resHist.body.results && resHist.body.results.periodos) || [];
-      for (const p of periodos) {
-        const entidades = p.entidades || [];
-        for (const e of entidades) {
-          deudaHistorica.push({
-            periodo: p.periodo || null,
-            entidad: e.entidad || null,
-            situacion: e.situacion != null ? e.situacion : null,
-            monto: e.monto != null ? e.monto : null,
-          });
+    // El BCRA solo manda la denominación junto con los datos de cheques
+    // rechazados: si el CUIT no tiene rechazos, ChequesRechazados devuelve
+    // 404 sin nombre. Para tener el nombre igual (caso más común: "sin
+    // rechazos"), consultamos aparte el endpoint general de deudores, que
+    // trae identificación + denominación aunque no haya cheques rechazados.
+    // Es "mejor esfuerzo": si falla o también da 404 (puede no tener
+    // ningún historial en el BCRA), seguimos sin nombre en vez de romper
+    // la consulta.
+    if (!denominacion) {
+      try {
+        const resGeneral = $http.send({
+          url: "https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/" + cuit,
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+        if (resGeneral.statusCode === 200) {
+          const bodyGeneral = resGeneral.json || {};
+          denominacion = (bodyGeneral.results && bodyGeneral.results.denominacion) || null;
         }
+      } catch (e) {
+        // Best-effort: si esta segunda consulta falla, no afecta el resultado principal.
       }
     }
 
@@ -159,10 +125,8 @@ routerAdd("GET", "/api/cheques/bcra/:cuit", (c) => {
       denominacion: denominacion,
       tieneRechazados: rechazos.length > 0,
       rechazos: rechazos,
-      deudaActual: deudaActual,
-      deudaHistorica: deudaHistorica,
     });
   } catch (e) {
-    return c.json(502, { message: "No se pudo interpretar la respuesta del BCRA: " + (e && e.message ? e.message : String(e)) });
+    return c.json(502, { message: "No se pudo interpretar la respuesta del BCRA: " + (e && e.message ? e.message : String(e)), crudo: res.raw });
   }
 }, $apis.requireRecordAuth("usuarios"));
