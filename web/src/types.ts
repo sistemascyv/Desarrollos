@@ -92,12 +92,44 @@ export interface BcraRechazo {
   procesoJud: boolean;
 }
 
+export interface BcraDeuda {
+  entidad: string | null;
+  situacion: number | null;
+  monto: number | null;
+  diasAtrasoPago?: number | null;
+  refinanciaciones?: boolean;
+  situacionJuridica?: boolean;
+  procesoJud?: boolean;
+}
+
+export interface BcraDeudaHistorica {
+  periodo: string | null;
+  entidad: string | null;
+  situacion: number | null;
+  monto: number | null;
+}
+
 export interface BcraResultado {
   cuit: string;
   denominacion: string | null;
   tieneRechazados: boolean;
   rechazos: BcraRechazo[];
+  deudaActual?: BcraDeuda[];
+  deudaHistorica?: BcraDeudaHistorica[];
 }
+
+// Situaciones del BCRA (Central de Deudores): 0 sin información, 1
+// normal, 2 seguimiento especial, 3 con problemas, 4 alto riesgo de
+// insolvencia, 5/6 irrecuperable.
+export const SITUACION_BCRA: Record<number, string> = {
+  0: 'Sin información',
+  1: 'Situación normal',
+  2: 'Seguimiento especial',
+  3: 'Con problemas',
+  4: 'Alto riesgo de insolvencia',
+  5: 'Irrecuperable',
+  6: 'Irrecuperable',
+};
 
 export interface Cheque extends BaseRecord {
   imagen: string;
