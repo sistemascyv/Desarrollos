@@ -117,6 +117,10 @@ export function CentralDeudoresPage() {
                 <div className="val">{reporte.deudaActual.length}</div>
               </div>
               <div className={`stat${peorSituacion > 1 ? ' saldo-neg' : ''}`}>
+                <div className="lbl">Peor situación actual</div>
+                <div className="val">{peorSituacion > 0 ? (SITUACION_BCRA[peorSituacion] || peorSituacion) : 'Sin deuda registrada'}</div>
+              </div>
+              <div className={`stat${peorSituacion > 1 ? ' saldo-neg' : ''}`}>
                 <div className="lbl">Situación actual</div>
                 <div className="val">{peorSituacion > 0 ? situacionADias(peorSituacion) : 'Sin deuda registrada'}</div>
               </div>
