@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { esCuitValido } from '../../lib/cuit';
+import { esCuitValido, situacionADias, tipoPersonaPorCuit, tipoSociedadDeDenominacion } from '../../lib/cuit';
 import { money } from '../../lib/format';
 import { SITUACION_BCRA, type DeudorReporte } from '../../types';
 
@@ -62,6 +62,13 @@ export function CentralDeudoresPage() {
 
   const saldoActual = reporte ? reporte.deudaActual.reduce((s, d) => s + (d.monto || 0), 0) : 0;
   const peorSituacion = reporte ? Math.max(0, ...reporte.deudaActual.map((d) => d.situacion ?? 0)) : 0;
+  // Nada de esto pide otra consulta: el tipo de persona sale del propio
+  // prefijo del CUIT, el tipo de sociedad de la razón social que ya
+  // manda el BCRA, y los rangos de días son la traducción oficial del
+  // código de situación (ver lib/cuit.ts).
+  const tipoPersona = reporte ? tipoPersonaPorCuit(reporte.cuit) : null;
+  const tipoSociedad = reporte ? tipoSociedadDeDenominacion(reporte.denominacion) : null;
+  const peorSituacionHistorica = reporte ? Math.max(0, ...reporte.deudaHistorica.map((d) => d.situacion ?? 0)) : 0;
 
   return (
     <main>
@@ -94,6 +101,14 @@ export function CentralDeudoresPage() {
             <div className="hint" style={{ marginBottom: 12 }}>CUIT {reporte.cuit}</div>
             <div className="summary-grid">
               <div className="stat">
+                <div className="lbl">Tipo de persona</div>
+                <div className="val">{tipoPersona || '—'}</div>
+              </div>
+              <div className="stat">
+                <div className="lbl">Tipo de sociedad</div>
+                <div className="val">{tipoSociedad || '—'}</div>
+              </div>
+              <div className="stat">
                 <div className="lbl">Deuda actual (sistema financiero)</div>
                 <div className="val">{money(saldoActual)}</div>
               </div>
@@ -102,8 +117,12 @@ export function CentralDeudoresPage() {
                 <div className="val">{reporte.deudaActual.length}</div>
               </div>
               <div className={`stat${peorSituacion > 1 ? ' saldo-neg' : ''}`}>
-                <div className="lbl">Peor situación actual</div>
-                <div className="val">{SITUACION_BCRA[peorSituacion] || '—'}</div>
+                <div className="lbl">Situación actual</div>
+                <div className="val">{peorSituacion > 0 ? situacionADias(peorSituacion) : 'Sin deuda registrada'}</div>
+              </div>
+              <div className={`stat${peorSituacionHistorica > 1 ? ' saldo-neg' : ''}`}>
+                <div className="lbl">Máximo atraso últimos 24 meses</div>
+                <div className="val">{peorSituacionHistorica > 0 ? situacionADias(peorSituacionHistorica) : 'Sin registro'}</div>
               </div>
               <div className={`stat${reporte.rechazos.length > 0 ? ' saldo-neg' : ''}`}>
                 <div className="lbl">Cheques rechazados</div>
