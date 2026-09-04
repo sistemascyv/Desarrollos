@@ -187,7 +187,41 @@ input[type='checkbox'] {
   color: var(--err);
 }
 
+.bar-chart-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.bar-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.bar-chart-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.bar-chart {
+  display: flex;
+  gap: 8px;
+}
+.bar-chart-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 160px;
+  padding-bottom: 2px;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
 .bar-chart-bars {
+  flex: 1;
   display: flex;
   align-items: flex-end;
   gap: 3px;
@@ -205,14 +239,19 @@ input[type='checkbox'] {
   align-items: center;
   position: relative;
 }
-.bar-chart-bar {
+.bar-chart-stack {
   width: 100%;
   min-height: 2px;
-  background: var(--brand-dark);
+  display: flex;
+  flex-direction: column-reverse;
   border-radius: 3px 3px 0 0;
+  overflow: hidden;
 }
-:root[data-theme='dark'] .bar-chart-bar {
-  background: var(--brand);
+.bar-chart-seg {
+  width: 100%;
+}
+.bar-chart-seg + .bar-chart-seg {
+  border-top: 2px solid var(--panel);
 }
 .bar-chart-label {
   position: absolute;

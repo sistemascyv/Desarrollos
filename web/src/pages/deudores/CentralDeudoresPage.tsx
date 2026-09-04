@@ -36,17 +36,27 @@ export function CentralDeudoresPage() {
     }
   }
 
-  // Un total por período (sumando todas las entidades) para el gráfico
-  // de evolución — el BCRA manda el más reciente primero, se da vuelta
-  // para que el gráfico corra de más viejo a más nuevo, izquierda a derecha.
+  // Por período, la deuda separada en 3 categorías (normal / seguimiento
+  // especial / con problemas o peor) en vez de un solo total — así el
+  // gráfico muestra no solo cuánto debía sino en qué estado, que es la
+  // parte que realmente importa para evaluar riesgo. El BCRA manda el
+  // período más reciente primero, se da vuelta para que corra de más
+  // viejo a más nuevo, izquierda a derecha.
   const evolucion = (() => {
     if (!reporte) return [];
-    const porPeriodo = new Map<string, number>();
+    const porPeriodo = new Map<string, { normal: number; especial: number; problemas: number }>();
     for (const d of reporte.deudaHistorica) {
       if (!d.periodo) continue;
-      porPeriodo.set(d.periodo, (porPeriodo.get(d.periodo) || 0) + (d.monto || 0));
+      const fila = porPeriodo.get(d.periodo) || { normal: 0, especial: 0, problemas: 0 };
+      const monto = d.monto || 0;
+      if (d.situacion === 2) fila.especial += monto;
+      else if (d.situacion != null && d.situacion >= 3) fila.problemas += monto;
+      else fila.normal += monto;
+      porPeriodo.set(d.periodo, fila);
     }
-    return [...porPeriodo.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([periodo, total]) => ({ periodo, total }));
+    return [...porPeriodo.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([periodo, f]) => ({ periodo, ...f, total: f.normal + f.especial + f.problemas }));
   })();
   const maxEvolucion = Math.max(1, ...evolucion.map((e) => e.total));
 
@@ -105,11 +115,29 @@ export function CentralDeudoresPage() {
           {evolucion.length > 0 && (
             <div className="card">
               <h2>Evolución de deuda (últimos 24 meses)</h2>
+              <div className="bar-chart-legend">
+                <span><i style={{ background: 'var(--ok)' }} /> Situación normal</span>
+                <span><i style={{ background: 'var(--warn)' }} /> Seguimiento especial</span>
+                <span><i style={{ background: 'var(--err)' }} /> Con problemas o peor</span>
+              </div>
               <div className="bar-chart">
+                <div className="bar-chart-axis">
+                  <span>{money(maxEvolucion)}</span>
+                  <span>{money(maxEvolucion / 2)}</span>
+                  <span>$0</span>
+                </div>
                 <div className="bar-chart-bars">
                   {evolucion.map((e, i) => (
-                    <div className="bar-chart-col" key={e.periodo} title={`${formatPeriodo(e.periodo)}: ${money(e.total)}`}>
-                      <div className="bar-chart-bar" style={{ height: `${(e.total / maxEvolucion) * 100}%` }} />
+                    <div
+                      className="bar-chart-col"
+                      key={e.periodo}
+                      title={`${formatPeriodo(e.periodo)}: ${money(e.total)} total — normal ${money(e.normal)}, seguimiento especial ${money(e.especial)}, con problemas o peor ${money(e.problemas)}`}
+                    >
+                      <div className="bar-chart-stack" style={{ height: `${(e.total / maxEvolucion) * 100}%` }}>
+                        {e.normal > 0 && <div className="bar-chart-seg" style={{ flex: e.normal, background: 'var(--ok)' }} />}
+                        {e.especial > 0 && <div className="bar-chart-seg" style={{ flex: e.especial, background: 'var(--warn)' }} />}
+                        {e.problemas > 0 && <div className="bar-chart-seg" style={{ flex: e.problemas, background: 'var(--err)' }} />}
+                      </div>
                       {(i % 3 === 0 || i === evolucion.length - 1) && (
                         <div className="bar-chart-label">{formatPeriodo(e.periodo)}</div>
                       )}
@@ -117,7 +145,7 @@ export function CentralDeudoresPage() {
                   ))}
                 </div>
               </div>
-              <div className="hint">Fuente: Banco Central (BCRA). Pasá el mouse por una barra para ver el detalle.</div>
+              <div className="hint">Fuente: Banco Central (BCRA). Pasá el mouse por una barra para ver el detalle de cada mes.</div>
             </div>
           )}
 
