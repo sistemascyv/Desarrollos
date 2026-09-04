@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
 import { PlanillaChoferesPage } from './pages/planilla/PlanillaChoferesPage';
 import { ControlChequesPage } from './pages/cheques/ControlChequesPage';
+import { CentralDeudoresPage } from './pages/deudores/CentralDeudoresPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth, RequireAdmin, RequireModule } from './components/RequireAuth';
@@ -40,6 +41,14 @@ function App() {
           element={
             <RequireModule moduleId="control_cheques">
               <ControlChequesPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/finanzas/central-deudores"
+          element={
+            <RequireModule moduleId="central_deudores">
+              <CentralDeudoresPage />
             </RequireModule>
           }
         />

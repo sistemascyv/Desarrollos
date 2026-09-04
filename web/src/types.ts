@@ -98,7 +98,10 @@ export interface BcraDeuda {
   monto: number | null;
   diasAtrasoPago?: number | null;
   refinanciaciones?: boolean;
+  recategorizacionOblig?: boolean;
   situacionJuridica?: boolean;
+  irrecDisposicionTecnica?: boolean;
+  enRevision?: boolean;
   procesoJud?: boolean;
 }
 
@@ -107,6 +110,8 @@ export interface BcraDeudaHistorica {
   entidad: string | null;
   situacion: number | null;
   monto: number | null;
+  enRevision?: boolean;
+  procesoJud?: boolean;
 }
 
 export interface BcraResultado {
@@ -114,8 +119,17 @@ export interface BcraResultado {
   denominacion: string | null;
   tieneRechazados: boolean;
   rechazos: BcraRechazo[];
-  deudaActual?: BcraDeuda[];
-  deudaHistorica?: BcraDeudaHistorica[];
+}
+
+// Reporte completo de un CUIT para el módulo Central de Deudores — sin
+// "tieneRechazados" (eso es un resumen puntual de Control de Cheques),
+// con deuda actual e histórica siempre presentes.
+export interface DeudorReporte {
+  cuit: string;
+  denominacion: string | null;
+  deudaActual: BcraDeuda[];
+  deudaHistorica: BcraDeudaHistorica[];
+  rechazos: BcraRechazo[];
 }
 
 // Situaciones del BCRA (Central de Deudores): 0 sin información, 1
@@ -155,4 +169,5 @@ export interface ModuleDef {
 export const MODULES: ModuleDef[] = [
   { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación', path: 'liquidacion/planilla-choferes' },
   { id: 'control_cheques', label: 'Control de Cheques', group: 'Finanzas', path: 'finanzas/control-cheques' },
+  { id: 'central_deudores', label: 'Central de Deudores', group: 'Finanzas', path: 'finanzas/central-deudores' },
 ];
