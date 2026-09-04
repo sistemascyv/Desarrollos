@@ -3,7 +3,6 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import type { BcraResultado, Cheque } from '../../types';
-import { SITUACION_BCRA } from '../../types';
 import { money } from '../../lib/format';
 import { leerChequesDeImagen } from '../../lib/ocr';
 import { esCuitValido } from '../../lib/cuit';
@@ -51,7 +50,6 @@ export function ControlChequesPage() {
   const [textoOcr, setTextoOcr] = useState<string | null>(null);
   const [mostrarTextoOcr, setMostrarTextoOcr] = useState(false);
   const [detalleBcraId, setDetalleBcraId] = useState<string | null>(null);
-  const [mostrarHistorialBcra, setMostrarHistorialBcra] = useState(false);
 
   useEffect(() => {
     load();
@@ -383,7 +381,7 @@ export function ControlChequesPage() {
                       <td className="num" style={{ paddingRight: 20 }}>{c.monto != null ? money(c.monto) : '—'}</td>
                       <td style={{ textAlign: 'center', paddingLeft: 20 }}>
                         {c.bcra_consultado ? (
-                          <button className="bcra-link" onClick={() => { setDetalleBcraId(c.id); setMostrarHistorialBcra(false); }}>
+                          <button className="bcra-link" onClick={() => setDetalleBcraId(c.id)}>
                             {c.bcra_tiene_rechazados ? (
                               <span className="badge" style={{ color: 'var(--err)', borderColor: 'var(--err)' }}>Tiene rechazados</span>
                             ) : (
@@ -412,8 +410,6 @@ export function ControlChequesPage() {
         if (!c) return null;
         const det = c.bcra_detalle;
         const rechazos = det?.rechazos || [];
-        const deudaActual = det?.deudaActual || [];
-        const deudaHistorica = det?.deudaHistorica || [];
         return (
           <div className="modal-bg" onClick={() => setDetalleBcraId(null)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -430,32 +426,6 @@ export function ControlChequesPage() {
               </div>
               {c.bcra_fecha_consulta && (
                 <div className="row"><strong>Consultado:</strong> {new Date(c.bcra_fecha_consulta).toLocaleString('es-AR')}</div>
-              )}
-              {deudaActual.length > 0 && (
-                <div className="row">
-                  <strong>Deuda actual en el sistema financiero:</strong>
-                  <div className="table-wrap" style={{ marginTop: 8 }}>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Entidad</th><th>Situación</th><th className="num">Monto</th>
-                          <th>Días atraso</th><th>En proceso judicial</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {deudaActual.map((d, i) => (
-                          <tr key={i}>
-                            <td>{d.entidad ?? '—'}</td>
-                            <td>{d.situacion != null ? (SITUACION_BCRA[d.situacion] || d.situacion) : '—'}</td>
-                            <td className="num">{d.monto != null ? money(d.monto) : '—'}</td>
-                            <td>{d.diasAtrasoPago ?? '—'}</td>
-                            <td>{d.procesoJud ? 'Sí' : 'No'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               )}
               {rechazos.length > 0 && (
                 <div className="row">
@@ -483,32 +453,6 @@ export function ControlChequesPage() {
                       </tbody>
                     </table>
                   </div>
-                </div>
-              )}
-              {deudaHistorica.length > 0 && (
-                <div className="row">
-                  <a className="link" onClick={() => setMostrarHistorialBcra((v) => !v)}>
-                    {mostrarHistorialBcra ? 'Ocultar' : 'Ver'} evolución de deuda (últimos 24 meses)
-                  </a>
-                  {mostrarHistorialBcra && (
-                    <div className="table-wrap" style={{ marginTop: 8, maxHeight: 240 }}>
-                      <table>
-                        <thead>
-                          <tr><th>Período</th><th>Entidad</th><th>Situación</th><th className="num">Monto</th></tr>
-                        </thead>
-                        <tbody>
-                          {deudaHistorica.map((d, i) => (
-                            <tr key={i}>
-                              <td>{d.periodo ?? '—'}</td>
-                              <td>{d.entidad ?? '—'}</td>
-                              <td>{d.situacion != null ? (SITUACION_BCRA[d.situacion] || d.situacion) : '—'}</td>
-                              <td className="num">{d.monto != null ? money(d.monto) : '—'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
                 </div>
               )}
               <div className="row" style={{ textAlign: 'right', marginTop: 16 }}>
