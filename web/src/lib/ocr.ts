@@ -11,8 +11,8 @@ export interface ResultadoOcr {
 // necesita cierta altura en píxeles por carácter para distinguir bien
 // dígitos parecidos (5/8, 0/9). Agrandar la imagen antes de leerla ayuda
 // bastante, aunque sea la misma resolución "estirada".
-const ANCHO_MAXIMO_ESCALADO = 6000;
-const FACTOR_ESCALA = 4;
+const ANCHO_MAXIMO_ESCALADO = 4800;
+const FACTOR_ESCALA = 3;
 // Texto gris clarito de una tabla de banco (poco contraste contra el
 // fondo) es donde más se le escapan palabras enteras a Tesseract, no
 // solo dígitos parecidos — subirle el contraste antes de leer ayuda.
@@ -76,13 +76,9 @@ function extraerLineas(page: Tesseract.Page): string[] {
 export async function leerChequesDeImagen(file: File): Promise<ResultadoOcr> {
   const worker = await createWorker('eng');
   try {
-    // Sin esto, Tesseract usa segmentación automática de página (PSM 3),
-    // pensada para una hoja con títulos/párrafos/columnas mezcladas — en
-    // una tabla densa (muchas filas parecidas, todo el ancho ocupado) esa
-    // heurística a veces reparte mal el texto entre "bloques" y arrastra
-    // dígitos de una celda a otra. PSM 6 le dice que es un solo bloque
-    // uniforme de texto, que es justo la forma de una tabla.
-    await worker.setParameters({ tessedit_pageseg_mode: '6' as Tesseract.PSM });
+    // Se probó forzar PSM 6 (bloque único de texto) para esta tabla densa,
+    // pero empeoró la lectura en la práctica (fechas sin las barras, hasta
+    // un dígito del CUIT mal leído) — se vuelve al modo automático.
     const imagen = await escalarImagen(file);
     const { data } = await worker.recognize(imagen, {}, { blocks: true });
     const textoCrudo = data.text || '';
