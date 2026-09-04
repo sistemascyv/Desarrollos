@@ -115,9 +115,15 @@ export function extraerChequesDeLineas(lineas: string[]): ChequeDetectado[] {
     resto = resto.replace(/\b(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(19|20)\d{2}\b/g, ' ');
 
     let monto = '';
-    // El separador final (los 2 dígitos de centavos) a veces lo lee el OCR
-    // como espacio en vez de coma ("52.269.306 00").
-    const montoMatch = resto.match(/\$?\s?\d{1,3}(?:[.,]\d{3})+[.,\s]\d{2}\b|\$\s?\d+[.,]\d{2}\b/);
+    // El primer grupo (antes del primer separador de miles) puede tener
+    // más de 3 dígitos si el OCR se come ESE separador puntual (ej.
+    // "1.346.108,96" leído "1346.108.96") — exigir como antes \d{1,3} al
+    // principio hacía que la regex arrancara un dígito más adelante y
+    // perdiera el "1". Ahora el inicio es libre en cantidad de dígitos;
+    // lo único que identifica "esto es un monto" es que termine en un
+    // separador (coma, punto o el espacio en que a veces lo lee el OCR)
+    // seguido de 2 dígitos exactos.
+    const montoMatch = resto.match(/\$?\s?\d[\d.,\s]*[.,\s]\d{2}\b/);
     if (montoMatch) {
       const crudo = montoMatch[0].replace(/[^\d.,\s]/g, '').trim();
       // El OCR a veces confunde la coma decimal con un punto ("298.380.82"
