@@ -35,6 +35,7 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
   const [totalItems, setTotalItems] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [showForm, setShowForm] = useState(false);
 
   // Volver a la página 1 cuando cambia la búsqueda o el filtro de estado
   // (si no, uno puede quedar viendo una "página 5" que ya no existe).
@@ -127,7 +128,6 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
   return (
     <div className="card">
       <h2>{title}</h2>
-      {form}
       <div className="admin-toolbar">
         <input type="text" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <select value={estado} onChange={(e) => setEstado(e.target.value as typeof estado)}>
@@ -138,7 +138,9 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
         <span className="count-badge">
           {totalItems} {totalItems === 1 ? 'registro' : 'registros'}
         </span>
+        <button className="small secondary" onClick={() => setShowForm((s) => !s)}>{showForm ? 'Cancelar' : '+ Agregar'}</button>
       </div>
+      {showForm && <div style={{ marginTop: 10 }}>{form}</div>}
       <div className="table-wrap" style={{ maxHeight: '50vh', marginTop: 10 }}>
         <table>
           <thead>
