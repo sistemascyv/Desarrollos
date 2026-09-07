@@ -28,6 +28,8 @@ export interface Ruta extends BaseRecord {
   origen: string;
   destino: string;
   cliente?: string;
+  km_reales?: number;
+  km_convenio?: number;
   activo: boolean;
 }
 
