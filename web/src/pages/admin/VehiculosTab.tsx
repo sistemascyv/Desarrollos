@@ -7,13 +7,15 @@ import type { Vehiculo } from '../../types';
 export function VehiculosTab({ version, onChanged }: { version: number; onChanged: () => void }) {
   const toast = useToast();
   const [codigo, setCodigo] = useState('');
+  const [patente, setPatente] = useState('');
   const [marca, setMarca] = useState('');
 
   async function create() {
     if (!codigo.trim()) { toast('Falta el código.', 'warn'); return; }
     try {
-      await pb.collection('vehiculos').create({ codigo: codigo.trim(), marca_modelo: marca.trim(), activo: true });
+      await pb.collection('vehiculos').create({ codigo: codigo.trim(), patente: patente.trim(), marca_modelo: marca.trim(), activo: true });
       setCodigo('');
+      setPatente('');
       setMarca('');
       onChanged();
       toast('Vehículo agregado.', 'ok');
@@ -26,13 +28,14 @@ export function VehiculosTab({ version, onChanged }: { version: number; onChange
     <AdminSimpleTab<Vehiculo>
       title="Vehículos / Tractores"
       collection="vehiculos"
-      columns={[{ field: 'codigo', label: 'Código' }, { field: 'marca_modelo', label: 'Marca / modelo' }]}
-      searchFields={['codigo', 'marca_modelo']}
+      columns={[{ field: 'codigo', label: 'Código' }, { field: 'patente', label: 'Patente' }, { field: 'marca_modelo', label: 'Marca / modelo' }]}
+      searchFields={['codigo', 'patente', 'marca_modelo']}
       version={version}
       onChanged={onChanged}
       form={
         <div className="row">
-          <div className="field"><label>Código (patente/tractor)</label><input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="T130" /></div>
+          <div className="field"><label>Código interno</label><input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="T130" /></div>
+          <div className="field"><label>Patente</label><input value={patente} onChange={(e) => setPatente(e.target.value)} /></div>
           <div className="field" style={{ flex: 1 }}><label>Marca / modelo</label><input value={marca} onChange={(e) => setMarca(e.target.value)} /></div>
           <button onClick={create}>+ Agregar</button>
         </div>
