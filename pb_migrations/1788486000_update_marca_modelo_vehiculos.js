@@ -71,23 +71,34 @@ migrate((db) => {
     { patente: "AI 197 YE", marca_modelo: "M. BENZ ACTROS 2045 LS", anio: "2026" },
   ];
 
-  const todos = dao.findRecordsByFilter(collection.id, "", "", 500, 0);
+  // Un filtro vacío ("") no es válido acá — hay que darle SIEMPRE una
+  // condición real. "activo = true" ya se usa en el resto de la app
+  // para esta misma colección, así que es un filtro probado.
   const porPatente = new Map();
-  for (const r of todos) {
-    const p = (r.get("patente") || "").replace(/\s+/g, "").toUpperCase();
-    if (p) porPatente.set(p, r);
+  try {
+    const todos = dao.findRecordsByFilter(collection.id, "activo = true", "", 500, 0);
+    for (const r of todos) {
+      const p = (r.get("patente") || "").replace(/\s+/g, "").toUpperCase();
+      if (p) porPatente.set(p, r);
+    }
+  } catch (e) {
+    // Si esto falla por lo que sea, no queremos tirar abajo el arranque
+    // de PocketBase por un dato descriptivo (marca/modelo) — se sigue
+    // sin actualizar nada en vez de romper el deploy entero.
+    return null;
   }
 
-  let sinMatch = 0;
   for (const d of datos) {
     const key = d.patente.replace(/\s+/g, "").toUpperCase();
     const record = porPatente.get(key);
-    if (!record) { sinMatch++; continue; } // no lo encontramos, seguimos sin romper el deploy
-    record.set("marca_modelo", `${d.marca_modelo} (${d.anio})`);
-    dao.saveRecord(record);
+    if (!record) continue; // no lo encontramos, seguimos sin romper el deploy
+    try {
+      record.set("marca_modelo", `${d.marca_modelo} (${d.anio})`);
+      dao.saveRecord(record);
+    } catch (e) {
+      // idem: un registro que falle no debe frenar a los demás.
+    }
   }
-  // sinMatch: si algo no matcheó, no rompemos la migración por eso —
-  // simplemente ese vehículo se queda como estaba.
 
   return null;
 }, (db) => {
