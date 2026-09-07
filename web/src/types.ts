@@ -14,6 +14,7 @@ export interface Chofer extends BaseRecord {
 
 export interface Vehiculo extends BaseRecord {
   codigo: string;
+  patente?: string;
   marca_modelo?: string;
   activo: boolean;
 }
