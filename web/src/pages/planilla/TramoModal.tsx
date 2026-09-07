@@ -32,6 +32,9 @@ interface FormState {
   km_dobles: number;
   permanencia: number;
   cruce_frontera: number;
+  litros_consumidos: number;
+  litros_intermedios: number;
+  litros_equipo_frio: number;
   es_posicionamiento: boolean;
   control: boolean;
 }
@@ -42,6 +45,7 @@ const EMPTY: FormState = {
   comida_viaje: 0, comida_internacional: 0, entrega_retiro_sfco: 0, interrupcion: 0,
   cyd_manual: 0, control_gral: 0, descanso: 0, vale_nro: '', vale_importe: 0,
   km_recorridos: 0, km_dobles: 0, permanencia: 0, cruce_frontera: 0,
+  litros_consumidos: 0, litros_intermedios: 0, litros_equipo_frio: 0,
   es_posicionamiento: false, control: false,
 };
 
@@ -71,6 +75,9 @@ function fromTramo(t: Tramo): FormState {
     km_dobles: t.km_dobles || 0,
     permanencia: t.permanencia || 0,
     cruce_frontera: t.cruce_frontera || 0,
+    litros_consumidos: t.litros_consumidos || 0,
+    litros_intermedios: t.litros_intermedios || 0,
+    litros_equipo_frio: t.litros_equipo_frio || 0,
     es_posicionamiento: !!t.es_posicionamiento,
     control: !!t.control,
   };
@@ -188,6 +195,16 @@ export function TramoModal({ tramo, vehiculos, clientes, rutas, onClose, onSubmi
               </div>
             </fieldset>
           </div>
+
+          <fieldset>
+            <legend>Combustible (litros)</legend>
+            <div className="row">
+              <div className="field"><label>Consumidos</label><input type="number" step="0.01" value={form.litros_consumidos} onChange={(e) => set('litros_consumidos', Number(e.target.value))} /></div>
+              <div className="field"><label>Repostaje en ruta</label><input type="number" step="0.01" value={form.litros_intermedios} onChange={(e) => set('litros_intermedios', Number(e.target.value))} /></div>
+              <div className="field"><label>Equipo frío</label><input type="number" step="0.01" value={form.litros_equipo_frio} onChange={(e) => set('litros_equipo_frio', Number(e.target.value))} /></div>
+            </div>
+            <div className="hint">Se usan en el reporte de Consumo de Combustible — dejar en 0 si no aplica.</div>
+          </fieldset>
 
           <fieldset>
             <legend>Gastos ($)</legend>
