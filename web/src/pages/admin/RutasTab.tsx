@@ -8,15 +8,23 @@ export function RutasTab({ version, onChanged }: { version: number; onChanged: (
   const toast = useToast();
   const [origen, setOrigen] = useState('');
   const [destino, setDestino] = useState('');
-  const [cliente, setCliente] = useState('');
+  const [kmReales, setKmReales] = useState('');
+  const [kmConvenio, setKmConvenio] = useState('');
 
   async function create() {
     if (!origen.trim() || !destino.trim()) { toast('Faltan origen y/o destino.', 'warn'); return; }
     try {
-      await pb.collection('rutas').create({ origen: origen.trim(), destino: destino.trim(), cliente: cliente.trim(), activo: true });
+      await pb.collection('rutas').create({
+        origen: origen.trim(),
+        destino: destino.trim(),
+        km_reales: kmReales.trim() === '' ? null : Number(kmReales),
+        km_convenio: kmConvenio.trim() === '' ? null : Number(kmConvenio),
+        activo: true,
+      });
       setOrigen('');
       setDestino('');
-      setCliente('');
+      setKmReales('');
+      setKmConvenio('');
       onChanged();
       toast('Ruta agregada.', 'ok');
     } catch (e) {
@@ -28,8 +36,13 @@ export function RutasTab({ version, onChanged }: { version: number; onChanged: (
     <AdminSimpleTab<Ruta>
       title="Rutas frecuentes"
       collection="rutas"
-      columns={[{ field: 'origen', label: 'Origen' }, { field: 'destino', label: 'Destino' }, { field: 'cliente', label: 'Cliente habitual' }]}
-      searchFields={['origen', 'destino', 'cliente']}
+      columns={[
+        { field: 'origen', label: 'Origen' },
+        { field: 'destino', label: 'Destino' },
+        { field: 'km_reales', label: 'Km reales', type: 'number' },
+        { field: 'km_convenio', label: 'Km convenio', type: 'number' },
+      ]}
+      searchFields={['origen', 'destino']}
       version={version}
       onChanged={onChanged}
       form={
@@ -37,7 +50,8 @@ export function RutasTab({ version, onChanged }: { version: number; onChanged: (
           <div className="row">
             <div className="field" style={{ flex: 1 }}><label>Origen</label><input value={origen} onChange={(e) => setOrigen(e.target.value)} /></div>
             <div className="field" style={{ flex: 1 }}><label>Destino</label><input value={destino} onChange={(e) => setDestino(e.target.value)} /></div>
-            <div className="field"><label>Cliente habitual (opcional)</label><input value={cliente} onChange={(e) => setCliente(e.target.value)} /></div>
+            <div className="field"><label>Km reales</label><input type="number" value={kmReales} onChange={(e) => setKmReales(e.target.value)} /></div>
+            <div className="field"><label>Km convenio</label><input type="number" value={kmConvenio} onChange={(e) => setKmConvenio(e.target.value)} /></div>
             <button onClick={create}>+ Agregar</button>
           </div>
           <div className="hint">Estas rutas aparecen como acceso rápido en "Nuevo tramo" para completar origen y destino con un clic.</div>

@@ -7,6 +7,7 @@ import type { BaseRecord } from '../../types';
 export interface ColumnDef<T> {
   field: keyof T;
   label: string;
+  type?: 'text' | 'number'; // default 'text' — controla el input al editar
 }
 
 interface Props<T extends BaseRecord & { activo: boolean }> {
@@ -26,6 +27,8 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
   const confirm = useConfirm();
   const [items, setItems] = useState<T[]>([]);
   const [search, setSearch] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Record<string, string>>({});
 
   useEffect(() => {
     load();
@@ -50,6 +53,30 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
       await pb.collection(collection).update(id, { activo: !currentlyActive });
       await load();
       onChanged();
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  function startEdit(item: T) {
+    setEditingId(item.id);
+    const d: Record<string, string> = {};
+    columns.forEach((c) => { d[String(c.field)] = String(item[c.field] ?? ''); });
+    setDraft(d);
+  }
+
+  async function saveEdit(id: string) {
+    try {
+      const payload: Record<string, unknown> = {};
+      for (const c of columns) {
+        const raw = draft[String(c.field)] ?? '';
+        payload[String(c.field)] = c.type === 'number' ? (raw.trim() === '' ? null : Number(raw)) : raw;
+      }
+      await pb.collection(collection).update(id, payload);
+      setEditingId(null);
+      await load();
+      onChanged();
+      toast('Guardado.', 'ok');
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
     }
@@ -97,17 +124,36 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
             )}
             {filtered.map((item) => {
               const inactivo = item.activo === false;
+              const editing = editingId === item.id;
               return (
                 <tr key={item.id} className={inactivo ? 'inactivo' : ''}>
                   {columns.map((c, i) => (
                     <td key={String(c.field)} className={i === 0 ? 'admin-name' : ''}>
-                      {String(item[c.field] ?? '') || (i === 0 ? '—' : '')}
+                      {editing ? (
+                        <input
+                          type={c.type === 'number' ? 'number' : 'text'}
+                          value={draft[String(c.field)] ?? ''}
+                          onChange={(e) => setDraft((d) => ({ ...d, [String(c.field)]: e.target.value }))}
+                        />
+                      ) : (
+                        String(item[c.field] ?? '') || (i === 0 ? '—' : '')
+                      )}
                     </td>
                   ))}
                   <td>{inactivo ? <span className="badge">Inactivo</span> : <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Activo</span>}</td>
                   <td className="actions-cell">
-                    <button className="small secondary" onClick={() => toggleActivo(item.id, !inactivo)}>{inactivo ? 'Reactivar' : 'Desactivar'}</button>
-                    <button className="small danger" onClick={() => remove(item.id)}>Borrar</button>
+                    {editing ? (
+                      <>
+                        <button className="small" onClick={() => saveEdit(item.id)}>Guardar</button>
+                        <button className="small secondary" onClick={() => setEditingId(null)}>Cancelar</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="small secondary" onClick={() => startEdit(item)}>Editar</button>
+                        <button className="small secondary" onClick={() => toggleActivo(item.id, !inactivo)}>{inactivo ? 'Reactivar' : 'Desactivar'}</button>
+                        <button className="small danger" onClick={() => remove(item.id)}>Borrar</button>
+                      </>
+                    )}
                   </td>
                 </tr>
               );
