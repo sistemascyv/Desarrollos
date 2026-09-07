@@ -34,7 +34,11 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
 
   async function load() {
     try {
-      const list = await pb.collection(collection).getFullList<T>({ sort: '-created' });
+      // Alfabético por la columna principal de cada listado (nombre en
+      // choferes, código en vehículos, etc.) en vez de por fecha de
+      // creación — con cargas masivas (una importación, por ejemplo)
+      // quedaban en el orden en que se insertaron, no en un orden útil.
+      const list = await pb.collection(collection).getFullList<T>({ sort: String(columns[0].field) });
       setItems(list);
     } catch (e) {
       toast(`No se pudo cargar ${collection}: ` + (e instanceof Error ? e.message : ''), 'err');
