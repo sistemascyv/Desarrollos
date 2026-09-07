@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage';
 import { PlanillaChoferesPage } from './pages/planilla/PlanillaChoferesPage';
 import { ControlChequesPage } from './pages/cheques/ControlChequesPage';
 import { CentralDeudoresPage } from './pages/deudores/CentralDeudoresPage';
+import { ReporteCombustiblePage } from './pages/flota/ReporteCombustiblePage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth, RequireAdmin, RequireModule } from './components/RequireAuth';
@@ -49,6 +50,14 @@ function App() {
           element={
             <RequireModule moduleId="central_deudores">
               <CentralDeudoresPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/flota/consumo-combustible"
+          element={
+            <RequireModule moduleId="consumo_combustible">
+              <ReporteCombustiblePage />
             </RequireModule>
           }
         />

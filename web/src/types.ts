@@ -67,6 +67,9 @@ export interface Tramo extends BaseRecord {
   control?: boolean;
   permanencia?: number;
   cruce_frontera?: number;
+  litros_consumidos?: number;
+  litros_intermedios?: number; // repostaje en ruta (no en el inicio/fin del viaje)
+  litros_equipo_frio?: number;
   chofer: string;
   mes: string; // "YYYY-MM", calculado de dia_salida
 }
@@ -173,4 +176,5 @@ export const MODULES: ModuleDef[] = [
   { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación', path: 'liquidacion/planilla-choferes' },
   { id: 'control_cheques', label: 'Control de Cheques', group: 'Finanzas', path: 'finanzas/control-cheques' },
   { id: 'central_deudores', label: 'Central de Deudores', group: 'Finanzas', path: 'finanzas/central-deudores' },
+  { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'Flota', path: 'flota/consumo-combustible' },
 ];
