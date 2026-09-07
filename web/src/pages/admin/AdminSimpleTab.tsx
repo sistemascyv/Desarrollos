@@ -20,6 +20,8 @@ interface Props<T extends BaseRecord & { activo: boolean }> {
   onChanged: () => void;
 }
 
+const PAGE_SIZE = 50;
+
 export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
   title, collection, columns, searchFields, form, version, onChanged,
 }: Props<T>) {
@@ -27,22 +29,50 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
   const confirm = useConfirm();
   const [items, setItems] = useState<T[]>([]);
   const [search, setSearch] = useState('');
+  const [estado, setEstado] = useState<'todos' | 'activos' | 'inactivos'>('todos');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
 
+  // Volver a la página 1 cuando cambia la búsqueda o el filtro de estado
+  // (si no, uno puede quedar viendo una "página 5" que ya no existe).
   useEffect(() => {
-    load();
+    setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version]);
+  }, [search, estado]);
+
+  useEffect(() => {
+    // Se tipea letra a letra en el buscador — esperamos un toque antes de
+    // pegarle al servidor para no mandar un pedido por cada tecla.
+    const t = setTimeout(load, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version, page, search, estado]);
 
   async function load() {
     try {
-      // Alfabético por la columna principal de cada listado (nombre en
-      // choferes, código en vehículos, etc.) en vez de por fecha de
-      // creación — con cargas masivas (una importación, por ejemplo)
-      // quedaban en el orden en que se insertaron, no en un orden útil.
-      const list = await pb.collection(collection).getFullList<T>({ sort: String(columns[0].field) });
-      setItems(list);
+      const parts: string[] = [];
+      const q = search.trim();
+      if (q) {
+        const or = searchFields.map((f) => pb.filter(`${String(f)} ~ {:q}`, { q })).join(' || ');
+        parts.push(`(${or})`);
+      }
+      if (estado === 'activos') parts.push('activo = true');
+      if (estado === 'inactivos') parts.push('activo = false');
+
+      // Paginado en el servidor en vez de traer todo el listado: con
+      // colecciones grandes (rutas tiene miles) traer todo de una y
+      // re-pedirlo entero después de cada alta/edición hacía que cargar
+      // la pantalla y tipear una ruta nueva se sintiera lento.
+      const result = await pb.collection(collection).getList<T>(page, PAGE_SIZE, {
+        sort: String(columns[0].field),
+        filter: parts.join(' && '),
+      });
+      setItems(result.items);
+      setTotalPages(result.totalPages);
+      setTotalItems(result.totalItems);
     } catch (e) {
       toast(`No se pudo cargar ${collection}: ` + (e instanceof Error ? e.message : ''), 'err');
     }
@@ -94,17 +124,19 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
     }
   }
 
-  const q = search.trim().toLowerCase();
-  const filtered = q ? items.filter((item) => searchFields.some((f) => String(item[f] ?? '').toLowerCase().includes(q))) : items;
-
   return (
     <div className="card">
       <h2>{title}</h2>
       {form}
       <div className="admin-toolbar">
         <input type="text" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select value={estado} onChange={(e) => setEstado(e.target.value as typeof estado)}>
+          <option value="todos">Todos</option>
+          <option value="activos">Activos</option>
+          <option value="inactivos">Inactivos</option>
+        </select>
         <span className="count-badge">
-          {filtered.length}{q ? ` de ${items.length}` : ''} {filtered.length === 1 ? 'registro' : 'registros'}
+          {totalItems} {totalItems === 1 ? 'registro' : 'registros'}
         </span>
       </div>
       <div className="table-wrap" style={{ maxHeight: '50vh', marginTop: 10 }}>
@@ -117,12 +149,9 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
           </thead>
           <tbody>
             {items.length === 0 && (
-              <tr><td className="empty" colSpan={columns.length + 2}>Sin registros todavía.</td></tr>
+              <tr><td className="empty" colSpan={columns.length + 2}>{search || estado !== 'todos' ? 'No hay resultados.' : 'Sin registros todavía.'}</td></tr>
             )}
-            {items.length > 0 && filtered.length === 0 && (
-              <tr><td className="empty" colSpan={columns.length + 2}>No hay resultados para "{search}".</td></tr>
-            )}
-            {filtered.map((item) => {
+            {items.map((item) => {
               const inactivo = item.activo === false;
               const editing = editingId === item.id;
               return (
@@ -161,7 +190,13 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <div className="admin-toolbar" style={{ marginTop: 10 }}>
+          <button className="small secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>← Anterior</button>
+          <span>Página {page} de {totalPages}</span>
+          <button className="small secondary" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Siguiente →</button>
+        </div>
+      )}
     </div>
   );
 }
-
