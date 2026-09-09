@@ -846,19 +846,6 @@ a.link {
 .home-hero {
   padding: 6px 2px 22px;
 }
-.home-logo {
-  display: inline-block;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid var(--border);
-  padding: 14px 20px;
-  margin-bottom: 18px;
-}
-.home-logo img {
-  display: block;
-  height: 56px;
-  width: auto;
-}
 .home-hero h1 {
   font-family: var(--font-display);
   font-size: 34px;
