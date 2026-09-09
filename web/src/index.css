@@ -130,12 +130,13 @@ main {
   background-repeat: no-repeat;
   background-position: center;
   background-size: cover;
-  /* "fixed" ancla la imagen al viewport en vez de a la altura total de
-     la página — una sola imagen grande, siempre detrás de las tarjetas
-     estés donde estés scrolleado. El blur fuerte es a propósito: sin
-     eso, al recortarse tan de cerca (cover) se ve texto ilegible en
-     vez de una mancha de color de fondo. */
-  background-attachment: fixed;
+  /* "cover" sin "fixed": con fixed, el centrado es contra todo el
+     viewport del navegador, no contra esta zona de contenido (que
+     arranca despues del sidebar) — por eso se veia corrido a un
+     costado. Centrado contra el propio contenedor queda bien detras
+     de las tarjetas. El blur fuerte es a propósito: sin eso, al
+     recortarse tan de cerca (cover) se ve texto ilegible en vez de
+     una mancha de color de fondo. */
   background-blend-mode: multiply;
   filter: blur(32px);
   opacity: 0.32;
