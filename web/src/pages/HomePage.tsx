@@ -16,7 +16,7 @@ export function HomePage() {
   const grupos = [...new Set(items.map((m) => m.group))];
 
   return (
-    <main>
+    <main className="home-page">
       <div className="home-hero">
         <div className="home-logo">
           <img src={logo} alt="Carossio, Vairolatti & Cía" />
