@@ -118,6 +118,7 @@ main {
    tarjetas tienen fondo opaco, así que encima siguen totalmente legibles. */
 .home-page {
   position: relative;
+  overflow: hidden;
 }
 .home-page::before {
   content: '';
@@ -131,12 +132,13 @@ main {
   background-size: cover;
   /* "fixed" ancla la imagen al viewport en vez de a la altura total de
      la página — una sola imagen grande, siempre detrás de las tarjetas
-     estés donde estés scrolleado, en vez de una en la parte de arriba
-     nada más o repetida en mosaico. */
+     estés donde estés scrolleado. El blur fuerte es a propósito: sin
+     eso, al recortarse tan de cerca (cover) se ve texto ilegible en
+     vez de una mancha de color de fondo. */
   background-attachment: fixed;
   background-blend-mode: multiply;
-  filter: blur(2px);
-  opacity: 0.18;
+  filter: blur(32px);
+  opacity: 0.32;
   pointer-events: none;
 }
 
