@@ -109,6 +109,32 @@ main {
   margin: 0 auto;
 }
 
+/* Inicio: el logo como marca de agua de fondo detrás de todo el
+   contenido (hero + tarjetas), no solo un recuadro chico. Va en un
+   ::before para poder desenfocarlo sin desenfocar el contenido real, y
+   se combina con el color de fondo de la página (background-blend-mode:
+   multiply) para que el blanco de la imagen desaparezca solo, en
+   cualquier tema — así no queda un recuadro visible como antes. Las
+   tarjetas tienen fondo opaco, así que encima siguen totalmente legibles. */
+.home-page {
+  position: relative;
+}
+.home-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--bg);
+  background-image: url('./assets/logo.jpg');
+  background-repeat: no-repeat;
+  background-position: center 20px;
+  background-size: min(820px, 88%) auto;
+  background-blend-mode: multiply;
+  filter: blur(2px);
+  opacity: 0.22;
+  pointer-events: none;
+}
+
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
