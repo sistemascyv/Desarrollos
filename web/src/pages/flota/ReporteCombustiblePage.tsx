@@ -286,6 +286,7 @@ export function ReporteCombustiblePage() {
     <main>
       <div className="card">
         <h2>Consumo de Combustible</h2>
+        <div className="hint">Elegí un rango de fechas de los tramos ya cargados en el sistema, o subí la planilla de ControlCombustible, y se calcula todo acá: consumo, ranking por camión y chofer, costo por km y repostajes.</div>
 
         {origen === 'bd' ? (
           <>
@@ -339,81 +340,85 @@ export function ReporteCombustiblePage() {
         }}
       />
 
-      <div className="card">
-        <h2>Resumen de flota</h2>
-        <div className="summary-grid">
-          <div className="stat"><div className="lbl">Litros totales</div><div className="val">{num(totalLitros)}</div></div>
-          <div className="stat"><div className="lbl">Km recorridos</div><div className="val">{num(totalKm)}</div></div>
-          <div className="stat"><div className="lbl">L/100km flota</div><div className="val">{num(l100Flota, 2)}</div></div>
-          <div className="stat"><div className="lbl">km/L flota</div><div className="val">{num(kmLFlota, 3)}</div></div>
-          <div className="stat"><div className="lbl">Repostajes en ruta</div><div className="val">{totalRepostajes}</div></div>
-          <div className="stat"><div className="lbl">Litros equipo frío</div><div className="val">{num(totalFrio)}</div></div>
-        </div>
-      </div>
-
-      <div className="card">
-        <h2>Ranking por camión</h2>
-        <div className="hint" style={{ marginBottom: 10 }}>Ordenado de mejor a peor L/100km. El color es el desvío contra el promedio de la flota en este período.</div>
-        {tablaRanking(camiones, 'Camión')}
-      </div>
-
-      <div className="card">
-        <h2>Ranking por chofer</h2>
-        {tablaRanking(choferesFila, 'Chofer')}
-      </div>
-
-      <div className="card">
-        <h2>Costo por km</h2>
-        <div className="row">
-          <div className="field"><label>Precio gasoil (ARS/L)</label><input type="number" step="1" value={precioGasoil} onChange={(e) => setPrecioGasoil(e.target.value)} /></div>
-          <div className="field"><label>Tipo de cambio (ARS/USD)</label><input type="number" step="1" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} /></div>
-        </div>
-        <div className="hint" style={{ marginBottom: 10 }}>Valores de referencia, editables — se recalcula todo al cambiarlos.</div>
-        <div className="summary-grid summary-grid-compact">
-          <div className="stat"><div className="lbl">ARS por km (flota)</div><div className="val">${num(arsKmFlota, 2)}</div></div>
-          <div className="stat"><div className="lbl">USD por km (flota)</div><div className="val">u$s {num(usdKmFlota, 4)}</div></div>
-        </div>
-        <div className="table-wrap" style={{ marginTop: 14 }}>
-          <table>
-            <thead>
-              <tr><th>#</th><th>Camión</th><th className="num">L/100km</th><th className="num">ARS/km</th><th className="num">USD/km</th><th className="num">Ahorro vs. peor (ARS/km)</th></tr>
-            </thead>
-            <tbody>
-              {camiones.map((c, i) => {
-                const ars = (c.l100 * precio) / 100;
-                const usd = tc > 0 ? ars / tc : 0;
-                const ahorro = ((peorL100 - c.l100) * precio) / 100;
-                return (
-                  <tr key={c.clave}>
-                    <td>{i + 1}</td>
-                    <td className="admin-name">{c.clave}</td>
-                    <td className="num">{num(c.l100, 2)}</td>
-                    <td className="num">${num(ars, 2)}</td>
-                    <td className="num">u$s {num(usd, 4)}</td>
-                    <td className="num">${num(ahorro, 2)}</td>
-                  </tr>
-                );
-              })}
-              {camiones.length === 0 && <tr><td className="empty" colSpan={6}>Sin datos.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="card">
-        <h2>Repostajes en ruta</h2>
-        <div className="hint" style={{ marginBottom: 10 }}>Top 10 con más cargas intermedias — frecuencia alta puede indicar rutas largas o un tanque con problemas.</div>
-        <div className="grid2">
-          <div>
-            <h3 style={{ fontSize: 13, marginBottom: 8 }}>Por camión</h3>
-            {tablaRanking(topRepoCam, 'Camión')}
+      {movimientos.length === 0 ? null : (
+        <>
+          <div className="card">
+            <h2>Resumen de flota</h2>
+            <div className="summary-grid">
+              <div className="stat"><div className="lbl">Litros totales</div><div className="val">{num(totalLitros)}</div></div>
+              <div className="stat"><div className="lbl">Km recorridos</div><div className="val">{num(totalKm)}</div></div>
+              <div className="stat"><div className="lbl">L/100km flota</div><div className="val">{num(l100Flota, 2)}</div></div>
+              <div className="stat"><div className="lbl">km/L flota</div><div className="val">{num(kmLFlota, 3)}</div></div>
+              <div className="stat"><div className="lbl">Repostajes en ruta</div><div className="val">{totalRepostajes}</div></div>
+              <div className="stat"><div className="lbl">Litros equipo frío</div><div className="val">{num(totalFrio)}</div></div>
+            </div>
           </div>
-          <div>
-            <h3 style={{ fontSize: 13, marginBottom: 8 }}>Por chofer</h3>
-            {tablaRanking(topRepoCho, 'Chofer')}
+
+          <div className="card">
+            <h2>Ranking por camión</h2>
+            <div className="hint" style={{ marginBottom: 10 }}>Ordenado de mejor a peor L/100km. El color es el desvío contra el promedio de la flota en este período.</div>
+            {tablaRanking(camiones, 'Camión')}
           </div>
-        </div>
-      </div>
+
+          <div className="card">
+            <h2>Ranking por chofer</h2>
+            {tablaRanking(choferesFila, 'Chofer')}
+          </div>
+
+          <div className="card">
+            <h2>Costo por km</h2>
+            <div className="row">
+              <div className="field"><label>Precio gasoil (ARS/L)</label><input type="number" step="1" value={precioGasoil} onChange={(e) => setPrecioGasoil(e.target.value)} /></div>
+              <div className="field"><label>Tipo de cambio (ARS/USD)</label><input type="number" step="1" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} /></div>
+            </div>
+            <div className="hint" style={{ marginBottom: 10 }}>Valores de referencia, editables — se recalcula todo al cambiarlos.</div>
+            <div className="summary-grid summary-grid-compact">
+              <div className="stat"><div className="lbl">ARS por km (flota)</div><div className="val">${num(arsKmFlota, 2)}</div></div>
+              <div className="stat"><div className="lbl">USD por km (flota)</div><div className="val">u$s {num(usdKmFlota, 4)}</div></div>
+            </div>
+            <div className="table-wrap" style={{ marginTop: 14 }}>
+              <table>
+                <thead>
+                  <tr><th>#</th><th>Camión</th><th className="num">L/100km</th><th className="num">ARS/km</th><th className="num">USD/km</th><th className="num">Ahorro vs. peor (ARS/km)</th></tr>
+                </thead>
+                <tbody>
+                  {camiones.map((c, i) => {
+                    const ars = (c.l100 * precio) / 100;
+                    const usd = tc > 0 ? ars / tc : 0;
+                    const ahorro = ((peorL100 - c.l100) * precio) / 100;
+                    return (
+                      <tr key={c.clave}>
+                        <td>{i + 1}</td>
+                        <td className="admin-name">{c.clave}</td>
+                        <td className="num">{num(c.l100, 2)}</td>
+                        <td className="num">${num(ars, 2)}</td>
+                        <td className="num">u$s {num(usd, 4)}</td>
+                        <td className="num">${num(ahorro, 2)}</td>
+                      </tr>
+                    );
+                  })}
+                  {camiones.length === 0 && <tr><td className="empty" colSpan={6}>Sin datos.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Repostajes en ruta</h2>
+            <div className="hint" style={{ marginBottom: 10 }}>Top 10 con más cargas intermedias — frecuencia alta puede indicar rutas largas o un tanque con problemas.</div>
+            <div className="grid2">
+              <div>
+                <h3 style={{ fontSize: 13, marginBottom: 8 }}>Por camión</h3>
+                {tablaRanking(topRepoCam, 'Camión')}
+              </div>
+              <div>
+                <h3 style={{ fontSize: 13, marginBottom: 8 }}>Por chofer</h3>
+                {tablaRanking(topRepoCho, 'Chofer')}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }
