@@ -99,6 +99,30 @@ function parseHtmlDisfrazado(html: string): Cubierta[] {
   return out;
 }
 
+// El export real de Cubiertas resultó ser otro formato legacy: XML de
+// Excel 2003 ("SpreadsheetML", <?mso-application progid="Excel.Sheet"?>),
+// no HTML disfrazado. Se parsea como XML de verdad (no con DOMParser en
+// modo HTML, que normaliza mal las etiquetas <Row>/<Cell>/<Data>).
+function parseSpreadsheetXml(xml: string): Cubierta[] {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('El archivo XML no es válido.');
+  const filas = [...doc.getElementsByTagName('Row')];
+  if (filas.length < 2) throw new Error('La planilla no tiene datos.');
+  const celda = (c: Element) => (c.getElementsByTagName('Data')[0]?.textContent ?? c.textContent ?? '').trim();
+  const headers = [...filas[0].getElementsByTagName('Cell')].map(celda);
+  const rows: Record<string, string>[] = [];
+  for (let i = 1; i < filas.length; i++) {
+    const celdas = [...filas[i].getElementsByTagName('Cell')].map(celda);
+    if (celdas.length === 0) continue;
+    const row: Record<string, string> = {};
+    headers.forEach((h, j) => { row[h] = celdas[j] ?? ''; });
+    rows.push(row);
+  }
+  const out = normalizar(rows);
+  if (out.length === 0) throw new Error('No se reconocieron columnas de cubiertas (Marca, Modelo, Kilometraje...). ¿Es el reporte correcto?');
+  return out;
+}
+
 export function PanelCubiertasPage() {
   const [cubiertas, setCubiertas] = useState<Cubierta[]>([]);
   const [nombreArchivo, setNombreArchivo] = useState('');
@@ -118,11 +142,15 @@ export function PanelCubiertasPage() {
     try {
       const buf = await file.arrayBuffer();
       const inicio = new TextDecoder().decode(new Uint8Array(buf.slice(0, 500))).trim().toLowerCase();
-      if (!(inicio.startsWith('<') || inicio.includes('<html') || inicio.includes('<table'))) {
-        throw new Error('El archivo no parece ser el reporte de Cubiertas (HTML con extensión .xls). Si tenés un .xlsx real, avisá para sumarle soporte.');
+      const texto = new TextDecoder('utf-8').decode(buf);
+      let parsed: Cubierta[];
+      if (inicio.startsWith('<?xml') || inicio.includes('office:spreadsheet')) {
+        parsed = parseSpreadsheetXml(texto);
+      } else if (inicio.startsWith('<') || inicio.includes('<html') || inicio.includes('<table')) {
+        parsed = parseHtmlDisfrazado(texto);
+      } else {
+        throw new Error('El archivo no parece ser el reporte de Cubiertas (XML/HTML de Excel). Si es otro formato, avisá para sumarle soporte.');
       }
-      const html = new TextDecoder('utf-8').decode(buf);
-      const parsed = parseHtmlDisfrazado(html);
       setCubiertas(parsed);
       setNombreArchivo(file.name);
       try {
@@ -150,13 +178,14 @@ export function PanelCubiertasPage() {
   }
 
   const {
-    total, activas, desmontadas, bajas, pctBajaSinRecap, marcaStats, byYear, recapSteps,
+    total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps,
     cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables,
   } = useMemo(() => {
     const total = cubiertas.length;
     const activas = cubiertas.filter((r) => r.estadoCat === 'ACTIVA');
     const desmontadas = cubiertas.filter((r) => r.estadoCat === 'DESMONTADA');
     const bajas = cubiertas.filter((r) => r.estadoCat === 'BAJA');
+    const otras = cubiertas.filter((r) => r.estadoCat === 'OTRO');
     const bajasSinRecap = bajas.filter((r) => r.rec === 0).length;
     const pctBajaSinRecap = bajas.length ? Math.round((bajasSinRecap / bajas.length) * 100) : 0;
 
@@ -218,7 +247,7 @@ export function PanelCubiertasPage() {
     const ahorroUnit = pNueva - pRecap;
     const ahorroTotal = recapables * ahorroUnit;
 
-    return { total, activas, desmontadas, bajas, pctBajaSinRecap, marcaStats, byYear, recapSteps, cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables, kmPromedioGeneral };
+    return { total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps, cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables, kmPromedioGeneral };
   }, [cubiertas, precioNueva, precioRecap, pctRecapable]);
 
   function claseDesvioCpk(valor: number, promedio: number) {
@@ -293,8 +322,11 @@ export function PanelCubiertasPage() {
               <div className="stat"><div className="lbl">Activas</div><div className="val">{num(activas.length)}</div></div>
               <div className="stat"><div className="lbl">Desmontadas (stock)</div><div className="val">{num(desmontadas.length)}</div></div>
               <div className="stat"><div className="lbl">Bajas sin recapar</div><div className="val" style={pctBajaSinRecap >= 50 ? { color: 'var(--err)' } : undefined}>{pctBajaSinRecap}%</div></div>
+              <div className="stat"><div className="lbl">Sin clasificar</div><div className="val">{num(otras.length)}</div></div>
             </div>
-            <div className="hint" style={{ marginTop: 6 }}>{bajas.length} bajas en total. El color en las tablas de abajo es el desvío contra el promedio de esta misma muestra, no un umbral fijo.</div>
+            <div className="hint" style={{ marginTop: 6 }}>
+              {bajas.length} bajas en total. "Sin clasificar" son registros cuyo campo Estado no coincide con ninguno de los 3 patrones reconocidos (montada en unidad, desmontada, dada de baja) — probablemente carga histórica con otro criterio; no entran en ninguna cuenta de arriba. El color en las tablas de abajo es el desvío contra el promedio de esta misma muestra, no un umbral fijo.
+            </div>
           </div>
 
           <div className="card">
