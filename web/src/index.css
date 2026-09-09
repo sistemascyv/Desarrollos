@@ -126,12 +126,17 @@ main {
   z-index: -1;
   background-color: var(--bg);
   background-image: url('./assets/logo.jpg');
-  background-repeat: repeat;
-  background-position: top left;
-  background-size: 380px auto;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  /* "fixed" ancla la imagen al viewport en vez de a la altura total de
+     la página — una sola imagen grande, siempre detrás de las tarjetas
+     estés donde estés scrolleado, en vez de una en la parte de arriba
+     nada más o repetida en mosaico. */
+  background-attachment: fixed;
   background-blend-mode: multiply;
   filter: blur(2px);
-  opacity: 0.16;
+  opacity: 0.18;
   pointer-events: none;
 }
 
