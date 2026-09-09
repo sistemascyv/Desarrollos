@@ -109,38 +109,21 @@ main {
   margin: 0 auto;
 }
 
-/* Inicio: el logo como marca de agua de fondo detrás de todo el
-   contenido (hero + tarjetas), no solo un recuadro chico. Va en un
-   ::before para poder desenfocarlo sin desenfocar el contenido real, y
-   se combina con el color de fondo de la página (background-blend-mode:
-   multiply) para que el blanco de la imagen desaparezca solo, en
-   cualquier tema — así no queda un recuadro visible como antes. Las
-   tarjetas tienen fondo opaco, así que encima siguen totalmente legibles. */
+/* Inicio: el logo como fondo de toda la página (hero + tarjetas), ya
+   desenfocado y mezclado con el color de fondo de cada tema DENTRO del
+   archivo de imagen (ver script usado para generarlo) — así el fondo
+   es directo sobre .home-page, sin pseudo-elemento ni filter/opacity
+   en vivo, que traían quilombo con el alto real del contenido. Una
+   imagen para tema claro y otra para oscuro, cada una ya compuesta
+   sobre el color de fondo correspondiente. */
 .home-page {
-  position: relative;
-  overflow: hidden;
-}
-.home-page::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-color: var(--bg);
-  background-image: url('./assets/logo.jpg');
+  background-image: url('./assets/logo-bg-light.jpg');
   background-repeat: no-repeat;
-  background-position: center;
+  background-position: center top;
   background-size: cover;
-  /* "cover" sin "fixed": con fixed, el centrado es contra todo el
-     viewport del navegador, no contra esta zona de contenido (que
-     arranca despues del sidebar) — por eso se veia corrido a un
-     costado. Centrado contra el propio contenedor queda bien detras
-     de las tarjetas. El blur fuerte es a propósito: sin eso, al
-     recortarse tan de cerca (cover) se ve texto ilegible en vez de
-     una mancha de color de fondo. */
-  background-blend-mode: multiply;
-  filter: blur(32px);
-  opacity: 0.32;
-  pointer-events: none;
+}
+:root[data-theme='dark'] .home-page {
+  background-image: url('./assets/logo-bg-dark.jpg');
 }
 
 .card {
