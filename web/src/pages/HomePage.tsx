@@ -15,7 +15,7 @@ export function HomePage() {
   const grupos = [...new Set(items.map((m) => m.group))];
 
   return (
-    <main className="home-page">
+    <main>
       <div className="home-hero">
         <h1>Hola, {usuario?.nombre || usuario?.username}</h1>
         <p className="hint">Elegí un módulo para empezar.</p>

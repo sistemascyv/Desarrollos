@@ -109,23 +109,6 @@ main {
   margin: 0 auto;
 }
 
-/* Inicio: el logo como fondo de toda la página (hero + tarjetas), ya
-   desenfocado y mezclado con el color de fondo de cada tema DENTRO del
-   archivo de imagen (ver script usado para generarlo) — así el fondo
-   es directo sobre .home-page, sin pseudo-elemento ni filter/opacity
-   en vivo, que traían quilombo con el alto real del contenido. Una
-   imagen para tema claro y otra para oscuro, cada una ya compuesta
-   sobre el color de fondo correspondiente. */
-.home-page {
-  background-image: url('./assets/logo-bg-light.jpg');
-  background-repeat: no-repeat;
-  background-position: center top;
-  background-size: cover;
-}
-:root[data-theme='dark'] .home-page {
-  background-image: url('./assets/logo-bg-dark.jpg');
-}
-
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
