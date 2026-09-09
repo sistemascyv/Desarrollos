@@ -177,4 +177,5 @@ export const MODULES: ModuleDef[] = [
   { id: 'control_cheques', label: 'Control de Cheques', group: 'Finanzas', path: 'finanzas/control-cheques' },
   { id: 'central_deudores', label: 'Central de Deudores', group: 'Finanzas', path: 'finanzas/central-deudores' },
   { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'Flota', path: 'flota/consumo-combustible' },
+  { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'Flota', path: 'flota/panel-cubiertas' },
 ];
