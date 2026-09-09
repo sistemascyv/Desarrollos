@@ -827,30 +827,7 @@ a.link {
 }
 
 .home-hero {
-  position: relative;
   padding: 6px 2px 22px;
-  overflow: hidden;
-}
-.home-hero-bg {
-  position: absolute;
-  top: -70px;
-  right: -60px;
-  width: 520px;
-  max-width: 65%;
-  opacity: 0.15;
-  filter: blur(3px);
-  mix-blend-mode: multiply;
-  pointer-events: none;
-  user-select: none;
-  z-index: 0;
-}
-:root[data-theme='dark'] .home-hero-bg {
-  mix-blend-mode: normal;
-  opacity: 0.05;
-}
-.home-hero > *:not(.home-hero-bg) {
-  position: relative;
-  z-index: 1;
 }
 .home-logo {
   display: inline-block;
