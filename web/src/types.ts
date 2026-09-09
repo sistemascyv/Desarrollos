@@ -165,6 +165,14 @@ export interface Cheque extends BaseRecord {
   notas?: string;
 }
 
+export interface ReporteArchivo extends BaseRecord {
+  tipo: 'combustible' | 'cubiertas';
+  nombre_archivo: string;
+  usuario?: string;
+  datos: unknown;
+  expand?: { usuario?: Usuario };
+}
+
 export interface ModuleDef {
   id: string;
   label: string;

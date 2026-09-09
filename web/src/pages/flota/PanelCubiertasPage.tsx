@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import { pb } from '../../lib/pb';
+import { HistorialReportes } from './HistorialReportes';
 
 // No hay todavía una colección de cubiertas en el sistema — este panel
 // solo lee el reporte legacy que se sube a mano (igual que el de
@@ -103,6 +105,7 @@ export function PanelCubiertasPage() {
   const [errorArchivo, setErrorArchivo] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [historialKey, setHistorialKey] = useState(0);
 
   const [precioNueva, setPrecioNueva] = useState('480000');
   const [precioRecap, setPrecioRecap] = useState('140000');
@@ -122,6 +125,12 @@ export function PanelCubiertasPage() {
       const parsed = parseHtmlDisfrazado(html);
       setCubiertas(parsed);
       setNombreArchivo(file.name);
+      try {
+        await pb.collection('reportes_archivo').create({
+          tipo: 'cubiertas', nombre_archivo: file.name, usuario: pb.authStore.record?.id, datos: parsed,
+        });
+        setHistorialKey((k) => k + 1);
+      } catch { /* no bloqueamos el reporte si falla el guardado del historial */ }
     } catch (e) {
       setErrorArchivo(e instanceof Error ? e.message : 'Error al procesar el archivo.');
     }
@@ -264,6 +273,16 @@ export function PanelCubiertasPage() {
           )}
         </div>
       </div>
+
+      <HistorialReportes
+        tipo="cubiertas"
+        refreshKey={historialKey}
+        onCargar={(datos, nombre) => {
+          setCubiertas(datos as Cubierta[]);
+          setNombreArchivo(nombre);
+          setErrorArchivo('');
+        }}
+      />
 
       {cubiertas.length === 0 ? null : (
         <>

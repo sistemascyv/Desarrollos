@@ -3,6 +3,7 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import type { Chofer, Tramo } from '../../types';
 import { isoDate } from '../../lib/format';
+import { HistorialReportes } from './HistorialReportes';
 
 // Forma común para un viaje con datos de combustible, venga de la base
 // (tramos ya cargados en el sistema) o de un archivo subido a mano — todo
@@ -142,6 +143,7 @@ export function ReporteCombustiblePage() {
   const [errorArchivo, setErrorArchivo] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [historialKey, setHistorialKey] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -181,6 +183,12 @@ export function ReporteCombustiblePage() {
       setMovArchivo(movs);
       setNombreArchivo(file.name);
       setOrigen('archivo');
+      try {
+        await pb.collection('reportes_archivo').create({
+          tipo: 'combustible', nombre_archivo: file.name, usuario: pb.authStore.record?.id, datos: movs,
+        });
+        setHistorialKey((k) => k + 1);
+      } catch { /* no bloqueamos el reporte si falla el guardado del historial */ }
     } catch (e) {
       setErrorArchivo(e instanceof Error ? e.message : 'Error al procesar el archivo.');
     }
@@ -319,6 +327,17 @@ export function ReporteCombustiblePage() {
           {errorArchivo && <div className="hint" style={{ color: 'var(--err)', marginTop: 6 }}>⚠ {errorArchivo}</div>}
         </div>
       </div>
+
+      <HistorialReportes
+        tipo="combustible"
+        refreshKey={historialKey}
+        onCargar={(datos, nombre) => {
+          setMovArchivo(datos as Movimiento[]);
+          setNombreArchivo(nombre);
+          setOrigen('archivo');
+          setErrorArchivo('');
+        }}
+      />
 
       <div className="card">
         <h2>Resumen de flota</h2>
