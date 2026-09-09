@@ -25,6 +25,9 @@ interface RecapEvento {
   fechaMs: number;
   precio: number;
   km: number; // km acumulado de la cubierta al momento del recapado
+  proveedor: string;
+  banda: string;
+  tipoBanda: string;
 }
 
 const num = (n: number, d = 0) => n.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -121,8 +124,11 @@ function parseHistorial(hoja: Element): RecapEvento[] {
     const fechaMs = parseFechaAr(find(row, ['fecha']));
     const precio = parseFloat(find(row, ['precio recapado', 'precio']).replace(/[^\d.-]/g, '')) || 0;
     const km = parseFloat(find(row, ['km recapado', 'km acumulado']).replace(/[^\d.-]/g, '')) || 0;
+    const proveedor = find(row, ['proveedor de recapados', 'proveedor']).trim();
+    const banda = find(row, ['banda']).trim();
+    const tipoBanda = find(row, ['tipo de banda']).trim();
     if (!numero || km <= 0) continue;
-    out.push({ numero, fechaMs, precio, km });
+    out.push({ numero, fechaMs, precio, km, proveedor, banda, tipoBanda });
   }
   return out;
 }
@@ -222,8 +228,15 @@ export function PanelCubiertasPage() {
       setHistorial(parsed.historial);
       setNombreArchivo(file.name);
       // Si el archivo trae historial real de recapados, precargamos el
-      // precio de recapado con la mediana real pagada — sigue editable.
-      const precios = parsed.historial.filter((h) => h.precio > 0).map((h) => h.precio);
+      // precio de recapado con la mediana real pagada en el último año
+      // del archivo (por la inflación, mezclar con precios viejos
+      // distorsiona) — sigue editable.
+      const fechas = parsed.historial.map((h) => h.fechaMs).filter((n) => !isNaN(n));
+      const fechaReciente = fechas.length ? Math.max(...fechas) : null;
+      const unAnioMs = 365 * 24 * 60 * 60 * 1000;
+      const precios = parsed.historial
+        .filter((h) => h.precio > 100 && fechaReciente !== null && h.fechaMs >= fechaReciente - unAnioMs)
+        .map((h) => h.precio);
       if (precios.length > 0) setPrecioRecap(String(Math.round(median(precios))));
       try {
         await pb.collection('reportes_archivo').create({
@@ -253,6 +266,7 @@ export function PanelCubiertasPage() {
 
   const {
     total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps, recapStepsReales,
+    proveedorStats, bandaStats, cpkProveedorPromedio, cpkBandaPromedio,
     cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables, precioRecapReal, eventosRecapReal,
   } = useMemo(() => {
     const total = cubiertas.length;
@@ -288,36 +302,82 @@ export function PanelCubiertasPage() {
       .filter((s) => s.km !== null) as { k: number; km: number }[];
 
     // Recapado, real: usa el historial detallado (si vino en el archivo)
-    // para medir km recorridos entre eventos de LA MISMA cubierta. Solo
-    // se cuentan etapas "cerradas" (siguió otro evento, o la cubierta ya
-    // está desmontada/dada de baja) — la última etapa de una cubierta
-    // todavía activa sigue en curso y no se puede medir todavía.
-    const estadoPorNumero = new Map(cubiertas.map((c) => [c.numero, c.estadoCat]));
+    // para medir km recorridos por cada banda de LA MISMA cubierta, entre
+    // el momento en que se instaló y el siguiente evento (otro recapado,
+    // o el km final si la cubierta ya está desmontada/dada de baja). La
+    // última banda de una cubierta todavía activa sigue en curso, no
+    // entra hasta que se cierre. Cada tramo cerrado (salvo la banda
+    // original de fábrica) queda además atado a quién hizo ese recapado
+    // y con qué banda, para poder compararlos entre sí.
+    interface Tramo { etapa: number; km: number; fechaMs: number | null; proveedor: string | null; banda: string | null; precio: number | null }
+    const cubiertaPorNumero = new Map(cubiertas.map((c) => [c.numero, c]));
     const eventosPorCubierta = new Map<string, RecapEvento[]>();
     historial.forEach((e) => { const l = eventosPorCubierta.get(e.numero) || []; l.push(e); eventosPorCubierta.set(e.numero, l); });
-    const etapas = new Map<number, number[]>();
+    const tramos: Tramo[] = [];
     eventosPorCubierta.forEach((eventos, numero) => {
       const ordenados = [...eventos].sort((a, b) => a.fechaMs - b.fechaMs);
-      const estado = estadoPorNumero.get(numero);
-      ordenados.forEach((ev, i) => {
-        const cerrada = i < ordenados.length - 1 || estado === 'BAJA' || estado === 'DESMONTADA';
-        if (!cerrada) return;
-        const km = i === 0 ? ev.km : ev.km - ordenados[i - 1].km;
-        if (km <= 0) return;
-        const etapa = Math.min(i, 3);
-        const l = etapas.get(etapa) || [];
-        l.push(km);
-        etapas.set(etapa, l);
-      });
+      const cub = cubiertaPorNumero.get(numero);
+      const puntos = ordenados.map((e) => e.km);
+      const cerrada = cub && (cub.estadoCat === 'BAJA' || cub.estadoCat === 'DESMONTADA');
+      if (cerrada && cub!.km > puntos[puntos.length - 1]) puntos.push(cub!.km);
+      for (let k = 0; k < puntos.length; k++) {
+        const km = k === 0 ? puntos[0] : puntos[k] - puntos[k - 1];
+        if (km <= 0) continue;
+        const ev = k > 0 ? ordenados[k - 1] : null;
+        // $1, $2... son placeholders de recapados rechazados/sin costo real,
+        // no un precio de verdad — se descartan con un piso mínimo.
+        tramos.push({
+          etapa: Math.min(k, 3), km, fechaMs: ev?.fechaMs ?? null,
+          proveedor: ev?.proveedor || null, banda: ev?.banda || null, precio: ev && ev.precio > 100 ? ev.precio : null,
+        });
+      }
     });
     const recapStepsReales = [0, 1, 2, 3]
-      .map((k) => ({ k, km: etapas.has(k) ? Math.round(median(etapas.get(k)!)) : null }))
+      .map((k) => { const arr = tramos.filter((t) => t.etapa === k).map((t) => t.km); return { k, km: arr.length ? Math.round(median(arr)) : null }; })
       .filter((s) => s.km !== null) as { k: number; km: number }[];
 
-    // Precio real de recapado, del historial (mediana de lo pagado).
-    const preciosReales = historial.filter((e) => e.precio > 0).map((e) => e.precio);
-    const precioRecapReal = preciosReales.length ? Math.round(median(preciosReales)) : null;
-    const eventosRecapReal = preciosReales.length;
+    // Argentina tiene inflación muy alta — comparar precios en pesos de
+    // hace varios años contra precios de ahora no sirve para decidir hoy.
+    // La vida útil (km) usa todo el historial disponible, pero el precio
+    // solo se compara dentro de los últimos 12 meses del archivo.
+    const UN_ANIO_MS = 365 * 24 * 60 * 60 * 1000;
+    const fechasValidas = historial.map((e) => e.fechaMs).filter((n) => !isNaN(n));
+    const fechaMasReciente = fechasValidas.length ? Math.max(...fechasValidas) : null;
+    const esPrecioReciente = (fechaMs: number | null) =>
+      fechaMasReciente !== null && fechaMs !== null && fechaMs >= fechaMasReciente - UN_ANIO_MS;
+
+    // Proveedores y bandas de recapado: solo tramos que vienen de un
+    // recapado real (se excluye la banda original, que no tiene proveedor).
+    const tramosRecapados = tramos.filter((t) => t.proveedor !== null);
+    function agruparTramos(campo: 'proveedor' | 'banda') {
+      const grupos = new Map<string, Tramo[]>();
+      tramosRecapados.forEach((t) => { const k = t[campo] || '(sin dato)'; const l = grupos.get(k) || []; l.push(t); grupos.set(k, l); });
+      return [...grupos.entries()]
+        .filter(([, v]) => v.length >= 5)
+        .map(([nombre, v]) => {
+          const precios = v.filter((t) => esPrecioReciente(t.fechaMs) && t.precio !== null).map((t) => t.precio as number);
+          const kmMed = median(v.map((t) => t.km));
+          const precioMed = precios.length ? median(precios) : null;
+          return {
+            nombre, n: v.length, km: Math.round(kmMed),
+            precio: precioMed !== null ? Math.round(precioMed) : null,
+            precioN: precios.length,
+            cpk: precioMed !== null && kmMed > 0 ? precioMed / kmMed : null,
+          };
+        })
+        .sort((a, b) => (a.cpk ?? Infinity) - (b.cpk ?? Infinity));
+    }
+    const proveedorStats = agruparTramos('proveedor');
+    const bandaStats = agruparTramos('banda');
+    const cpkProveedorPromedio = proveedorStats.length ? proveedorStats.reduce((s, p) => s + (p.cpk ?? 0), 0) / proveedorStats.length : 0;
+    const cpkBandaPromedio = bandaStats.length ? bandaStats.reduce((s, p) => s + (p.cpk ?? 0), 0) / bandaStats.length : 0;
+
+    // Precio real de recapado para precargar "Costo por km": mediana de
+    // lo pagado en los últimos 12 meses del archivo (mismo motivo: no
+    // mezclar precios viejos con los de hoy).
+    const preciosRecientes = historial.filter((e) => e.precio > 100 && esPrecioReciente(e.fechaMs)).map((e) => e.precio);
+    const precioRecapReal = preciosRecientes.length ? Math.round(median(preciosRecientes)) : null;
+    const eventosRecapReal = preciosRecientes.length;
 
     // Costo por km por marca
     const pNueva = Number(precioNueva) || 0;
@@ -355,7 +415,7 @@ export function PanelCubiertasPage() {
     const ahorroUnit = pNueva - pRecap;
     const ahorroTotal = recapables * ahorroUnit;
 
-    return { total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps, recapStepsReales, cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables, kmPromedioGeneral, precioRecapReal, eventosRecapReal };
+    return { total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps, recapStepsReales, proveedorStats, bandaStats, cpkProveedorPromedio, cpkBandaPromedio, cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables, kmPromedioGeneral, precioRecapReal, eventosRecapReal };
   }, [cubiertas, historial, precioNueva, precioRecap, pctRecapable]);
 
   function claseDesvioCpk(valor: number, promedio: number) {
@@ -381,6 +441,59 @@ export function PanelCubiertasPage() {
   const modeloFiltrados = filtroModelo
     ? modeloStats.filter((m) => (m.marca + ' ' + m.modelo).toLowerCase().includes(filtroModelo.toLowerCase()))
     : modeloStats;
+
+  const conCpk = proveedorStats.filter((p) => p.cpk !== null);
+  const mejorProveedor = conCpk[0] || null; // ya viene ordenado asc por cpk
+  const peorProveedor = conCpk.length ? conCpk[conCpk.length - 1] : null;
+
+  // Resumen ejecutivo: 3-5 conclusiones accionables arriba de todo, para
+  // no obligar a leer cada tabla para saber qué decisión tomar.
+  const puntosClave: React.ReactNode[] = [];
+  if (marcaStats.length > 0) {
+    const m = marcaStats[0];
+    puntosClave.push(<>🏆 Mejor marca por vida útil: <strong>{m.marca}</strong> — {num(m.km)} km medianos (n={m.n}).</>);
+  }
+  if (modeloStats.length > 0) {
+    const m = modeloStats[0];
+    puntosClave.push(<>🥇 Mejor combinación marca + modelo por costo: <strong>{m.marca} {m.modelo}</strong> — ${num(m.cpk, 2)}/km.</>);
+  }
+  if (mejorProveedor) {
+    puntosClave.push(<>🔧 Mejor proveedor de recapado: <strong>{mejorProveedor.nombre}</strong> — ${num(mejorProveedor.cpk ?? 0, 2)}/km ({mejorProveedor.n} recapados).</>);
+  }
+  if (ahorroTotal > 0) {
+    puntosClave.push(<>💰 Ahorro estimado recapando en vez de comprar nuevas: <strong>${num(ahorroTotal)}/año</strong>{tc > 0 ? <> (≈ u$s {num(ahorroTotal / tc)})</> : null}.</>);
+  }
+  if (bajas.length >= 10 && pctBajaSinRecap >= 40) {
+    puntosClave.push(<>⚠️ <strong>{pctBajaSinRecap}%</strong> de las {bajas.length} bajas se dieron sin recapar — hay margen para extender vida útil antes de retirar la cubierta.</>);
+  }
+
+  function tablaProveedorBanda(
+    filas: { nombre: string; n: number; km: number; precio: number | null; precioN: number; cpk: number | null }[],
+    promedio: number,
+    columna: string,
+  ) {
+    return (
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>{columna}</th><th className="num">Recapados</th><th className="num">Km logrados</th><th className="num">Precio (12m)</th><th className="num">ARS/km</th></tr></thead>
+          <tbody>
+            {filas.map((f) => (
+              <tr key={f.nombre}>
+                <td className="admin-name">{f.nombre}</td>
+                <td className="num">{f.n}</td>
+                <td className="num">{num(f.km)}</td>
+                <td className="num">{f.precio !== null ? `$${num(f.precio)}` : <span title="Sin recapados de este proveedor/banda en los últimos 12 meses del archivo">—</span>}</td>
+                <td className="num">
+                  {f.cpk !== null ? <span className="badge" style={claseDesvioCpk(f.cpk, promedio)}>{num(f.cpk, 2)}</span> : '—'}
+                </td>
+              </tr>
+            ))}
+            {filas.length === 0 && <tr><td className="empty" colSpan={5}>Sin datos suficientes (mínimo 5 recapados).</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   return (
     <main>
@@ -439,6 +552,15 @@ export function PanelCubiertasPage() {
 
       {cubiertas.length === 0 ? null : (
         <>
+          {puntosClave.length > 0 && (
+            <div className="card" style={{ background: 'var(--panel2)', borderLeft: '4px solid var(--brand)' }}>
+              <h2>Puntos clave</h2>
+              <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.9 }}>
+                {puntosClave.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
+            </div>
+          )}
+
           <div className="card">
             <h2>Resumen del parque</h2>
             <div className="summary-grid">
@@ -535,6 +657,32 @@ export function PanelCubiertasPage() {
             </div>
           </div>
 
+          {usaRecapadoReal && (proveedorStats.length > 0 || bandaStats.length > 0) && (
+            <div className="card">
+              <h2>Proveedores y bandas de recapado</h2>
+              <div className="hint" style={{ marginBottom: 10 }}>
+                Del historial real, agrupado por quién hizo cada recapado y qué banda usó (mínimo 5 recapados para entrar). El km es de todo el historial; el precio y el ARS/km solo cuentan lo pagado en los últimos 12 meses del archivo — con inflación, mezclar precios de años distintos da una comparación falsa. Ordenado de mejor a peor ARS/km, el primero de cada tabla es la referencia a seguir.
+              </div>
+              <div className="grid2">
+                <div>
+                  <h3 style={{ fontSize: 13, marginBottom: 8 }}>Por proveedor</h3>
+                  {tablaProveedorBanda(proveedorStats, cpkProveedorPromedio, 'Proveedor')}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 13, marginBottom: 8 }}>Por banda</h3>
+                  {tablaProveedorBanda(bandaStats, cpkBandaPromedio, 'Banda')}
+                </div>
+              </div>
+              {mejorProveedor && (
+                <div className="hint" style={{ marginTop: 10 }}>
+                  💡 Mejor relación km/precio por proveedor: <strong>{mejorProveedor.nombre}</strong> (${num(mejorProveedor.cpk ?? 0, 2)}/km, {mejorProveedor.n} recapados). {peorProveedor && peorProveedor.nombre !== mejorProveedor.nombre && (
+                    <>El más caro por km es <strong>{peorProveedor.nombre}</strong> (${num(peorProveedor.cpk ?? 0, 2)}/km).</>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="card">
             <h2>Costo por km</h2>
             <div className="row">
@@ -544,7 +692,7 @@ export function PanelCubiertasPage() {
             </div>
             {precioRecapReal !== null && (
               <div className="hint" style={{ marginTop: 6 }}>
-                Precio de recapado real del historial: mediana ${num(precioRecapReal)} ({eventosRecapReal} recapados con precio cargado) — ya precargado arriba, se puede editar para simular otro valor.
+                Precio de recapado real, últimos 12 meses del archivo: mediana ${num(precioRecapReal)} ({eventosRecapReal} recapados) — ya precargado arriba, se puede editar para simular otro valor.
               </div>
             )}
             <div className="hint" style={{ margin: '10px 0' }}>
