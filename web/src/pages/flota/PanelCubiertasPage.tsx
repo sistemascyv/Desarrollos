@@ -6,6 +6,7 @@ import { HistorialReportes } from './HistorialReportes';
 // solo lee el reporte legacy que se sube a mano (igual que el de
 // Combustible cuando viene por archivo), no tiene modo "datos del sistema".
 interface Cubierta {
+  numero: string; // "Número de cubierta" — une con el historial detallado
   km: number;
   rec: number; // veces recapada
   marca: string;
@@ -13,6 +14,17 @@ interface Cubierta {
   estadoCat: 'ACTIVA' | 'DESMONTADA' | 'BAJA' | 'OTRO';
   tipo: string | null; // 'T' (tracto) o 'S' (semi), primera letra de la unidad
   anio: string | null; // año de alta
+}
+
+// Un evento de recapado real, de la hoja "Historial detallado" del
+// export — con esto se puede medir la vida útil ganada por cada
+// recapado sobre la MISMA cubierta en el tiempo, en vez de aproximarla
+// comparando cubiertas distintas agrupadas por su cantidad de recapados.
+interface RecapEvento {
+  numero: string;
+  fechaMs: number;
+  precio: number;
+  km: number; // km acumulado de la cubierta al momento del recapado
 }
 
 const num = (n: number, d = 0) => n.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -55,6 +67,7 @@ function cleanModel(modeloRaw: string, marca: string): string {
 function normalizar(rows: Record<string, string>[]): Cubierta[] {
   return rows
     .map((r) => {
+      const numero = find(r, ['número de cubierta', 'numero de cubierta']).trim();
       const km = parseFloat(find(r, ['kilometraje', 'total km', 'totalkm', 'km actual']).replace(/[^\d.-]/g, '')) || 0;
       const rec = parseInt(find(r, ['recapado', 'recapados']), 10) || 0;
       const marca = find(r, ['marca']).trim().toUpperCase();
@@ -62,10 +75,13 @@ function normalizar(rows: Record<string, string>[]): Cubierta[] {
       const estado = find(r, ['estado']).trim();
       const fecha = find(r, ['fecha alta', 'fechaalta', 'fecha compra']);
       const fechaBaja = find(r, ['fecha de baja', 'fecha baja']).trim();
-      // "T129 - MARCA (MODELO - AÑO)" — S = semi, T = tracto/camión.
-      const m = estado.match(/^([TS]\d{3})\s*-\s*(.+?)\s*\((.+?)\s*-\s*(\d{4})\)/);
+      // "T129 - MARCA (MODELO - AÑO)" o cualquier otro código de unidad
+      // ("CHEVROLET - CHEVROLET (...)", "ACOPLADO - SNSC (...)") — solo
+      // cuando arranca con S/T + 3 dígitos sabemos si es semi o tracto,
+      // pero igual cuenta como montada aunque no lo sepamos.
+      const m = estado.match(/^(\S+)\s*-\s*.+?\((.+?)\s*-\s*(\d{4})\)/);
       const unidad = m ? m[1] : null;
-      const tipo = unidad ? unidad[0] : null;
+      const tipo = unidad && /^[TS]\d/.test(unidad) ? unidad[0] : null;
       // La baja puede venir marcada en el texto de Estado ("DADA DE BAJA")
       // o solo con la fecha de baja cargada — cualquiera de las dos cuenta.
       const tieneFechaBaja = !!fechaBaja && fechaBaja !== '—' && fechaBaja !== '-';
@@ -75,15 +91,52 @@ function normalizar(rows: Record<string, string>[]): Cubierta[] {
       else if (unidad) estadoCat = 'ACTIVA';
       const ym = fecha.match(/\d{4}/g);
       const anio = ym ? ym.find((y) => y >= '2005' && y <= '2035') || null : null;
-      return { km, rec, marca, modelo, estadoCat, tipo, anio };
+      return { numero, km, rec, marca, modelo, estadoCat, tipo, anio };
     })
     .filter((r) => r.marca);
 }
 
+// "21/08/2026" -> timestamp, para ordenar eventos de recapado en el tiempo.
+function parseFechaAr(s: string): number {
+  const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return NaN;
+  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])).getTime();
+}
+
+// Hoja "Historial detallado": un evento por Montaje o Recapado de cada
+// cubierta. Solo nos interesan los Recapado (traen precio real y km).
+function parseHistorial(hoja: Element): RecapEvento[] {
+  const filas = [...hoja.getElementsByTagName('Row')];
+  if (filas.length < 2) return [];
+  const celda = (c: Element) => (c.getElementsByTagName('Data')[0]?.textContent ?? c.textContent ?? '').trim();
+  const headers = [...filas[0].getElementsByTagName('Cell')].map(celda);
+  const out: RecapEvento[] = [];
+  for (let i = 1; i < filas.length; i++) {
+    const celdas = [...filas[i].getElementsByTagName('Cell')].map(celda);
+    if (celdas.length === 0) continue;
+    const row: Record<string, string> = {};
+    headers.forEach((h, j) => { row[h] = celdas[j] ?? ''; });
+    if (find(row, ['movimiento']).trim().toLowerCase() !== 'recapado') continue;
+    const numero = find(row, ['número de cubierta', 'numero de cubierta']).trim();
+    const fechaMs = parseFechaAr(find(row, ['fecha']));
+    const precio = parseFloat(find(row, ['precio recapado', 'precio']).replace(/[^\d.-]/g, '')) || 0;
+    const km = parseFloat(find(row, ['km recapado', 'km acumulado']).replace(/[^\d.-]/g, '')) || 0;
+    if (!numero || km <= 0) continue;
+    out.push({ numero, fechaMs, precio, km });
+  }
+  return out;
+}
+
+interface Parseado {
+  cubiertas: Cubierta[];
+  historial: RecapEvento[];
+}
+
 // El export legacy es HTML con extensión .xls (mismo truco que
 // AlertasDeStock.xls y el de ControlCombustible) — se parsea con
-// DOMParser nativo, sin depender de ninguna librería.
-function parseHtmlDisfrazado(html: string): Cubierta[] {
+// DOMParser nativo, sin depender de ninguna librería. No trae historial
+// detallado (es una sola tabla), solo la hoja de cubiertas.
+function parseHtmlDisfrazado(html: string): Parseado {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const table = doc.querySelector('table');
   if (!table) throw new Error('No se encontró ninguna tabla en el archivo.');
@@ -98,21 +151,21 @@ function parseHtmlDisfrazado(html: string): Cubierta[] {
     headers.forEach((h, j) => { row[h] = celdas[j] ?? ''; });
     rows.push(row);
   }
-  const out = normalizar(rows);
-  if (out.length === 0) throw new Error('No se reconocieron columnas de cubiertas (Marca, Modelo, Kilometraje...). ¿Es el reporte correcto?');
-  return out;
+  const cubiertas = normalizar(rows);
+  if (cubiertas.length === 0) throw new Error('No se reconocieron columnas de cubiertas (Marca, Modelo, Kilometraje...). ¿Es el reporte correcto?');
+  return { cubiertas, historial: [] };
 }
 
 // El export real de Cubiertas resultó ser otro formato legacy: XML de
 // Excel 2003 ("SpreadsheetML", <?mso-application progid="Excel.Sheet"?>),
 // no HTML disfrazado. Se parsea como XML de verdad (no con DOMParser en
 // modo HTML, que normaliza mal las etiquetas <Row>/<Cell>/<Data>).
-function parseSpreadsheetXml(xml: string): Cubierta[] {
+function parseSpreadsheetXml(xml: string): Parseado {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   if (doc.querySelector('parsererror')) throw new Error('El archivo XML no es válido.');
-  // El archivo trae más de una hoja (ej. "Cubiertas" + "Historial
-  // detallado" con los recapados) — hay que leer solo la de cubiertas,
-  // si se leen todas las filas del libro mezcladas los datos no cierran.
+  // El archivo trae más de una hoja (Cubiertas + Historial detallado
+  // con los recapados) — hay que leer cada una por separado, si se leen
+  // todas las filas del libro mezcladas los datos no cierran.
   const hojas = [...doc.getElementsByTagName('Worksheet')];
   const hoja = hojas.find((h) => /cubiertas/i.test(h.getAttribute('ss:Name') || '')) || hojas[0];
   if (!hoja) throw new Error('No se encontró ninguna hoja en el archivo.');
@@ -128,13 +181,17 @@ function parseSpreadsheetXml(xml: string): Cubierta[] {
     headers.forEach((h, j) => { row[h] = celdas[j] ?? ''; });
     rows.push(row);
   }
-  const out = normalizar(rows);
-  if (out.length === 0) throw new Error('No se reconocieron columnas de cubiertas (Marca, Modelo, Kilometraje...). ¿Es el reporte correcto?');
-  return out;
+  const cubiertas = normalizar(rows);
+  if (cubiertas.length === 0) throw new Error('No se reconocieron columnas de cubiertas (Marca, Modelo, Kilometraje...). ¿Es el reporte correcto?');
+
+  const hojaHistorial = hojas.find((h) => /historial/i.test(h.getAttribute('ss:Name') || ''));
+  const historial = hojaHistorial ? parseHistorial(hojaHistorial) : [];
+  return { cubiertas, historial };
 }
 
 export function PanelCubiertasPage() {
   const [cubiertas, setCubiertas] = useState<Cubierta[]>([]);
+  const [historial, setHistorial] = useState<RecapEvento[]>([]);
   const [nombreArchivo, setNombreArchivo] = useState('');
   const [errorArchivo, setErrorArchivo] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -153,7 +210,7 @@ export function PanelCubiertasPage() {
       const buf = await file.arrayBuffer();
       const inicio = new TextDecoder().decode(new Uint8Array(buf.slice(0, 500))).trim().toLowerCase();
       const texto = new TextDecoder('utf-8').decode(buf);
-      let parsed: Cubierta[];
+      let parsed: { cubiertas: Cubierta[]; historial: RecapEvento[] };
       if (inicio.startsWith('<?xml') || inicio.includes('office:spreadsheet')) {
         parsed = parseSpreadsheetXml(texto);
       } else if (inicio.startsWith('<') || inicio.includes('<html') || inicio.includes('<table')) {
@@ -161,11 +218,17 @@ export function PanelCubiertasPage() {
       } else {
         throw new Error('El archivo no parece ser el reporte de Cubiertas (XML/HTML de Excel). Si es otro formato, avisá para sumarle soporte.');
       }
-      setCubiertas(parsed);
+      setCubiertas(parsed.cubiertas);
+      setHistorial(parsed.historial);
       setNombreArchivo(file.name);
+      // Si el archivo trae historial real de recapados, precargamos el
+      // precio de recapado con la mediana real pagada — sigue editable.
+      const precios = parsed.historial.filter((h) => h.precio > 0).map((h) => h.precio);
+      if (precios.length > 0) setPrecioRecap(String(Math.round(median(precios))));
       try {
         await pb.collection('reportes_archivo').create({
-          tipo: 'cubiertas', nombre_archivo: file.name, usuario: pb.authStore.record?.id, datos: parsed,
+          tipo: 'cubiertas', nombre_archivo: file.name, usuario: pb.authStore.record?.id,
+          datos: { cubiertas: parsed.cubiertas, historial: parsed.historial },
         });
         setHistorialKey((k) => k + 1);
       } catch { /* no bloqueamos el reporte si falla el guardado del historial */ }
@@ -183,13 +246,14 @@ export function PanelCubiertasPage() {
 
   function limpiar() {
     setCubiertas([]);
+    setHistorial([]);
     setNombreArchivo('');
     setErrorArchivo('');
   }
 
   const {
-    total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps,
-    cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables,
+    total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps, recapStepsReales,
+    cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables, precioRecapReal, eventosRecapReal,
   } = useMemo(() => {
     const total = cubiertas.length;
     const activas = cubiertas.filter((r) => r.estadoCat === 'ACTIVA');
@@ -214,12 +278,46 @@ export function PanelCubiertasPage() {
     const byYear = new Map<string, number>();
     cubiertas.forEach((r) => { if (r.anio) byYear.set(r.anio, (byYear.get(r.anio) || 0) + 1); });
 
-    // Recapado: km mediano según cantidad de recapados (tope 3)
+    // Recapado, aproximado: km mediano según cantidad de recapados
+    // acumulados HOY (tope 3) — compara cubiertas distintas entre sí, es
+    // un cross-section, no la vida real de una misma cubierta.
     const porRec = new Map<number, number[]>();
     valid.forEach((r) => { const k = Math.min(r.rec, 3); const l = porRec.get(k) || []; l.push(r.km); porRec.set(k, l); });
     const recapSteps = [0, 1, 2, 3]
       .map((k) => ({ k, km: porRec.has(k) ? Math.round(median(porRec.get(k)!)) : null }))
       .filter((s) => s.km !== null) as { k: number; km: number }[];
+
+    // Recapado, real: usa el historial detallado (si vino en el archivo)
+    // para medir km recorridos entre eventos de LA MISMA cubierta. Solo
+    // se cuentan etapas "cerradas" (siguió otro evento, o la cubierta ya
+    // está desmontada/dada de baja) — la última etapa de una cubierta
+    // todavía activa sigue en curso y no se puede medir todavía.
+    const estadoPorNumero = new Map(cubiertas.map((c) => [c.numero, c.estadoCat]));
+    const eventosPorCubierta = new Map<string, RecapEvento[]>();
+    historial.forEach((e) => { const l = eventosPorCubierta.get(e.numero) || []; l.push(e); eventosPorCubierta.set(e.numero, l); });
+    const etapas = new Map<number, number[]>();
+    eventosPorCubierta.forEach((eventos, numero) => {
+      const ordenados = [...eventos].sort((a, b) => a.fechaMs - b.fechaMs);
+      const estado = estadoPorNumero.get(numero);
+      ordenados.forEach((ev, i) => {
+        const cerrada = i < ordenados.length - 1 || estado === 'BAJA' || estado === 'DESMONTADA';
+        if (!cerrada) return;
+        const km = i === 0 ? ev.km : ev.km - ordenados[i - 1].km;
+        if (km <= 0) return;
+        const etapa = Math.min(i, 3);
+        const l = etapas.get(etapa) || [];
+        l.push(km);
+        etapas.set(etapa, l);
+      });
+    });
+    const recapStepsReales = [0, 1, 2, 3]
+      .map((k) => ({ k, km: etapas.has(k) ? Math.round(median(etapas.get(k)!)) : null }))
+      .filter((s) => s.km !== null) as { k: number; km: number }[];
+
+    // Precio real de recapado, del historial (mediana de lo pagado).
+    const preciosReales = historial.filter((e) => e.precio > 0).map((e) => e.precio);
+    const precioRecapReal = preciosReales.length ? Math.round(median(preciosReales)) : null;
+    const eventosRecapReal = preciosReales.length;
 
     // Costo por km por marca
     const pNueva = Number(precioNueva) || 0;
@@ -257,8 +355,8 @@ export function PanelCubiertasPage() {
     const ahorroUnit = pNueva - pRecap;
     const ahorroTotal = recapables * ahorroUnit;
 
-    return { total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps, cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables, kmPromedioGeneral };
-  }, [cubiertas, precioNueva, precioRecap, pctRecapable]);
+    return { total, activas, desmontadas, bajas, otras, pctBajaSinRecap, marcaStats, byYear, recapSteps, recapStepsReales, cpk, modeloStats, ahorroTotal, ahorroUnit, repoAnual, recapables, kmPromedioGeneral, precioRecapReal, eventosRecapReal };
+  }, [cubiertas, historial, precioNueva, precioRecap, pctRecapable]);
 
   function claseDesvioCpk(valor: number, promedio: number) {
     // Acá "mejor" es más barato, al revés que en km — invertimos el signo.
@@ -273,6 +371,12 @@ export function PanelCubiertasPage() {
   const maxAnio = byYear.size ? Math.max(...[...byYear.values()]) : 0;
   const promedioMarcaKm = marcaStats.length ? marcaStats.reduce((s, m) => s + m.km, 0) / marcaStats.length : 0;
   const tc = Number(tipoCambio) || 0;
+
+  const usaRecapadoReal = recapStepsReales.length > 0;
+  const stepsAMostrar = usaRecapadoReal ? recapStepsReales : recapSteps;
+  const etiquetaEtapa = (k: number) => usaRecapadoReal
+    ? (k === 0 ? 'Banda original (hasta el 1er recapado)' : `${k}ª banda recapada`)
+    : (k === 0 ? 'Sin recapar' : `${k} recapado${k > 1 ? 's' : ''}`);
 
   const modeloFiltrados = filtroModelo
     ? modeloStats.filter((m) => (m.marca + ' ' + m.modelo).toLowerCase().includes(filtroModelo.toLowerCase()))
@@ -317,7 +421,17 @@ export function PanelCubiertasPage() {
         tipo="cubiertas"
         refreshKey={historialKey}
         onCargar={(datos, nombre) => {
-          setCubiertas(datos as Cubierta[]);
+          // Entradas viejas del historial guardaron un array plano de
+          // cubiertas (sin historial de recapados); las nuevas guardan
+          // {cubiertas, historial} — soportamos las dos.
+          if (Array.isArray(datos)) {
+            setCubiertas(datos as Cubierta[]);
+            setHistorial([]);
+          } else {
+            const d = datos as unknown as { cubiertas: Cubierta[]; historial: RecapEvento[] };
+            setCubiertas(d.cubiertas || []);
+            setHistorial(d.historial || []);
+          }
           setNombreArchivo(nombre);
           setErrorArchivo('');
         }}
@@ -392,24 +506,32 @@ export function PanelCubiertasPage() {
 
           <div className="card">
             <h2>El recapado y la vida útil</h2>
-            <div className="hint" style={{ marginBottom: 10 }}>Km mediano según cantidad de recapados acumulados. El primer recapado suele ser el de mayor retorno.</div>
+            {usaRecapadoReal ? (
+              <div className="hint" style={{ marginBottom: 10 }}>
+                Km reales recorridos entre eventos de recapado de <strong>la misma cubierta</strong> (del historial detallado del archivo) — solo se cuentan etapas ya cerradas, no la banda que está puesta ahora mismo.
+              </div>
+            ) : (
+              <div className="hint" style={{ marginBottom: 10 }}>
+                Aproximado: km mediano de cubiertas agrupadas por su cantidad de recapados actual (compara cubiertas distintas entre sí). Subí un archivo con la hoja "Historial detallado" para ver el dato real por cubierta.
+              </div>
+            )}
             <div className="summary-grid">
-              {recapSteps.map((s, i) => {
-                const prev = i > 0 ? recapSteps[i - 1].km : null;
+              {stepsAMostrar.map((s, i) => {
+                const prev = i > 0 ? stepsAMostrar[i - 1].km : null;
                 const ganancia = prev ? Math.round(((s.km - prev) / prev) * 100) : null;
                 return (
                   <div className="stat" key={s.k}>
-                    <div className="lbl">{s.k === 0 ? 'Sin recapar' : `${s.k} recapado${s.k > 1 ? 's' : ''}`}</div>
+                    <div className="lbl">{etiquetaEtapa(s.k)}</div>
                     <div className="val">{num(s.km)} km</div>
                     {ganancia !== null && (
                       <div className="hint" style={{ color: ganancia > 3 ? 'var(--ok)' : 'var(--err)', marginTop: 2 }}>
-                        {ganancia >= 0 ? '+' : ''}{ganancia}% vs. paso anterior
+                        {ganancia >= 0 ? '+' : ''}{ganancia}% vs. etapa anterior
                       </div>
                     )}
                   </div>
                 );
               })}
-              {recapSteps.length === 0 && <div className="hint">Sin datos suficientes.</div>}
+              {stepsAMostrar.length === 0 && <div className="hint">Sin datos suficientes.</div>}
             </div>
           </div>
 
@@ -420,6 +542,11 @@ export function PanelCubiertasPage() {
               <div className="field"><label>Recapado (ARS)</label><input type="number" step="1000" value={precioRecap} onChange={(e) => setPrecioRecap(e.target.value)} /></div>
               <div className="field"><label>Tipo de cambio (ARS/USD)</label><input type="number" step="1" value={tipoCambio} onChange={(e) => setTipoCambio(e.target.value)} /></div>
             </div>
+            {precioRecapReal !== null && (
+              <div className="hint" style={{ marginTop: 6 }}>
+                Precio de recapado real del historial: mediana ${num(precioRecapReal)} ({eventosRecapReal} recapados con precio cargado) — ya precargado arriba, se puede editar para simular otro valor.
+              </div>
+            )}
             <div className="hint" style={{ margin: '10px 0' }}>
               El costo usa el mismo precio de "cubierta nueva" para todas las marcas — no diferenciamos precio de lista, así que esto refleja diferencias reales de kilometraje y recapado, no de precio.
             </div>

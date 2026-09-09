@@ -13,7 +13,7 @@ export function HistorialReportes({
 }: {
   tipo: ReporteArchivo['tipo'];
   refreshKey: number;
-  onCargar: (datos: unknown[], nombreArchivo: string) => void;
+  onCargar: (datos: unknown, nombreArchivo: string) => void;
 }) {
   const { isAdmin } = useAuth();
   const [items, setItems] = useState<ReporteArchivo[]>([]);
@@ -54,7 +54,7 @@ export function HistorialReportes({
                 <td>{it.expand?.usuario?.nombre || it.expand?.usuario?.username || '—'}</td>
                 <td>{new Date(it.created).toLocaleString('es-AR')}</td>
                 <td>
-                  <button className="small" onClick={() => onCargar(it.datos as unknown[], it.nombre_archivo)}>Ver</button>
+                  <button className="small" onClick={() => onCargar(it.datos, it.nombre_archivo)}>Ver</button>
                   {' '}
                   {isAdmin && <button className="small danger" onClick={() => eliminar(it.id)}>Eliminar</button>}
                 </td>
