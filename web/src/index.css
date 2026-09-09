@@ -126,12 +126,12 @@ main {
   z-index: -1;
   background-color: var(--bg);
   background-image: url('./assets/logo.jpg');
-  background-repeat: no-repeat;
-  background-position: center 20px;
-  background-size: min(820px, 88%) auto;
+  background-repeat: repeat;
+  background-position: top left;
+  background-size: 380px auto;
   background-blend-mode: multiply;
   filter: blur(2px);
-  opacity: 0.22;
+  opacity: 0.16;
   pointer-events: none;
 }
 
