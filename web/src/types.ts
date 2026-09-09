@@ -181,9 +181,9 @@ export interface ModuleDef {
 }
 
 export const MODULES: ModuleDef[] = [
-  { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'Liquidación', path: 'liquidacion/planilla-choferes' },
-  { id: 'control_cheques', label: 'Control de Cheques', group: 'Finanzas', path: 'finanzas/control-cheques' },
-  { id: 'central_deudores', label: 'Central de Deudores', group: 'Finanzas', path: 'finanzas/central-deudores' },
-  { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'Flota', path: 'flota/consumo-combustible' },
-  { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'Flota', path: 'flota/panel-cubiertas' },
+  { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'RRHH', path: 'liquidacion/planilla-choferes' },
+  { id: 'control_cheques', label: 'Control de Cheques', group: 'TESORERIA', path: 'finanzas/control-cheques' },
+  { id: 'central_deudores', label: 'Central de Deudores', group: 'TESORERIA', path: 'finanzas/central-deudores' },
+  { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'MANTENIMIENTO', path: 'flota/consumo-combustible' },
+  { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'MANTENIMIENTO', path: 'flota/panel-cubiertas' },
 ];
