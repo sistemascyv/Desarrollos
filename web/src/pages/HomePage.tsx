@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { MODULES, type ModuleDef } from '../types';
-import logo from '../assets/logo.jpg';
 
 export function HomePage() {
   const { usuario, isAdmin, canAccessModule } = useAuth();
@@ -18,9 +17,6 @@ export function HomePage() {
   return (
     <main className="home-page">
       <div className="home-hero">
-        <div className="home-logo">
-          <img src={logo} alt="Carossio, Vairolatti & Cía" />
-        </div>
         <h1>Hola, {usuario?.nombre || usuario?.username}</h1>
         <p className="hint">Elegí un módulo para empezar.</p>
       </div>
