@@ -451,20 +451,20 @@ export function PanelCubiertasPage() {
   const puntosClave: React.ReactNode[] = [];
   if (marcaStats.length > 0) {
     const m = marcaStats[0];
-    puntosClave.push(<>🏆 Mejor marca por vida útil: <strong>{m.marca}</strong> — {num(m.km)} km medianos (n={m.n}).</>);
+    puntosClave.push(<>Mejor marca por vida útil: <strong>{m.marca}</strong>, {num(m.km)} km medianos (n={m.n}).</>);
   }
   if (modeloStats.length > 0) {
     const m = modeloStats[0];
-    puntosClave.push(<>🥇 Mejor combinación marca + modelo por costo: <strong>{m.marca} {m.modelo}</strong> — ${num(m.cpk, 2)}/km.</>);
+    puntosClave.push(<>Mejor combinación marca y modelo por costo: <strong>{m.marca} {m.modelo}</strong>, ${num(m.cpk, 2)} por km.</>);
   }
   if (mejorProveedor) {
-    puntosClave.push(<>🔧 Mejor proveedor de recapado: <strong>{mejorProveedor.nombre}</strong> — ${num(mejorProveedor.cpk ?? 0, 2)}/km ({mejorProveedor.n} recapados).</>);
+    puntosClave.push(<>Mejor proveedor de recapado: <strong>{mejorProveedor.nombre}</strong>, ${num(mejorProveedor.cpk ?? 0, 2)} por km ({mejorProveedor.n} recapados).</>);
   }
   if (ahorroTotal > 0) {
-    puntosClave.push(<>💰 Ahorro estimado recapando en vez de comprar nuevas: <strong>${num(ahorroTotal)}/año</strong>{tc > 0 ? <> (≈ u$s {num(ahorroTotal / tc)})</> : null}.</>);
+    puntosClave.push(<>Ahorro estimado recapando en vez de comprar cubiertas nuevas: <strong>${num(ahorroTotal)} por año</strong>{tc > 0 ? <> (equivalente a u$s {num(ahorroTotal / tc)})</> : null}.</>);
   }
   if (bajas.length >= 10 && pctBajaSinRecap >= 40) {
-    puntosClave.push(<>⚠️ <strong>{pctBajaSinRecap}%</strong> de las {bajas.length} bajas se dieron sin recapar — hay margen para extender vida útil antes de retirar la cubierta.</>);
+    puntosClave.push(<><strong>{pctBajaSinRecap}%</strong> de las {bajas.length} bajas se dieron sin recapar — margen para extender la vida útil antes de retirar la cubierta.</>);
   }
 
   function tablaProveedorBanda(
@@ -520,10 +520,10 @@ export function PanelCubiertasPage() {
             <strong>Cargar reporte de Cubiertas</strong>
             hacé clic o arrastrá acá el archivo — se analiza en tu navegador, no se guarda en el sistema.
           </div>
-          {errorArchivo && <div className="hint" style={{ color: 'var(--err)', marginTop: 6 }}>⚠ {errorArchivo}</div>}
+          {errorArchivo && <div className="hint" style={{ color: 'var(--err)', marginTop: 6 }}>{errorArchivo}</div>}
           {nombreArchivo && !errorArchivo && (
             <div className="period-bar" style={{ marginTop: 10 }}>
-              <div className="info">📄 <strong>{nombreArchivo}</strong> · {total} cubiertas leídas</div>
+              <div className="info"><strong>{nombreArchivo}</strong> · {total} cubiertas leídas</div>
               <button className="reset" onClick={limpiar}>Quitar archivo</button>
             </div>
           )}
@@ -675,7 +675,7 @@ export function PanelCubiertasPage() {
               </div>
               {mejorProveedor && (
                 <div className="hint" style={{ marginTop: 10 }}>
-                  💡 Mejor relación km/precio por proveedor: <strong>{mejorProveedor.nombre}</strong> (${num(mejorProveedor.cpk ?? 0, 2)}/km, {mejorProveedor.n} recapados). {peorProveedor && peorProveedor.nombre !== mejorProveedor.nombre && (
+                  Mejor relación km/precio por proveedor: <strong>{mejorProveedor.nombre}</strong> (${num(mejorProveedor.cpk ?? 0, 2)}/km, {mejorProveedor.n} recapados). {peorProveedor && peorProveedor.nombre !== mejorProveedor.nombre && (
                     <>El más caro por km es <strong>{peorProveedor.nombre}</strong> (${num(peorProveedor.cpk ?? 0, 2)}/km).</>
                   )}
                 </div>
@@ -755,6 +755,17 @@ export function PanelCubiertasPage() {
             <div className="hint" style={{ marginTop: 10 }}>
               Recapando ~{num(recapables)} carcasas propias al año ({pctRecapable}% de las ~{num(repoAnual)} repuestas en {[...byYear.keys()].sort().slice(-1)[0] || 'el último año detectado'}) en vez de comprar nuevas. Diferencia por cubierta: ${num(ahorroUnit)} (recapado ${num(Number(precioRecap))} vs. nueva ${num(Number(precioNueva))}).
             </div>
+          </div>
+
+          <div className="card">
+            <h2>Metodología y limitaciones</h2>
+            <ul className="hint" style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
+              <li>Los datos son los cargados en el sistema de cubiertas (kilometraje, recapados, historial de recapado). No incluyen telemetría de los vehículos, dependen de la carga manual del área de flota.</li>
+              <li>Marca, marca y modelo, proveedor y banda solo se muestran con una cantidad mínima de registros (20, 15 y 5 respectivamente), para no sacar conclusiones de grupos chicos. Aun cumpliendo el mínimo, las etapas de 2° y 3° recapado tienen menos cubiertas que la banda original y su mediana es menos firme.</li>
+              <li>Los precios de recapado solo se comparan dentro de los últimos 12 meses del archivo, para no mezclar valores de años distintos por inflación. La vida útil en kilómetros sí usa todo el historial disponible.</li>
+              <li>El costo por km de la tabla "Costo por km" usa un único precio de cubierta nueva para todas las marcas — no diferencia por lista de precios, así que compara sobre todo rendimiento, no precio de compra.</li>
+              <li>Las unidades sin código de tracto/semi (acoplados, utilitarios) se cuentan como activas pero no entran en el cálculo de "% Tracto".</li>
+            </ul>
           </div>
         </>
       )}

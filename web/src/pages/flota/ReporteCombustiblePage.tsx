@@ -300,7 +300,7 @@ export function ReporteCombustiblePage() {
           </>
         ) : (
           <div className="period-bar" style={{ marginBottom: 0 }}>
-            <div className="info">📄 <strong>{nombreArchivo}</strong> · {movArchivo.length} viajes leídos del archivo</div>
+            <div className="info"><strong>{nombreArchivo}</strong> · {movArchivo.length} viajes leídos del archivo</div>
             <button className="reset" onClick={volverABD}>Volver a los datos del sistema</button>
           </div>
         )}
@@ -324,7 +324,7 @@ export function ReporteCombustiblePage() {
             <strong>Cargar planilla de ControlCombustible</strong>
             hacé clic o arrastrá acá el archivo — se analiza en tu navegador, no se guarda en el sistema.
           </div>
-          {errorArchivo && <div className="hint" style={{ color: 'var(--err)', marginTop: 6 }}>⚠ {errorArchivo}</div>}
+          {errorArchivo && <div className="hint" style={{ color: 'var(--err)', marginTop: 6 }}>{errorArchivo}</div>}
         </div>
       </div>
 
