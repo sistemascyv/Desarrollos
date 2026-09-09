@@ -18,7 +18,6 @@ export function HomePage() {
   return (
     <main>
       <div className="home-hero">
-        <img src={logo} alt="" aria-hidden="true" className="home-hero-bg" />
         <div className="home-logo">
           <img src={logo} alt="Carossio, Vairolatti & Cía" />
         </div>
