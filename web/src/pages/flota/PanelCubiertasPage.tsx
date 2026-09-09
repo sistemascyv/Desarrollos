@@ -61,12 +61,16 @@ function normalizar(rows: Record<string, string>[]): Cubierta[] {
       const modelo = cleanModel(find(r, ['modelo']), marca);
       const estado = find(r, ['estado']).trim();
       const fecha = find(r, ['fecha alta', 'fechaalta', 'fecha compra']);
-      // "T129 - MARCA (MODELO - AÑO)"
+      const fechaBaja = find(r, ['fecha de baja', 'fecha baja']).trim();
+      // "T129 - MARCA (MODELO - AÑO)" — S = semi, T = tracto/camión.
       const m = estado.match(/^([TS]\d{3})\s*-\s*(.+?)\s*\((.+?)\s*-\s*(\d{4})\)/);
       const unidad = m ? m[1] : null;
       const tipo = unidad ? unidad[0] : null;
+      // La baja puede venir marcada en el texto de Estado ("DADA DE BAJA")
+      // o solo con la fecha de baja cargada — cualquiera de las dos cuenta.
+      const tieneFechaBaja = !!fechaBaja && fechaBaja !== '—' && fechaBaja !== '-';
       let estadoCat: Cubierta['estadoCat'] = 'OTRO';
-      if (/baja/i.test(estado)) estadoCat = 'BAJA';
+      if (/baja/i.test(estado) || tieneFechaBaja) estadoCat = 'BAJA';
       else if (/desmontada/i.test(estado)) estadoCat = 'DESMONTADA';
       else if (unidad) estadoCat = 'ACTIVA';
       const ym = fecha.match(/\d{4}/g);
@@ -106,8 +110,14 @@ function parseHtmlDisfrazado(html: string): Cubierta[] {
 function parseSpreadsheetXml(xml: string): Cubierta[] {
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
   if (doc.querySelector('parsererror')) throw new Error('El archivo XML no es válido.');
-  const filas = [...doc.getElementsByTagName('Row')];
-  if (filas.length < 2) throw new Error('La planilla no tiene datos.');
+  // El archivo trae más de una hoja (ej. "Cubiertas" + "Historial
+  // detallado" con los recapados) — hay que leer solo la de cubiertas,
+  // si se leen todas las filas del libro mezcladas los datos no cierran.
+  const hojas = [...doc.getElementsByTagName('Worksheet')];
+  const hoja = hojas.find((h) => /cubiertas/i.test(h.getAttribute('ss:Name') || '')) || hojas[0];
+  if (!hoja) throw new Error('No se encontró ninguna hoja en el archivo.');
+  const filas = [...hoja.getElementsByTagName('Row')];
+  if (filas.length < 2) throw new Error('La hoja de cubiertas no tiene datos.');
   const celda = (c: Element) => (c.getElementsByTagName('Data')[0]?.textContent ?? c.textContent ?? '').trim();
   const headers = [...filas[0].getElementsByTagName('Cell')].map(celda);
   const rows: Record<string, string>[] = [];
