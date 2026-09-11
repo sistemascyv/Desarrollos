@@ -7,7 +7,7 @@ import { ControlChequesPage } from './pages/cheques/ControlChequesPage';
 import { CentralDeudoresPage } from './pages/deudores/CentralDeudoresPage';
 import { ReporteCombustiblePage } from './pages/flota/ReporteCombustiblePage';
 import { PanelCubiertasPage } from './pages/flota/PanelCubiertasPage';
-import { PosicionFlotaPage } from './pages/flota/PosicionFlotaPage';
+import { PosicionFlotaPage } from './pages/flota/satelital/PosicionFlotaPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth, RequireAdmin, RequireModule } from './components/RequireAuth';
@@ -71,8 +71,9 @@ function App() {
             </RequireModule>
           }
         />
+        <Route path="/flota/posicion" element={<Navigate to="/flota/posicion/mapa" replace />} />
         <Route
-          path="/flota/posicion"
+          path="/flota/posicion/:tab"
           element={
             <RequireModule moduleId="flota_posicion">
               <PosicionFlotaPage />

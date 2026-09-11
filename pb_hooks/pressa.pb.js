@@ -88,6 +88,11 @@ routerAdd("GET", "/api/flota/pressa/monitor", (c) => {
 
   const vehiculos = ((monitorBody.data && monitorBody.data.vehicles) || []).map((v) => {
     const veh = v.vehicle || {};
+    // Pressa manda -999.9 como "sin sensor" en los canales de
+    // temperatura que no están cableados — se descartan acá para no
+    // mostrarlos como si fueran una lectura real.
+    const temperaturas = [veh.currTemperature, veh.currTemperature2, veh.currTemperature3]
+      .filter((t) => typeof t === "number" && t > -900);
     return {
       id: veh.id || "",
       alias: veh.alias || veh.name || "(sin alias)",
@@ -102,6 +107,9 @@ routerAdd("GET", "/api/flota/pressa/monitor", (c) => {
       lng: typeof veh.lng === "number" ? veh.lng : null,
       direccion: veh.address || "",
       actualizado: veh.timestamp || veh.datetime || null,
+      temperaturas: temperaturas,
+      bateriaAux: typeof veh.auxBatteryVolt === "number" ? veh.auxBatteryVolt : null,
+      bateriaPrincipal: typeof veh.mainBatteryVolt === "number" ? veh.mainBatteryVolt : null,
     };
   });
 
@@ -208,4 +216,96 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
       velocidadPromedio: general.midSpeed || 0,
     },
   });
+}, $apis.requireRecordAuth("usuarios"));
+
+// GET /api/flota/pressa/distancia/:desde/:hasta -> km real recorrido por
+// toda la flota en un período (Report Fleet Distance WS). Sin "vids" en
+// el pedido devuelve todas las unidades de la cuenta, según el propio
+// documento de Pressa.
+//   OJO: el documento de Pressa que nos pasaron tiene el bloque de
+//   parámetros de este servicio idéntico al de "User Vehicles" (sin
+//   startDate/endDate listados) pese a que la descripción dice que
+//   devuelve distancia "en un periodo de tiempo" — es casi seguro un
+//   error de copiado del PDF. Se mandan startDate/endDate igual, mismo
+//   nombre que usa Historic WS; si Pressa los ignora o pide otro
+//   nombre, el error 502 de acá abajo va a traer el mensaje real de
+//   Pressa para poder ajustarlo.
+routerAdd("GET", "/api/flota/pressa/distancia/:desde/:hasta", (c) => {
+  const info = $apis.requestInfo(c);
+  const auth = info.authRecord;
+
+  const rawModulos = auth.get("modulos");
+  const modulosTexto = (Array.isArray(rawModulos) ? String.fromCharCode.apply(null, rawModulos) : JSON.stringify(rawModulos || [])).toLowerCase();
+  const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("flota_posicion") !== -1;
+  if (!tieneAcceso) {
+    return c.json(403, { message: "No tenés acceso al módulo de Posición de Flota." });
+  }
+
+  const startDate = parseInt(c.pathParam("desde"), 10);
+  const endDate = parseInt(c.pathParam("hasta"), 10);
+  if (!startDate || !endDate) {
+    return c.json(400, { message: "Faltan desde/hasta." });
+  }
+
+  const base = "https://interno.pressacloud.com/pressa_external_backend/";
+  const username = $os.getenv("PRESSA_USERNAME");
+  const clientHash = $os.getenv("PRESSA_CLIENT_HASH");
+  const passwordHash = $os.getenv("PRESSA_PASSWORD_HASH");
+  if (!username || !clientHash || !passwordHash) {
+    return c.json(502, { message: "Faltan las variables de entorno PRESSA_USERNAME / PRESSA_CLIENT_HASH / PRESSA_PASSWORD_HASH en el servidor." });
+  }
+
+  let loginRes;
+  try {
+    loginRes = $http.send({
+      url: base + "ws_user_login.php",
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientHash: clientHash,
+        password: passwordHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        username: username,
+      }),
+    });
+  } catch (e) {
+    return c.json(502, { message: "No se pudo conectar con Pressa (login): " + (e && e.message ? e.message : String(e)) });
+  }
+  const loginBody = loginRes.json || {};
+  if (loginRes.statusCode !== 200 || loginBody.errorCode !== 0) {
+    return c.json(502, { message: "Login a Pressa falló: " + (loginBody.displayMsg || ("HTTP " + loginRes.statusCode)) });
+  }
+  const sessionKey = loginBody.data.sessionKey;
+
+  let distRes;
+  try {
+    distRes = $http.send({
+      url: base + "ws_report_fleet_distance.php",
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientHash: clientHash,
+        sessionKey: sessionKey,
+        timestamp: Math.floor(Date.now() / 1000),
+        startDate: startDate,
+        endDate: endDate,
+      }),
+    });
+  } catch (e) {
+    return c.json(502, { message: "No se pudo conectar con Pressa (distancia): " + (e && e.message ? e.message : String(e)) });
+  }
+  const distBody = distRes.json || {};
+  if (distRes.statusCode !== 200 || distBody.errorCode !== 0) {
+    return c.json(502, { message: "Pressa devolvió un error: " + (distBody.displayMsg || ("HTTP " + distRes.statusCode)) });
+  }
+
+  const unidades = ((distBody.data && distBody.data.vehicles) || []).map((v) => ({
+    alias: v.alias || v.name || "(sin alias)",
+    patente: v.licensePlate || "",
+    distanciaKm: v.distance || 0,
+    velocidadMin: v.minSpeed || 0,
+    velocidadMax: v.maxSpeed || 0,
+  }));
+
+  return c.json(200, { total: unidades.length, unidades: unidades });
 }, $apis.requireRecordAuth("usuarios"));
