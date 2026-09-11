@@ -90,13 +90,17 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
       let velocidadMax = 0;
       let sumaVelocidadProm = 0;
       let tramosOk = 0;
+      let tramosConDatos = 0; // para el promedio: sin contar tramos sin actividad (si no, el 0 de un tramo parado tira el promedio para abajo)
       let tramosFallidos = 0;
       for (const r of resultados) {
         if (r.status === 'fulfilled') {
           puntos = puntos.concat(r.value.puntos);
           distanciaKm += r.value.resumen.distanciaKm;
           if (r.value.resumen.velocidadMax > velocidadMax) velocidadMax = r.value.resumen.velocidadMax;
-          sumaVelocidadProm += r.value.resumen.velocidadPromedio;
+          if (r.value.puntos.length > 0) {
+            sumaVelocidadProm += r.value.resumen.velocidadPromedio;
+            tramosConDatos++;
+          }
           tramosOk++;
         } else {
           tramosFallidos++;
@@ -134,7 +138,7 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
       setResumen({
         distanciaKm,
         velocidadMax,
-        velocidadPromedio: tramosOk > 0 ? sumaVelocidadProm / tramosOk : 0,
+        velocidadPromedio: tramosConDatos > 0 ? sumaVelocidadProm / tramosConDatos : 0,
         puntos: puntos.length,
       });
     } catch (e) {
