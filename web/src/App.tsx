@@ -7,6 +7,7 @@ import { ControlChequesPage } from './pages/cheques/ControlChequesPage';
 import { CentralDeudoresPage } from './pages/deudores/CentralDeudoresPage';
 import { ReporteCombustiblePage } from './pages/flota/ReporteCombustiblePage';
 import { PanelCubiertasPage } from './pages/flota/PanelCubiertasPage';
+import { PosicionFlotaPage } from './pages/flota/PosicionFlotaPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth, RequireAdmin, RequireModule } from './components/RequireAuth';
@@ -67,6 +68,14 @@ function App() {
           element={
             <RequireModule moduleId="panel_cubiertas">
               <PanelCubiertasPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/flota/posicion"
+          element={
+            <RequireModule moduleId="flota_posicion">
+              <PosicionFlotaPage />
             </RequireModule>
           }
         />

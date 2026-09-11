@@ -186,4 +186,5 @@ export const MODULES: ModuleDef[] = [
   { id: 'central_deudores', label: 'Central de Deudores', group: 'TESORERIA', path: 'finanzas/central-deudores' },
   { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'MANTENIMIENTO', path: 'flota/consumo-combustible' },
   { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'MANTENIMIENTO', path: 'flota/panel-cubiertas' },
+  { id: 'flota_posicion', label: 'Posición de Flota', group: 'MANTENIMIENTO', path: 'flota/posicion' },
 ];
