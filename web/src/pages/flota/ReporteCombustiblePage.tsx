@@ -37,15 +37,6 @@ function claseDesvio(desvio: number): { color: string } {
   return { color: 'var(--warn)' };
 }
 
-// Para la diferencia entre el km cargado a mano y el km real de Pressa
-// — acá no hay "mejor" o "peor" lado, solo qué tan lejos está uno del
-// otro, así que se colorea por el tamaño de la diferencia, no por signo.
-function claseDiferenciaKm(pctAbs: number): { color: string } {
-  if (pctAbs <= 5) return { color: 'var(--ok)' };
-  if (pctAbs <= 15) return { color: 'var(--warn)' };
-  return { color: 'var(--err)' };
-}
-
 function agrupar(items: Movimiento[], keyFn: (m: Movimiento) => string): Fila[] {
   const map = new Map<string, { litros: number; km: number; viajes: number; repostajes: number }>();
   for (const m of items) {
@@ -145,7 +136,6 @@ export function ReporteCombustiblePage() {
 
   const [precioGasoil, setPrecioGasoil] = useState('1300');
   const [tipoCambio, setTipoCambio] = useState('1300');
-  const [kmReal, setKmReal] = useState<Map<string, number> | null>(null);
 
   const [origen, setOrigen] = useState<'bd' | 'archivo'>('bd');
   const [movArchivo, setMovArchivo] = useState<Movimiento[]>([]);
@@ -176,26 +166,6 @@ export function ReporteCombustiblePage() {
       toast('No se pudieron cargar los tramos: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
       setLoading(false);
-    }
-
-    // Km real de Pressa para el mismo período, para comparar contra lo
-    // cargado a mano en Planilla Choferes — el alias que manda Pressa
-    // ya es el mismo código de unidad que usamos nosotros (T144, etc.),
-    // así que no hace falta mapear nada. Si el usuario no tiene acceso
-    // a Posición de Flota, o Pressa no responde, el reporte sigue
-    // andando igual, solo sin esta comparación.
-    try {
-      const desdeUnix = Math.floor(new Date(desde + 'T00:00:00').getTime() / 1000);
-      const hastaUnix = Math.floor(new Date(hasta + 'T23:59:59').getTime() / 1000);
-      const res = await pb.send<{ unidades: { alias: string; distanciaKm: number }[] }>(
-        `/api/flota/pressa/distancia/${desdeUnix}/${hastaUnix}`,
-        { method: 'GET' },
-      );
-      const mapa = new Map<string, number>();
-      (res.unidades || []).forEach((u) => mapa.set(u.alias, u.distanciaKm));
-      setKmReal(mapa);
-    } catch {
-      setKmReal(null);
     }
   }
 
@@ -280,45 +250,32 @@ export function ReporteCombustiblePage() {
   const usdKmFlota = tc > 0 ? arsKmFlota / tc : 0;
   const peorL100 = camiones.length ? Math.max(...camiones.map((c) => c.l100)) : 0;
 
-  function tablaRanking(filas: Fila[], columna: string, kmRealMapa?: Map<string, number> | null) {
+  function tablaRanking(filas: Fila[], columna: string) {
     return (
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
               <th>#</th><th>{columna}</th><th className="num">Viajes</th><th className="num">Litros</th>
-              <th className="num">Km</th>
-              {kmRealMapa && <th className="num">Km real (Pressa)</th>}
-              {kmRealMapa && <th className="num">Diferencia</th>}
-              <th className="num">L/100km</th><th className="num">km/L</th>
+              <th className="num">Km</th><th className="num">L/100km</th><th className="num">km/L</th>
               <th className="num">Desvío</th><th className="num">Repost.</th>
             </tr>
           </thead>
           <tbody>
-            {filas.map((f, i) => {
-              const real = kmRealMapa?.get(f.clave);
-              const diffPct = real !== undefined && real > 0 ? ((f.km - real) / real) * 100 : null;
-              return (
-                <tr key={f.clave}>
-                  <td>{i + 1}</td>
-                  <td className="admin-name">{f.clave}</td>
-                  <td className="num">{f.viajes}</td>
-                  <td className="num">{num(f.litros)}</td>
-                  <td className="num">{num(f.km)}</td>
-                  {kmRealMapa && <td className="num">{real !== undefined ? num(real) : '—'}</td>}
-                  {kmRealMapa && (
-                    <td className="num" style={diffPct !== null ? claseDiferenciaKm(Math.abs(diffPct)) : undefined}>
-                      {diffPct !== null ? `${diffPct >= 0 ? '+' : ''}${num(diffPct, 1)}%` : '—'}
-                    </td>
-                  )}
-                  <td className="num"><span className="badge" style={claseDesvio(f.desvio)}>{num(f.l100, 2)}</span></td>
-                  <td className="num">{num(f.kmL, 3)}</td>
-                  <td className="num" style={claseDesvio(f.desvio)}>{f.desvio >= 0 ? '+' : ''}{num(f.desvio, 1)}%</td>
-                  <td className="num">{f.repostajes}</td>
-                </tr>
-              );
-            })}
-            {filas.length === 0 && <tr><td className="empty" colSpan={kmRealMapa ? 11 : 9}>Sin tramos con combustible cargado en este rango.</td></tr>}
+            {filas.map((f, i) => (
+              <tr key={f.clave}>
+                <td>{i + 1}</td>
+                <td className="admin-name">{f.clave}</td>
+                <td className="num">{f.viajes}</td>
+                <td className="num">{num(f.litros)}</td>
+                <td className="num">{num(f.km)}</td>
+                <td className="num"><span className="badge" style={claseDesvio(f.desvio)}>{num(f.l100, 2)}</span></td>
+                <td className="num">{num(f.kmL, 3)}</td>
+                <td className="num" style={claseDesvio(f.desvio)}>{f.desvio >= 0 ? '+' : ''}{num(f.desvio, 1)}%</td>
+                <td className="num">{f.repostajes}</td>
+              </tr>
+            ))}
+            {filas.length === 0 && <tr><td className="empty" colSpan={9}>Sin tramos con combustible cargado en este rango.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -390,9 +347,6 @@ export function ReporteCombustiblePage() {
             <div className="summary-grid">
               <div className="stat"><div className="lbl">Litros totales</div><div className="val">{num(totalLitros)}</div></div>
               <div className="stat"><div className="lbl">Km recorridos</div><div className="val">{num(totalKm)}</div></div>
-              {origen === 'bd' && kmReal && (
-                <div className="stat"><div className="lbl">Km real (Pressa)</div><div className="val">{num([...kmReal.values()].reduce((s, v) => s + v, 0))}</div></div>
-              )}
               <div className="stat"><div className="lbl">L/100km flota</div><div className="val">{num(l100Flota, 2)}</div></div>
               <div className="stat"><div className="lbl">km/L flota</div><div className="val">{num(kmLFlota, 3)}</div></div>
               <div className="stat"><div className="lbl">Repostajes en ruta</div><div className="val">{totalRepostajes}</div></div>
@@ -402,11 +356,8 @@ export function ReporteCombustiblePage() {
 
           <div className="card">
             <h2>Ranking por camión</h2>
-            <div className="hint" style={{ marginBottom: 10 }}>
-              Ordenado de mejor a peor L/100km. El color de L/100km y Desvío es contra el promedio de la flota en este período.
-              {origen === 'bd' && kmReal && ' "Km real (Pressa)" es la distancia real de cada unidad en el satelital para el mismo período — la columna Diferencia compara contra el km cargado a mano.'}
-            </div>
-            {tablaRanking(camiones, 'Camión', origen === 'bd' ? kmReal : null)}
+            <div className="hint" style={{ marginBottom: 10 }}>Ordenado de mejor a peor L/100km. El color es el desvío contra el promedio de la flota en este período.</div>
+            {tablaRanking(camiones, 'Camión')}
           </div>
 
           <div className="card">
