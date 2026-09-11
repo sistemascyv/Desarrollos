@@ -31,14 +31,27 @@ function formatoFecha(unixSeconds: number | null): string {
   return new Date(unixSeconds * 1000).toLocaleString('es-AR');
 }
 
+interface PuntoRuta {
+  lat: number;
+  lng: number;
+  timestamp: number | null;
+  velocidad: number;
+}
+
 // Mapa en vivo con Leaflet + OpenStreetMap (sin API key). El mapa se crea
 // una sola vez; en cada actualización se mueven/crean/borran los
 // marcadores en vez de recrear todo, para que no "parpadee" cada minuto.
+// Al tocar una unidad se dibuja su recorrido de hoy (Historic WS de
+// Pressa) como línea.
 function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
+  const toast = useToast();
   const contenedorRef = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<L.Map | null>(null);
   const marcadoresRef = useRef<Map<string, L.CircleMarker>>(new Map());
   const primerFitRef = useRef(false);
+  const polylineRef = useRef<L.Polyline | null>(null);
+  const [ruta, setRuta] = useState<{ alias: string; distanciaKm: number } | null>(null);
+  const [cargandoRuta, setCargandoRuta] = useState(false);
 
   useEffect(() => {
     if (!contenedorRef.current || mapaRef.current) return;
@@ -50,6 +63,42 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
     mapaRef.current = mapa;
     return () => { mapa.remove(); mapaRef.current = null; };
   }, []);
+
+  function cerrarRecorrido() {
+    if (polylineRef.current) { polylineRef.current.remove(); polylineRef.current = null; }
+    setRuta(null);
+  }
+
+  async function mostrarRecorrido(v: VehiculoPressa) {
+    const mapa = mapaRef.current;
+    if (!mapa) return;
+    setCargandoRuta(true);
+    try {
+      const ahora = new Date();
+      const medianoche = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+      const desde = Math.floor(medianoche.getTime() / 1000);
+      const hasta = Math.floor(ahora.getTime() / 1000);
+      const res = await pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number } }>(
+        `/api/flota/pressa/historico/${v.id}/${desde}/${hasta}`,
+        { method: 'GET' },
+      );
+      if (polylineRef.current) { polylineRef.current.remove(); polylineRef.current = null; }
+      const latlngs: [number, number][] = res.puntos.map((p) => [p.lat, p.lng]);
+      if (latlngs.length < 2) {
+        toast(`${v.alias} no tiene recorrido registrado hoy.`, 'warn');
+        setRuta(null);
+        return;
+      }
+      const linea = L.polyline(latlngs, { color: '#185FA5', weight: 4, opacity: 0.8 }).addTo(mapa);
+      polylineRef.current = linea;
+      mapa.fitBounds(linea.getBounds(), { padding: [30, 30] });
+      setRuta({ alias: v.alias, distanciaKm: res.resumen?.distanciaKm || 0 });
+    } catch (e) {
+      toast('No se pudo traer el recorrido: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setCargandoRuta(false);
+    }
+  }
 
   useEffect(() => {
     const mapa = mapaRef.current;
@@ -69,6 +118,7 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
         marcador = L.circleMarker([v.lat, v.lng], { radius: 8, color, fillColor: color, fillOpacity: 0.85, weight: 2 }).addTo(mapa);
         marcador.bindPopup(popup);
         marcador.bindTooltip(v.alias);
+        marcador.on('click', () => mostrarRecorrido(v));
         marcadoresRef.current.set(v.id, marcador);
       }
     });
@@ -83,9 +133,23 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
       mapa.fitBounds(bounds, { padding: [30, 30] });
       primerFitRef.current = true;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehiculos]);
 
-  return <div ref={contenedorRef} className="flota-map" />;
+  return (
+    <div>
+      {(ruta || cargandoRuta) && (
+        <div className="period-bar" style={{ marginBottom: 10 }}>
+          <div className="info">
+            {cargandoRuta ? 'Cargando recorrido…' : ruta && <>Recorrido de hoy — <strong>{ruta.alias}</strong>: {num(ruta.distanciaKm)} km.</>}
+          </div>
+          {ruta && <button className="reset" onClick={cerrarRecorrido}>Cerrar recorrido</button>}
+        </div>
+      )}
+      <div ref={contenedorRef} className="flota-map" />
+      <div className="hint" style={{ marginTop: 8 }}>Tocá una unidad para ver el recorrido que hizo hoy.</div>
+    </div>
+  );
 }
 
 export function PosicionFlotaPage() {
