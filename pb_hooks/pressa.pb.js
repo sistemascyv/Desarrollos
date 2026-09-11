@@ -170,10 +170,7 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
   if (!vid || !startDate || !endDate) {
     return c.json(400, { message: "Faltan vid/desde/hasta." });
   }
-  // Se pide un día de Pressa por vez (ver más abajo) — con 25s de
-  // timeout por día, un rango muy largo puede tardar varios minutos en
-  // el peor caso si varios días fallan. 20 días es un techo razonable.
-  const RANGO_MAXIMO_DIAS = 20;
+  const RANGO_MAXIMO_DIAS = 30;
   const diasPedidos = Math.ceil((endDate - startDate) / 86400);
   if (diasPedidos > RANGO_MAXIMO_DIAS) {
     return c.json(400, { message: "El rango es de " + diasPedidos + " días — probá con " + RANGO_MAXIMO_DIAS + " días o menos." });
@@ -212,27 +209,33 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
 
   // Pedir el rango completo de una sola vez se confirmó lento/con
   // timeout en Pressa para unidades activas en varios días — se parte
-  // en tramos de 1 día, cada uno mucho más liviano y confiable, y se
-  // suman los resultados acá. "Mejor esfuerzo": si un día puntual
-  // falla, se sigue con el resto en vez de tirar todo el pedido abajo
-  // (queda marcado en "diasFallidos" para avisarlo en el frontend).
-  const UN_DIA = 86400;
+  // en tramos y se suman los resultados acá. Con tramos de 1 día en 1
+  // día (20 llamadas seguidas) un rango de 20 días tardó 2 minutos y
+  // medio en producción: cada llamada a Pressa tiene un costo fijo
+  // importante más allá de cuántos días le pidas, así que son MENOS
+  // llamadas más grandes lo que realmente ahorra tiempo, no llamadas
+  // más chicas. 3 días por tramo (ya confirmado que anda bien de una
+  // sola vez) es el punto medio: bastante menos llamadas que por día,
+  // sin volver a un tramo tan grande que Pressa tarde/falle de nuevo.
+  // "Mejor esfuerzo": si un tramo puntual falla, se sigue con el resto
+  // en vez de tirar todo el pedido abajo (queda en "tramosFallidos").
+  const TAMANO_TRAMO = 3 * 86400;
   let eventos = [];
-  let diasFallidos = [];
+  let tramosFallidos = [];
   let distanciaTotal = 0;
   let velocidadMax = 0;
   let sumaVelocidadProm = 0;
   let tramosOk = 0;
 
-  for (let inicio = startDate; inicio < endDate; inicio += UN_DIA) {
-    const fin = Math.min(inicio + UN_DIA - 1, endDate);
+  for (let inicio = startDate; inicio < endDate; inicio += TAMANO_TRAMO) {
+    const fin = Math.min(inicio + TAMANO_TRAMO - 1, endDate);
     let tramoRes;
     try {
       tramoRes = $http.send({
         url: base + "ws_report_historic.php",
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        timeout: 25,
+        timeout: 40,
         body: JSON.stringify({
           clientHash: clientHash,
           sessionKey: sessionKey,
@@ -246,12 +249,12 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
         }),
       });
     } catch (e) {
-      diasFallidos.push(inicio);
+      tramosFallidos.push(inicio);
       continue;
     }
     const tramoBody = tramoRes.json || {};
     if (tramoRes.statusCode !== 200 || tramoBody.errorCode !== 0 || !tramoBody.data) {
-      diasFallidos.push(inicio);
+      tramosFallidos.push(inicio);
       continue;
     }
     eventos = eventos.concat(tramoBody.data.events || []);
@@ -263,7 +266,7 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
   }
 
   if (tramosOk === 0) {
-    return c.json(502, { message: "Pressa no respondió para ninguno de los días pedidos (" + diasFallidos.length + " intentos fallidos)." });
+    return c.json(502, { message: "Pressa no respondió para ninguno de los tramos pedidos (" + tramosFallidos.length + " intentos fallidos)." });
   }
 
   let puntos = eventos
@@ -300,7 +303,7 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
       velocidadMax: velocidadMax,
       velocidadPromedio: tramosOk > 0 ? sumaVelocidadProm / tramosOk : 0,
     },
-    diasFallidos: diasFallidos.length,
+    tramosFallidos: tramosFallidos.length,
   });
 }, $apis.requireRecordAuth("usuarios"));
 
