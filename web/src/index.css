@@ -311,6 +311,12 @@ tbody tr:hover {
   max-height: 60vh;
   overflow-y: auto;
 }
+.flota-map {
+  height: 460px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
