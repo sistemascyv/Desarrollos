@@ -107,3 +107,105 @@ routerAdd("GET", "/api/flota/pressa/monitor", (c) => {
 
   return c.json(200, { total: vehiculos.length, vehiculos: vehiculos });
 }, $apis.requireRecordAuth("usuarios"));
+
+// GET /api/flota/pressa/historico/:vid/:desde/:hasta -> recorrido (puntos
+// GPS) de una unidad entre dos fechas (unix seconds), para dibujar como
+// línea en el mapa. "desde"/"hasta" van como segmento de path (no query
+// string) para reusar el mismo mecanismo ya probado en producción
+// (c.pathParam, ver cheques.pb.js) en vez de arriesgar uno sin probar.
+routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
+  const info = $apis.requestInfo(c);
+  const auth = info.authRecord;
+
+  const rawModulos = auth.get("modulos");
+  const modulosTexto = (Array.isArray(rawModulos) ? String.fromCharCode.apply(null, rawModulos) : JSON.stringify(rawModulos || [])).toLowerCase();
+  const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("flota_posicion") !== -1;
+  if (!tieneAcceso) {
+    return c.json(403, { message: "No tenés acceso al módulo de Posición de Flota." });
+  }
+
+  const vid = c.pathParam("vid");
+  const startDate = parseInt(c.pathParam("desde"), 10);
+  const endDate = parseInt(c.pathParam("hasta"), 10);
+  if (!vid || !startDate || !endDate) {
+    return c.json(400, { message: "Faltan vid/desde/hasta." });
+  }
+
+  const base = "https://interno.pressacloud.com/pressa_external_backend/";
+  const username = $os.getenv("PRESSA_USERNAME");
+  const clientHash = $os.getenv("PRESSA_CLIENT_HASH");
+  const passwordHash = $os.getenv("PRESSA_PASSWORD_HASH");
+  if (!username || !clientHash || !passwordHash) {
+    return c.json(502, { message: "Faltan las variables de entorno PRESSA_USERNAME / PRESSA_CLIENT_HASH / PRESSA_PASSWORD_HASH en el servidor." });
+  }
+
+  let loginRes;
+  try {
+    loginRes = $http.send({
+      url: base + "ws_user_login.php",
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientHash: clientHash,
+        password: passwordHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        username: username,
+      }),
+    });
+  } catch (e) {
+    return c.json(502, { message: "No se pudo conectar con Pressa (login): " + (e && e.message ? e.message : String(e)) });
+  }
+  const loginBody = loginRes.json || {};
+  if (loginRes.statusCode !== 200 || loginBody.errorCode !== 0) {
+    return c.json(502, { message: "Login a Pressa falló: " + (loginBody.displayMsg || ("HTTP " + loginRes.statusCode)) });
+  }
+  const sessionKey = loginBody.data.sessionKey;
+
+  let histRes;
+  try {
+    histRes = $http.send({
+      url: base + "ws_report_historic.php",
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientHash: clientHash,
+        sessionKey: sessionKey,
+        timestamp: Math.floor(Date.now() / 1000),
+        vid: vid,
+        startDate: startDate,
+        endDate: endDate,
+        minSpeed: 0,
+        maxSpeed: 250,
+        skip: "0",
+      }),
+    });
+  } catch (e) {
+    return c.json(502, { message: "No se pudo conectar con Pressa (histórico): " + (e && e.message ? e.message : String(e)) });
+  }
+  const histBody = histRes.json || {};
+  if (histRes.statusCode !== 200 || histBody.errorCode !== 0) {
+    return c.json(502, { message: "Pressa devolvió un error: " + (histBody.displayMsg || ("HTTP " + histRes.statusCode)) });
+  }
+
+  const data = histBody.data || {};
+  const eventos = data.events || [];
+  const puntos = eventos
+    .map((e) => ({
+      lat: e.location && typeof e.location.lat === "number" ? e.location.lat : null,
+      lng: e.location && typeof e.location.lng === "number" ? e.location.lng : null,
+      timestamp: e.datetime || null,
+      velocidad: e.speed || 0,
+    }))
+    .filter((p) => p.lat !== null && p.lng !== null);
+
+  const general = data.general || {};
+  return c.json(200, {
+    total: data.total || eventos.length,
+    puntos: puntos,
+    resumen: {
+      distanciaKm: general.totalDist || 0,
+      velocidadMax: general.maxSpeed || 0,
+      velocidadPromedio: general.midSpeed || 0,
+    },
+  });
+}, $apis.requireRecordAuth("usuarios"));
