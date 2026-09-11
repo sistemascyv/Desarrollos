@@ -25,7 +25,13 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
   const ordenados = [...vehiculos].sort((a, b) => a.alias.localeCompare(b.alias));
 
   useEffect(() => {
-    if (!vid && ordenados.length > 0) setVid(ordenados[0].id);
+    // Preferimos arrancar en una unidad que esté en movimiento ahora —
+    // si el default es alfabético a secas, suele caer en un
+    // semirremolque parado y el primer intento sale "sin recorrido".
+    if (!vid && ordenados.length > 0) {
+      const enMovimiento = ordenados.find((v) => v.velocidad > 0);
+      setVid((enMovimiento || ordenados[0]).id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehiculos]);
 
@@ -88,6 +94,7 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
           <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
           <button onClick={buscar} disabled={loading}>{loading ? 'Buscando…' : 'Buscar'}</button>
         </div>
+        <div className="hint" style={{ marginTop: 6 }}>Un rango largo en una unidad muy activa puede tardar varios segundos — Pressa tiene que recorrer todo el historial de esos días.</div>
       </div>
 
       <div className="card">
