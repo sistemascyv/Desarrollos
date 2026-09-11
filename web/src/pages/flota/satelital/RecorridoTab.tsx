@@ -47,6 +47,9 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
     return () => { mapa.remove(); mapaRef.current = null; };
   }, []);
 
+  const RANGO_MAXIMO_DIAS = 30;
+  const TAMANO_TRAMO_DIAS = 3; // el hook acepta hasta 5 por llamada; 3 deja margen
+
   async function buscar() {
     const mapa = mapaRef.current;
     const capa = capaRef.current;
@@ -55,15 +58,70 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
     try {
       const desdeUnix = Math.floor(new Date(desde + 'T00:00:00').getTime() / 1000);
       const hastaUnix = Math.floor(new Date(hasta + 'T23:59:59').getTime() / 1000);
-      const res = await pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number; velocidadMax: number; velocidadPromedio: number }; tramosFallidos: number }>(
-        `/api/flota/pressa/historico/${vid}/${desdeUnix}/${hastaUnix}`,
-        { method: 'GET' },
-      );
-      if (res.tramosFallidos > 0) {
-        toast(`Pressa no respondió para una parte del rango (${res.tramosFallidos} tramo${res.tramosFallidos > 1 ? 's' : ''} de hasta 3 días) — el recorrido puede estar incompleto.`, 'warn');
+      const diasPedidos = Math.ceil((hastaUnix - desdeUnix) / 86400);
+      if (diasPedidos > RANGO_MAXIMO_DIAS) {
+        toast(`El rango es de ${diasPedidos} días — probá con ${RANGO_MAXIMO_DIAS} días o menos.`, 'warn');
+        return;
       }
+
+      // El rango elegido se parte en tramos de 3 días y se piden TODOS
+      // a la vez (no uno atrás de otro) — cada tramo hace su propio
+      // login contra Pressa, pero como corren en paralelo el tiempo
+      // total lo marca el tramo más lento, no la suma de todos. Antes,
+      // pedidos secuenciales, un rango de 20 días tardaba 2 minutos y
+      // medio; en paralelo debería bajar a lo que tarde un solo tramo.
+      const tramoSegundos = TAMANO_TRAMO_DIAS * 86400;
+      const ventanas: [number, number][] = [];
+      for (let inicio = desdeUnix; inicio < hastaUnix; inicio += tramoSegundos) {
+        ventanas.push([inicio, Math.min(inicio + tramoSegundos - 1, hastaUnix)]);
+      }
+
+      const resultados = await Promise.allSettled(
+        ventanas.map(([ini, fin]) =>
+          pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number; velocidadMax: number; velocidadPromedio: number } }>(
+            `/api/flota/pressa/historico/${vid}/${ini}/${fin}`,
+            { method: 'GET' },
+          ),
+        ),
+      );
+
+      let puntos: PuntoRuta[] = [];
+      let distanciaKm = 0;
+      let velocidadMax = 0;
+      let sumaVelocidadProm = 0;
+      let tramosOk = 0;
+      let tramosFallidos = 0;
+      for (const r of resultados) {
+        if (r.status === 'fulfilled') {
+          puntos = puntos.concat(r.value.puntos);
+          distanciaKm += r.value.resumen.distanciaKm;
+          if (r.value.resumen.velocidadMax > velocidadMax) velocidadMax = r.value.resumen.velocidadMax;
+          sumaVelocidadProm += r.value.resumen.velocidadPromedio;
+          tramosOk++;
+        } else {
+          tramosFallidos++;
+        }
+      }
+
+      if (tramosOk === 0) {
+        toast('Pressa no respondió para ningún tramo del rango elegido.', 'err');
+        return;
+      }
+      if (tramosFallidos > 0) {
+        toast(`Pressa no respondió para ${tramosFallidos} tramo${tramosFallidos > 1 ? 's' : ''} de ${TAMANO_TRAMO_DIAS} días — el recorrido puede estar incompleto.`, 'warn');
+      }
+
+      // Con varios tramos el total puede acumular más puntos de los
+      // que conviene dibujar de una — se afina de nuevo sobre el total
+      // ya unido (cada tramo, por separado, ya viene afinado del hook).
+      const MAX_PUNTOS_TOTAL = 1500;
+      if (puntos.length > MAX_PUNTOS_TOTAL) {
+        const paso = Math.ceil(puntos.length / MAX_PUNTOS_TOTAL);
+        puntos = puntos.filter((_, i) => i % paso === 0);
+      }
+
       capa.clearLayers();
-      const latlngs: [number, number][] = res.puntos.map((p) => [p.lat, p.lng]);
+      const latlngs: [number, number][] = puntos.map((p) => [p.lat, p.lng]);
       if (latlngs.length < 2) {
         toast('No hay recorrido registrado para esa unidad en ese rango.', 'warn');
         setResumen(null);
@@ -73,7 +131,12 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
       L.circleMarker(latlngs[0], { radius: 7, color: '#3f8f5f', fillColor: '#3f8f5f', fillOpacity: 0.9 }).bindTooltip('Inicio').addTo(capa);
       L.circleMarker(latlngs[latlngs.length - 1], { radius: 7, color: '#b3382c', fillColor: '#b3382c', fillOpacity: 0.9 }).bindTooltip('Fin').addTo(capa);
       mapa.fitBounds(L.latLngBounds(latlngs), { padding: [30, 30] });
-      setResumen({ ...res.resumen, puntos: res.puntos.length });
+      setResumen({
+        distanciaKm,
+        velocidadMax,
+        velocidadPromedio: tramosOk > 0 ? sumaVelocidadProm / tramosOk : 0,
+        puntos: puntos.length,
+      });
     } catch (e) {
       toast('No se pudo traer el recorrido: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
@@ -97,7 +160,7 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
           <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
           <button onClick={buscar} disabled={loading}>{loading ? 'Buscando…' : 'Buscar'}</button>
         </div>
-        <div className="hint" style={{ marginTop: 6 }}>Se consulta en tramos de hasta 3 días (máximo 30 días por búsqueda) — un rango largo tarda más. Si algún tramo no responde, se avisa y se muestra el resto igual.</div>
+        <div className="hint" style={{ marginTop: 6 }}>Se consulta en tramos de 3 días, todos al mismo tiempo (máximo 30 días por búsqueda). Si algún tramo puntual no responde, se avisa y se muestra el resto igual.</div>
       </div>
 
       <div className="card">
