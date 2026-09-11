@@ -170,6 +170,14 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
   if (!vid || !startDate || !endDate) {
     return c.json(400, { message: "Faltan vid/desde/hasta." });
   }
+  // Se pide un día de Pressa por vez (ver más abajo) — con 25s de
+  // timeout por día, un rango muy largo puede tardar varios minutos en
+  // el peor caso si varios días fallan. 20 días es un techo razonable.
+  const RANGO_MAXIMO_DIAS = 20;
+  const diasPedidos = Math.ceil((endDate - startDate) / 86400);
+  if (diasPedidos > RANGO_MAXIMO_DIAS) {
+    return c.json(400, { message: "El rango es de " + diasPedidos + " días — probá con " + RANGO_MAXIMO_DIAS + " días o menos." });
+  }
 
   const base = "https://interno.pressacloud.com/pressa_external_backend/";
   const username = $os.getenv("PRESSA_USERNAME");
@@ -202,39 +210,62 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
   }
   const sessionKey = loginBody.data.sessionKey;
 
-  let histRes;
-  try {
-    histRes = $http.send({
-      url: base + "ws_report_historic.php",
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // Esta consulta en particular es la más pesada de las 3 (Pressa
-      // recorre todo el historial de la unidad en el rango pedido) —
-      // confirmado en vivo que puede pasar los 20s con una unidad muy
-      // activa en varios días, le damos más margen que al resto.
-      timeout: 60,
-      body: JSON.stringify({
-        clientHash: clientHash,
-        sessionKey: sessionKey,
-        timestamp: Math.floor(Date.now() / 1000),
-        vid: vid,
-        startDate: startDate,
-        endDate: endDate,
-        minSpeed: 0,
-        maxSpeed: 250,
-        skip: "0",
-      }),
-    });
-  } catch (e) {
-    return c.json(502, { message: "No se pudo conectar con Pressa (histórico): " + (e && e.message ? e.message : String(e)) });
-  }
-  const histBody = histRes.json || {};
-  if (histRes.statusCode !== 200 || histBody.errorCode !== 0) {
-    return c.json(502, { message: "Pressa devolvió un error: " + (histBody.displayMsg || ("HTTP " + histRes.statusCode)) });
+  // Pedir el rango completo de una sola vez se confirmó lento/con
+  // timeout en Pressa para unidades activas en varios días — se parte
+  // en tramos de 1 día, cada uno mucho más liviano y confiable, y se
+  // suman los resultados acá. "Mejor esfuerzo": si un día puntual
+  // falla, se sigue con el resto en vez de tirar todo el pedido abajo
+  // (queda marcado en "diasFallidos" para avisarlo en el frontend).
+  const UN_DIA = 86400;
+  let eventos = [];
+  let diasFallidos = [];
+  let distanciaTotal = 0;
+  let velocidadMax = 0;
+  let sumaVelocidadProm = 0;
+  let tramosOk = 0;
+
+  for (let inicio = startDate; inicio < endDate; inicio += UN_DIA) {
+    const fin = Math.min(inicio + UN_DIA - 1, endDate);
+    let tramoRes;
+    try {
+      tramoRes = $http.send({
+        url: base + "ws_report_historic.php",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        timeout: 25,
+        body: JSON.stringify({
+          clientHash: clientHash,
+          sessionKey: sessionKey,
+          timestamp: Math.floor(Date.now() / 1000),
+          vid: vid,
+          startDate: inicio,
+          endDate: fin,
+          minSpeed: 0,
+          maxSpeed: 250,
+          skip: "0",
+        }),
+      });
+    } catch (e) {
+      diasFallidos.push(inicio);
+      continue;
+    }
+    const tramoBody = tramoRes.json || {};
+    if (tramoRes.statusCode !== 200 || tramoBody.errorCode !== 0 || !tramoBody.data) {
+      diasFallidos.push(inicio);
+      continue;
+    }
+    eventos = eventos.concat(tramoBody.data.events || []);
+    const g = tramoBody.data.general || {};
+    distanciaTotal += g.totalDist || 0;
+    if ((g.maxSpeed || 0) > velocidadMax) velocidadMax = g.maxSpeed;
+    sumaVelocidadProm += g.midSpeed || 0;
+    tramosOk++;
   }
 
-  const data = histBody.data || {};
-  const eventos = data.events || [];
+  if (tramosOk === 0) {
+    return c.json(502, { message: "Pressa no respondió para ninguno de los días pedidos (" + diasFallidos.length + " intentos fallidos)." });
+  }
+
   let puntos = eventos
     .map((e) => ({
       lat: e.location && typeof e.location.lat === "number" ? e.location.lat : null,
@@ -247,8 +278,7 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
   // Una unidad activa en un rango largo puede traer miles de puntos —
   // se afinan a una muestra pareja (conservando siempre el primero y
   // el último) para que la respuesta y el dibujo en el mapa no se
-  // vuelvan pesados. El resumen (distancia, velocidades) ya viene
-  // calculado por Pressa sobre TODOS los puntos, no se pierde precisión ahí.
+  // vuelvan pesados.
   const MAX_PUNTOS = 800;
   if (puntos.length > MAX_PUNTOS) {
     const paso = Math.ceil(puntos.length / MAX_PUNTOS);
@@ -258,15 +288,19 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
     puntos = afinados;
   }
 
-  const general = data.general || {};
   return c.json(200, {
-    total: data.total || eventos.length,
+    total: eventos.length,
     puntos: puntos,
     resumen: {
-      distanciaKm: general.totalDist || 0,
-      velocidadMax: general.maxSpeed || 0,
-      velocidadPromedio: general.midSpeed || 0,
+      // Distancia y velocidad máxima: suma/máximo real de cada tramo.
+      // Velocidad promedio: promedio de los promedios por tramo (no
+      // ponderado por cantidad de eventos) — una aproximación, no un
+      // dato exacto de Pressa como antes de partir en tramos.
+      distanciaKm: distanciaTotal,
+      velocidadMax: velocidadMax,
+      velocidadPromedio: tramosOk > 0 ? sumaVelocidadProm / tramosOk : 0,
     },
+    diasFallidos: diasFallidos.length,
   });
 }, $apis.requireRecordAuth("usuarios"));
 
