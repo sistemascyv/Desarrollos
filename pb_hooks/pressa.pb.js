@@ -12,9 +12,13 @@
 // ese callback en un contexto que en producción no siempre ve lo
 // declarado afuera ("ReferenceError: ... is not defined" — ver el
 // mismo comentario en cheques.pb.js, ya nos pasó una vez con este hook
-// nuevo). Como consecuencia no se cachea la sessionKey entre requests
-// (se resuelve un login por consulta) — este endpoint no se llama con
-// tanta frecuencia como para que importe.
+// nuevo). Como consecuencia no se cachea la sessionKey en una variable
+// JS entre requests (se resuelve un login por consulta a Pressa) — lo
+// que sí se cachea, en la colección pressa_cache, es la RESPUESTA de
+// /monitor por unos segundos: como el mapa consulta solo cada 1
+// minuto y puede haber varias personas mirándolo a la vez, esto evita
+// pegarle a Pressa (con su login de por medio) en cada request de
+// cada usuario.
 //
 // Credenciales: Pressa pide el SHA1 del usuario como "clientHash" y el
 // SHA1 de la contraseña como "password" — nunca la contraseña en texto
@@ -34,6 +38,19 @@ routerAdd("GET", "/api/flota/pressa/monitor", (c) => {
   const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("flota_posicion") !== -1;
   if (!tieneAcceso) {
     return c.json(403, { message: "No tenés acceso al módulo de Posición de Flota." });
+  }
+
+  const CACHE_SEGUNDOS = 30;
+  const ahoraUnix = Math.floor(Date.now() / 1000);
+  const dao = $app.dao();
+  let cacheRow = null;
+  try {
+    cacheRow = dao.findFirstRecordByFilter("pressa_cache", "clave = 'monitor'");
+  } catch (e) {
+    cacheRow = null; // todavía no existe, primera consulta desde el deploy
+  }
+  if (cacheRow && (ahoraUnix - cacheRow.getInt("actualizado")) < CACHE_SEGUNDOS) {
+    return c.json(200, cacheRow.get("datos"));
   }
 
   const base = "https://interno.pressacloud.com/pressa_external_backend/";
@@ -113,7 +130,20 @@ routerAdd("GET", "/api/flota/pressa/monitor", (c) => {
     };
   });
 
-  return c.json(200, { total: vehiculos.length, vehiculos: vehiculos });
+  const payload = { total: vehiculos.length, vehiculos: vehiculos };
+
+  // Guardar en cache no debe romper la respuesta si falla por algún
+  // motivo — el dato ya está armado, se devuelve igual.
+  try {
+    const coleccion = dao.findCollectionByNameOrId("pressa_cache");
+    const registro = cacheRow || new Record(coleccion);
+    registro.set("clave", "monitor");
+    registro.set("datos", payload);
+    registro.set("actualizado", ahoraUnix);
+    dao.saveRecord(registro);
+  } catch (e) { /* no bloqueamos la respuesta si falla el guardado del cache */ }
+
+  return c.json(200, payload);
 }, $apis.requireRecordAuth("usuarios"));
 
 // GET /api/flota/pressa/historico/:vid/:desde/:hasta -> recorrido (puntos
