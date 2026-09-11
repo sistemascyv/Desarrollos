@@ -55,10 +55,13 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
     try {
       const desdeUnix = Math.floor(new Date(desde + 'T00:00:00').getTime() / 1000);
       const hastaUnix = Math.floor(new Date(hasta + 'T23:59:59').getTime() / 1000);
-      const res = await pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number; velocidadMax: number; velocidadPromedio: number } }>(
+      const res = await pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number; velocidadMax: number; velocidadPromedio: number }; diasFallidos: number }>(
         `/api/flota/pressa/historico/${vid}/${desdeUnix}/${hastaUnix}`,
         { method: 'GET' },
       );
+      if (res.diasFallidos > 0) {
+        toast(`Pressa no respondió para ${res.diasFallidos} día${res.diasFallidos > 1 ? 's' : ''} del rango — el recorrido puede estar incompleto.`, 'warn');
+      }
       capa.clearLayers();
       const latlngs: [number, number][] = res.puntos.map((p) => [p.lat, p.lng]);
       if (latlngs.length < 2) {
@@ -94,7 +97,7 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
           <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
           <button onClick={buscar} disabled={loading}>{loading ? 'Buscando…' : 'Buscar'}</button>
         </div>
-        <div className="hint" style={{ marginTop: 6 }}>Un rango largo en una unidad muy activa puede tardar hasta un minuto — Pressa tiene que recorrer todo el historial de esos días. Si tarda de más, probá con un rango más corto (por ejemplo, un solo día).</div>
+        <div className="hint" style={{ marginTop: 6 }}>Se consulta día por día (máximo 20 días por búsqueda) — un rango largo tarda más, unos segundos por cada día pedido. Si algún día no responde, se avisa y se muestra el resto igual.</div>
       </div>
 
       <div className="card">
