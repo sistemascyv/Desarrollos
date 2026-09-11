@@ -49,6 +49,27 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
 
   const RANGO_MAXIMO_DIAS = 30;
   const TAMANO_TRAMO_DIAS = 3; // el hook acepta hasta 5 por llamada; 3 deja margen
+  const CONCURRENCIA_MAXIMA = 3; // no abrir más de 3 consultas a la vez contra Pressa
+
+  // Pide "items" con "fn", varios en simultáneo pero sin pasarse de
+  // CONCURRENCIA_MAXIMA a la vez — más rápido que uno atrás de otro,
+  // sin bombardear a Pressa con 10 conexiones juntas.
+  async function conConcurrenciaLimitada<T, R>(items: T[], limite: number, fn: (item: T) => Promise<R>): Promise<PromiseSettledResult<R>[]> {
+    const resultados: PromiseSettledResult<R>[] = new Array(items.length);
+    let siguiente = 0;
+    async function trabajador() {
+      while (siguiente < items.length) {
+        const i = siguiente++;
+        try {
+          resultados[i] = { status: 'fulfilled', value: await fn(items[i]) };
+        } catch (e) {
+          resultados[i] = { status: 'rejected', reason: e };
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(limite, items.length) }, trabajador));
+    return resultados;
+  }
 
   async function buscar() {
     const mapa = mapaRef.current;
@@ -64,24 +85,20 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
         return;
       }
 
-      // El rango elegido se parte en tramos de 3 días y se piden TODOS
-      // a la vez (no uno atrás de otro) — cada tramo hace su propio
-      // login contra Pressa, pero como corren en paralelo el tiempo
-      // total lo marca el tramo más lento, no la suma de todos. Antes,
-      // pedidos secuenciales, un rango de 20 días tardaba 2 minutos y
-      // medio; en paralelo debería bajar a lo que tarde un solo tramo.
+      // El rango elegido se parte en tramos de 3 días y se piden de a
+      // CONCURRENCIA_MAXIMA por vez (no uno atrás de otro, pero tampoco
+      // todos juntos) — más rápido que secuencial sin abrir demasiadas
+      // conexiones a la vez contra Pressa.
       const tramoSegundos = TAMANO_TRAMO_DIAS * 86400;
       const ventanas: [number, number][] = [];
       for (let inicio = desdeUnix; inicio < hastaUnix; inicio += tramoSegundos) {
         ventanas.push([inicio, Math.min(inicio + tramoSegundos - 1, hastaUnix)]);
       }
 
-      const resultados = await Promise.allSettled(
-        ventanas.map(([ini, fin]) =>
-          pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number; velocidadMax: number; velocidadPromedio: number } }>(
-            `/api/flota/pressa/historico/${vid}/${ini}/${fin}`,
-            { method: 'GET' },
-          ),
+      const resultados = await conConcurrenciaLimitada(ventanas, CONCURRENCIA_MAXIMA, ([ini, fin]) =>
+        pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number; velocidadMax: number; velocidadPromedio: number } }>(
+          `/api/flota/pressa/historico/${vid}/${ini}/${fin}`,
+          { method: 'GET' },
         ),
       );
 
@@ -164,7 +181,7 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
           <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
           <button onClick={buscar} disabled={loading}>{loading ? 'Buscando…' : 'Buscar'}</button>
         </div>
-        <div className="hint" style={{ marginTop: 6 }}>Se consulta en tramos de 3 días, todos al mismo tiempo (máximo 30 días por búsqueda). Si algún tramo puntual no responde, se avisa y se muestra el resto igual.</div>
+        <div className="hint" style={{ marginTop: 6 }}>Se consulta en tramos de 3 días, hasta 3 a la vez (máximo 30 días por búsqueda). Si algún tramo puntual no responde, se avisa y se muestra el resto igual.</div>
       </div>
 
       <div className="card">
