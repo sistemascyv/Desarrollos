@@ -94,7 +94,7 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
           <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
           <button onClick={buscar} disabled={loading}>{loading ? 'Buscando…' : 'Buscar'}</button>
         </div>
-        <div className="hint" style={{ marginTop: 6 }}>Un rango largo en una unidad muy activa puede tardar varios segundos — Pressa tiene que recorrer todo el historial de esos días.</div>
+        <div className="hint" style={{ marginTop: 6 }}>Un rango largo en una unidad muy activa puede tardar hasta un minuto — Pressa tiene que recorrer todo el historial de esos días. Si tarda de más, probá con un rango más corto (por ejemplo, un solo día).</div>
       </div>
 
       <div className="card">
