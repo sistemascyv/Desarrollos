@@ -208,7 +208,11 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
       url: base + "ws_report_historic.php",
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
+      // Esta consulta en particular es la más pesada de las 3 (Pressa
+      // recorre todo el historial de la unidad en el rango pedido) —
+      // confirmado en vivo que puede pasar los 20s con una unidad muy
+      // activa en varios días, le damos más margen que al resto.
+      timeout: 60,
       body: JSON.stringify({
         clientHash: clientHash,
         sessionKey: sessionKey,
@@ -332,7 +336,9 @@ routerAdd("GET", "/api/flota/pressa/distancia/:desde/:hasta", (c) => {
       url: base + "ws_report_fleet_distance.php",
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
+      // Toda la flota junta en un rango largo — misma lógica que el
+      // histórico, le damos más margen que a login/monitor.
+      timeout: 60,
       body: JSON.stringify({
         clientHash: clientHash,
         sessionKey: sessionKey,
