@@ -40,12 +40,21 @@ export function PosicionFlotaPage() {
     }
   }
 
+  // "Km real" no usa la lista de vehículos en vivo (arma su propio
+  // reporte por separado): no tiene sentido pedirle nada a Pressa por
+  // esa pestaña. "Recorrido histórico" solo necesita la lista una vez
+  // (para el selector de unidad), no hace falta que se actualice sola
+  // cada 1 minuto. El auto-refresco de verdad solo importa en las
+  // pestañas que muestran datos en vivo (mapa, frío, eventos).
   useEffect(() => {
+    if (tab === 'km') return;
     buscar();
-    const id = setInterval(buscar, ACTUALIZACION_MS);
-    return () => clearInterval(id);
+    if (tab === 'mapa' || tab === 'frio' || tab === 'eventos') {
+      const id = setInterval(buscar, ACTUALIZACION_MS);
+      return () => clearInterval(id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tab]);
 
   if (!tab || !TABS.some((t) => t.id === tab)) {
     return <Navigate to="/flota/posicion/mapa" replace />;
@@ -56,9 +65,14 @@ export function PosicionFlotaPage() {
       <div className="card">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0 }}>Posición de Flota</h2>
-          <button className="small secondary" onClick={buscar} disabled={loading}>{loading ? 'Actualizando…' : 'Actualizar ahora'}</button>
+          {tab !== 'km' && <button className="small secondary" onClick={buscar} disabled={loading}>{loading ? 'Actualizando…' : 'Actualizar ahora'}</button>}
         </div>
-        <div className="hint">Satelital Pressa — {vehiculos.length} unidades, se actualiza solo cada 1 minuto.</div>
+        {tab !== 'km' && (
+          <div className="hint">
+            Satelital Pressa — {vehiculos.length} unidades
+            {(tab === 'mapa' || tab === 'frio' || tab === 'eventos') ? ', se actualiza solo cada 1 minuto.' : '.'}
+          </div>
+        )}
         <div className="row" style={{ marginTop: 14 }}>
           {TABS.map((t) => (
             <button
@@ -73,13 +87,13 @@ export function PosicionFlotaPage() {
         </div>
       </div>
 
-      {!cargado ? null : (
+      {tab === 'km' && <KmRealTab />}
+      {tab !== 'km' && cargado && (
         <>
           {tab === 'mapa' && <MapaTab vehiculos={vehiculos} />}
           {tab === 'frio' && <CadenaFrioTab vehiculos={vehiculos} />}
           {tab === 'eventos' && <EventosTab vehiculos={vehiculos} />}
           {tab === 'recorrido' && <RecorridoTab vehiculos={vehiculos} />}
-          {tab === 'km' && <KmRealTab />}
         </>
       )}
     </main>
