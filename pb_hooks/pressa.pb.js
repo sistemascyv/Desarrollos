@@ -170,10 +170,18 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
   if (!vid || !startDate || !endDate) {
     return c.json(400, { message: "Faltan vid/desde/hasta." });
   }
-  const RANGO_MAXIMO_DIAS = 30;
+  // Este endpoint atiende UN tramo por llamada — partir un rango largo
+  // en varios tramos y pedirlos EN PARALELO es responsabilidad del
+  // frontend (ver RecorridoTab.tsx): así cada tramo pasa por su propio
+  // login y su propia conexión, y el tiempo total lo manda el tramo
+  // más lento, no la suma de todos (antes se pedían uno atrás de otro
+  // acá adentro y un rango de 20 días tardaba 2.5 minutos). Este tope
+  // es una salvaguarda para que un pedido directo a la API no le pida
+  // a Pressa un solo tramo gigante.
+  const RANGO_MAXIMO_DIAS_POR_LLAMADA = 5;
   const diasPedidos = Math.ceil((endDate - startDate) / 86400);
-  if (diasPedidos > RANGO_MAXIMO_DIAS) {
-    return c.json(400, { message: "El rango es de " + diasPedidos + " días — probá con " + RANGO_MAXIMO_DIAS + " días o menos." });
+  if (diasPedidos > RANGO_MAXIMO_DIAS_POR_LLAMADA) {
+    return c.json(400, { message: "Este tramo es de " + diasPedidos + " días — cada llamada acepta hasta " + RANGO_MAXIMO_DIAS_POR_LLAMADA + " días." });
   }
 
   const base = "https://interno.pressacloud.com/pressa_external_backend/";
@@ -207,68 +215,35 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
   }
   const sessionKey = loginBody.data.sessionKey;
 
-  // Pedir el rango completo de una sola vez se confirmó lento/con
-  // timeout en Pressa para unidades activas en varios días — se parte
-  // en tramos y se suman los resultados acá. Con tramos de 1 día en 1
-  // día (20 llamadas seguidas) un rango de 20 días tardó 2 minutos y
-  // medio en producción: cada llamada a Pressa tiene un costo fijo
-  // importante más allá de cuántos días le pidas, así que son MENOS
-  // llamadas más grandes lo que realmente ahorra tiempo, no llamadas
-  // más chicas. 3 días por tramo (ya confirmado que anda bien de una
-  // sola vez) es el punto medio: bastante menos llamadas que por día,
-  // sin volver a un tramo tan grande que Pressa tarde/falle de nuevo.
-  // "Mejor esfuerzo": si un tramo puntual falla, se sigue con el resto
-  // en vez de tirar todo el pedido abajo (queda en "tramosFallidos").
-  const TAMANO_TRAMO = 3 * 86400;
-  let eventos = [];
-  let tramosFallidos = [];
-  let distanciaTotal = 0;
-  let velocidadMax = 0;
-  let sumaVelocidadProm = 0;
-  let tramosOk = 0;
-
-  for (let inicio = startDate; inicio < endDate; inicio += TAMANO_TRAMO) {
-    const fin = Math.min(inicio + TAMANO_TRAMO - 1, endDate);
-    let tramoRes;
-    try {
-      tramoRes = $http.send({
-        url: base + "ws_report_historic.php",
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        timeout: 40,
-        body: JSON.stringify({
-          clientHash: clientHash,
-          sessionKey: sessionKey,
-          timestamp: Math.floor(Date.now() / 1000),
-          vid: vid,
-          startDate: inicio,
-          endDate: fin,
-          minSpeed: 0,
-          maxSpeed: 250,
-          skip: "0",
-        }),
-      });
-    } catch (e) {
-      tramosFallidos.push(inicio);
-      continue;
-    }
-    const tramoBody = tramoRes.json || {};
-    if (tramoRes.statusCode !== 200 || tramoBody.errorCode !== 0 || !tramoBody.data) {
-      tramosFallidos.push(inicio);
-      continue;
-    }
-    eventos = eventos.concat(tramoBody.data.events || []);
-    const g = tramoBody.data.general || {};
-    distanciaTotal += g.totalDist || 0;
-    if ((g.maxSpeed || 0) > velocidadMax) velocidadMax = g.maxSpeed;
-    sumaVelocidadProm += g.midSpeed || 0;
-    tramosOk++;
+  let histRes;
+  try {
+    histRes = $http.send({
+      url: base + "ws_report_historic.php",
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      timeout: 40,
+      body: JSON.stringify({
+        clientHash: clientHash,
+        sessionKey: sessionKey,
+        timestamp: Math.floor(Date.now() / 1000),
+        vid: vid,
+        startDate: startDate,
+        endDate: endDate,
+        minSpeed: 0,
+        maxSpeed: 250,
+        skip: "0",
+      }),
+    });
+  } catch (e) {
+    return c.json(502, { message: "No se pudo conectar con Pressa (histórico): " + (e && e.message ? e.message : String(e)) });
+  }
+  const histBody = histRes.json || {};
+  if (histRes.statusCode !== 200 || histBody.errorCode !== 0) {
+    return c.json(502, { message: "Pressa devolvió un error: " + (histBody.displayMsg || ("HTTP " + histRes.statusCode)) });
   }
 
-  if (tramosOk === 0) {
-    return c.json(502, { message: "Pressa no respondió para ninguno de los tramos pedidos (" + tramosFallidos.length + " intentos fallidos)." });
-  }
-
+  const data = histBody.data || {};
+  const eventos = data.events || [];
   let puntos = eventos
     .map((e) => ({
       lat: e.location && typeof e.location.lat === "number" ? e.location.lat : null,
@@ -278,10 +253,10 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
     }))
     .filter((p) => p.lat !== null && p.lng !== null);
 
-  // Una unidad activa en un rango largo puede traer miles de puntos —
-  // se afinan a una muestra pareja (conservando siempre el primero y
-  // el último) para que la respuesta y el dibujo en el mapa no se
-  // vuelvan pesados.
+  // Una unidad muy activa en 5 días puede traer bastantes puntos — se
+  // afinan a una muestra pareja (conservando siempre el primero y el
+  // último) para que la respuesta no se vuelva pesada. El frontend, que
+  // junta varios tramos, hace su propio recorte adicional sobre el total.
   const MAX_PUNTOS = 800;
   if (puntos.length > MAX_PUNTOS) {
     const paso = Math.ceil(puntos.length / MAX_PUNTOS);
@@ -291,19 +266,15 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
     puntos = afinados;
   }
 
+  const general = data.general || {};
   return c.json(200, {
-    total: eventos.length,
+    total: data.total || eventos.length,
     puntos: puntos,
     resumen: {
-      // Distancia y velocidad máxima: suma/máximo real de cada tramo.
-      // Velocidad promedio: promedio de los promedios por tramo (no
-      // ponderado por cantidad de eventos) — una aproximación, no un
-      // dato exacto de Pressa como antes de partir en tramos.
-      distanciaKm: distanciaTotal,
-      velocidadMax: velocidadMax,
-      velocidadPromedio: tramosOk > 0 ? sumaVelocidadProm / tramosOk : 0,
+      distanciaKm: general.totalDist || 0,
+      velocidadMax: general.maxSpeed || 0,
+      velocidadPromedio: general.midSpeed || 0,
     },
-    tramosFallidos: tramosFallidos.length,
   });
 }, $apis.requireRecordAuth("usuarios"));
 
