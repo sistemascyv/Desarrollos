@@ -55,12 +55,12 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
     try {
       const desdeUnix = Math.floor(new Date(desde + 'T00:00:00').getTime() / 1000);
       const hastaUnix = Math.floor(new Date(hasta + 'T23:59:59').getTime() / 1000);
-      const res = await pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number; velocidadMax: number; velocidadPromedio: number }; diasFallidos: number }>(
+      const res = await pb.send<{ puntos: PuntoRuta[]; resumen: { distanciaKm: number; velocidadMax: number; velocidadPromedio: number }; tramosFallidos: number }>(
         `/api/flota/pressa/historico/${vid}/${desdeUnix}/${hastaUnix}`,
         { method: 'GET' },
       );
-      if (res.diasFallidos > 0) {
-        toast(`Pressa no respondió para ${res.diasFallidos} día${res.diasFallidos > 1 ? 's' : ''} del rango — el recorrido puede estar incompleto.`, 'warn');
+      if (res.tramosFallidos > 0) {
+        toast(`Pressa no respondió para una parte del rango (${res.tramosFallidos} tramo${res.tramosFallidos > 1 ? 's' : ''} de hasta 3 días) — el recorrido puede estar incompleto.`, 'warn');
       }
       capa.clearLayers();
       const latlngs: [number, number][] = res.puntos.map((p) => [p.lat, p.lng]);
@@ -97,7 +97,7 @@ export function RecorridoTab({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
           <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
           <button onClick={buscar} disabled={loading}>{loading ? 'Buscando…' : 'Buscar'}</button>
         </div>
-        <div className="hint" style={{ marginTop: 6 }}>Se consulta día por día (máximo 20 días por búsqueda) — un rango largo tarda más, unos segundos por cada día pedido. Si algún día no responde, se avisa y se muestra el resto igual.</div>
+        <div className="hint" style={{ marginTop: 6 }}>Se consulta en tramos de hasta 3 días (máximo 30 días por búsqueda) — un rango largo tarda más. Si algún tramo no responde, se avisa y se muestra el resto igual.</div>
       </div>
 
       <div className="card">
