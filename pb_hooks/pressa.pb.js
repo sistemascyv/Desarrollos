@@ -67,6 +67,7 @@ routerAdd("GET", "/api/flota/pressa/monitor", (c) => {
       url: base + "ws_user_login.php",
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
       body: JSON.stringify({
         clientHash: clientHash,
         password: passwordHash,
@@ -89,6 +90,7 @@ routerAdd("GET", "/api/flota/pressa/monitor", (c) => {
       url: base + "ws_monitor_search.php",
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
       body: JSON.stringify({
         clientHash: clientHash,
         sessionKey: sessionKey,
@@ -183,6 +185,7 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
       url: base + "ws_user_login.php",
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
       body: JSON.stringify({
         clientHash: clientHash,
         password: passwordHash,
@@ -205,6 +208,7 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
       url: base + "ws_report_historic.php",
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
       body: JSON.stringify({
         clientHash: clientHash,
         sessionKey: sessionKey,
@@ -227,7 +231,7 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
 
   const data = histBody.data || {};
   const eventos = data.events || [];
-  const puntos = eventos
+  let puntos = eventos
     .map((e) => ({
       lat: e.location && typeof e.location.lat === "number" ? e.location.lat : null,
       lng: e.location && typeof e.location.lng === "number" ? e.location.lng : null,
@@ -235,6 +239,20 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
       velocidad: e.speed || 0,
     }))
     .filter((p) => p.lat !== null && p.lng !== null);
+
+  // Una unidad activa en un rango largo puede traer miles de puntos —
+  // se afinan a una muestra pareja (conservando siempre el primero y
+  // el último) para que la respuesta y el dibujo en el mapa no se
+  // vuelvan pesados. El resumen (distancia, velocidades) ya viene
+  // calculado por Pressa sobre TODOS los puntos, no se pierde precisión ahí.
+  const MAX_PUNTOS = 800;
+  if (puntos.length > MAX_PUNTOS) {
+    const paso = Math.ceil(puntos.length / MAX_PUNTOS);
+    const afinados = puntos.filter((_, i) => i % paso === 0);
+    const ultimo = puntos[puntos.length - 1];
+    if (afinados[afinados.length - 1] !== ultimo) afinados.push(ultimo);
+    puntos = afinados;
+  }
 
   const general = data.general || {};
   return c.json(200, {
@@ -291,6 +309,7 @@ routerAdd("GET", "/api/flota/pressa/distancia/:desde/:hasta", (c) => {
       url: base + "ws_user_login.php",
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
       body: JSON.stringify({
         clientHash: clientHash,
         password: passwordHash,
@@ -313,6 +332,7 @@ routerAdd("GET", "/api/flota/pressa/distancia/:desde/:hasta", (c) => {
       url: base + "ws_report_fleet_distance.php",
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
       body: JSON.stringify({
         clientHash: clientHash,
         sessionKey: sessionKey,
