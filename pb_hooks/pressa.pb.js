@@ -298,14 +298,13 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
 // toda la flota en un período (Report Fleet Distance WS). Sin "vids" en
 // el pedido devuelve todas las unidades de la cuenta, según el propio
 // documento de Pressa.
-//   OJO: el documento de Pressa que nos pasaron tiene el bloque de
-//   parámetros de este servicio idéntico al de "User Vehicles" (sin
-//   startDate/endDate listados) pese a que la descripción dice que
-//   devuelve distancia "en un periodo de tiempo" — es casi seguro un
-//   error de copiado del PDF. Se mandan startDate/endDate igual, mismo
-//   nombre que usa Historic WS; si Pressa los ignora o pide otro
-//   nombre, el error 502 de acá abajo va a traer el mensaje real de
-//   Pressa para poder ajustarlo.
+//   El documento de Pressa que nos pasaron tiene el bloque de parámetros
+//   de este servicio idéntico al de "User Vehicles" (sin startDate/
+//   endDate listados) — error de copiado del PDF, no significa que el
+//   servicio no acepte fechas. Se confirmó en vivo (14/09) que sí son
+//   "startDate"/"endDate" (mismo nombre que Historic WS): para T146,
+//   1/09-10/09, dio 6.208km acá contra 6.207,50km en la web de Pressa —
+//   coincide (diferencia de redondeo).
 routerAdd("GET", "/api/flota/pressa/distancia/:desde/:hasta", (c) => {
   const info = $apis.requestInfo(c);
   const auth = info.authRecord;

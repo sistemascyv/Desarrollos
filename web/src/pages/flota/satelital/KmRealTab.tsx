@@ -46,8 +46,8 @@ export function KmRealTab() {
       <div className="card">
         <h2>Km real</h2>
         <div className="hint">Distancia recorrida real (GPS/odómetro de Pressa) por unidad en el período — para comparar contra el km cargado a mano en Planilla Choferes.</div>
-        <div className="hint" style={{ color: 'var(--danger, #b3382c)', marginTop: 4 }}>
-          ⚠ Los km de esta pestaña todavía NO coinciden con los de la web de Pressa (verificado 14/09) — el formato de fechas que le mandamos a este servicio en particular es una suposición sin confirmar (la documentación de Pressa tiene un error para este endpoint). No usar todavía para comparar contra Planilla Choferes hasta confirmar el formato correcto con Pressa.
+        <div className="hint" style={{ marginTop: 4 }}>
+          Si el rango elegido incluye el día de hoy, el km sigue sumando mientras la unidad esté en ruta — para comparar un período ya cerrado, elegí fechas que no lleguen hasta hoy.
         </div>
         <div className="row" style={{ marginTop: 10 }}>
           <div className="field"><label>Desde</label><input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></div>
