@@ -61,22 +61,30 @@ routerAdd("GET", "/api/flota/pressa/monitor", (c) => {
     return c.json(502, { message: "Faltan las variables de entorno PRESSA_USERNAME / PRESSA_CLIENT_HASH / PRESSA_PASSWORD_HASH en el servidor." });
   }
 
+  // Un handshake TLS que tarda de más suele ser un bache pasajero de
+  // Pressa — se reintenta una vez con más margen antes de darse por
+  // vencido (si Pressa está realmente caída, esto no la revive, pero
+  // cubre el caso de un corte de un instante).
   let loginRes;
-  try {
-    loginRes = $http.send({
-      url: base + "ws_user_login.php",
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
-      body: JSON.stringify({
-        clientHash: clientHash,
-        password: passwordHash,
-        timestamp: Math.floor(Date.now() / 1000),
-        username: username,
-      }),
-    });
-  } catch (e) {
-    return c.json(502, { message: "No se pudo conectar con Pressa (login): " + (e && e.message ? e.message : String(e)) });
+  for (let intento = 1; intento <= 2 && !loginRes; intento++) {
+    try {
+      loginRes = $http.send({
+        url: base + "ws_user_login.php",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        timeout: intento === 1 ? 20 : 35,
+        body: JSON.stringify({
+          clientHash: clientHash,
+          password: passwordHash,
+          timestamp: Math.floor(Date.now() / 1000),
+          username: username,
+        }),
+      });
+    } catch (e) {
+      if (intento === 2) {
+        return c.json(502, { message: "No se pudo conectar con Pressa (login): " + (e && e.message ? e.message : String(e)) });
+      }
+    }
   }
   const loginBody = loginRes.json || {};
   if (loginRes.statusCode !== 200 || loginBody.errorCode !== 0) {
@@ -192,22 +200,30 @@ routerAdd("GET", "/api/flota/pressa/historico/:vid/:desde/:hasta", (c) => {
     return c.json(502, { message: "Faltan las variables de entorno PRESSA_USERNAME / PRESSA_CLIENT_HASH / PRESSA_PASSWORD_HASH en el servidor." });
   }
 
+  // Un handshake TLS que tarda de más suele ser un bache pasajero de
+  // Pressa — se reintenta una vez con más margen antes de darse por
+  // vencido (si Pressa está realmente caída, esto no la revive, pero
+  // cubre el caso de un corte de un instante).
   let loginRes;
-  try {
-    loginRes = $http.send({
-      url: base + "ws_user_login.php",
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
-      body: JSON.stringify({
-        clientHash: clientHash,
-        password: passwordHash,
-        timestamp: Math.floor(Date.now() / 1000),
-        username: username,
-      }),
-    });
-  } catch (e) {
-    return c.json(502, { message: "No se pudo conectar con Pressa (login): " + (e && e.message ? e.message : String(e)) });
+  for (let intento = 1; intento <= 2 && !loginRes; intento++) {
+    try {
+      loginRes = $http.send({
+        url: base + "ws_user_login.php",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        timeout: intento === 1 ? 20 : 35,
+        body: JSON.stringify({
+          clientHash: clientHash,
+          password: passwordHash,
+          timestamp: Math.floor(Date.now() / 1000),
+          username: username,
+        }),
+      });
+    } catch (e) {
+      if (intento === 2) {
+        return c.json(502, { message: "No se pudo conectar con Pressa (login): " + (e && e.message ? e.message : String(e)) });
+      }
+    }
   }
   const loginBody = loginRes.json || {};
   if (loginRes.statusCode !== 200 || loginBody.errorCode !== 0) {
@@ -315,22 +331,30 @@ routerAdd("GET", "/api/flota/pressa/distancia/:desde/:hasta", (c) => {
     return c.json(502, { message: "Faltan las variables de entorno PRESSA_USERNAME / PRESSA_CLIENT_HASH / PRESSA_PASSWORD_HASH en el servidor." });
   }
 
+  // Un handshake TLS que tarda de más suele ser un bache pasajero de
+  // Pressa — se reintenta una vez con más margen antes de darse por
+  // vencido (si Pressa está realmente caída, esto no la revive, pero
+  // cubre el caso de un corte de un instante).
   let loginRes;
-  try {
-    loginRes = $http.send({
-      url: base + "ws_user_login.php",
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      timeout: 20, // segundos — para que un Pressa lento/colgado falle claro en vez de tardar "muchísimo" sin avisar
-      body: JSON.stringify({
-        clientHash: clientHash,
-        password: passwordHash,
-        timestamp: Math.floor(Date.now() / 1000),
-        username: username,
-      }),
-    });
-  } catch (e) {
-    return c.json(502, { message: "No se pudo conectar con Pressa (login): " + (e && e.message ? e.message : String(e)) });
+  for (let intento = 1; intento <= 2 && !loginRes; intento++) {
+    try {
+      loginRes = $http.send({
+        url: base + "ws_user_login.php",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        timeout: intento === 1 ? 20 : 35,
+        body: JSON.stringify({
+          clientHash: clientHash,
+          password: passwordHash,
+          timestamp: Math.floor(Date.now() / 1000),
+          username: username,
+        }),
+      });
+    } catch (e) {
+      if (intento === 2) {
+        return c.json(502, { message: "No se pudo conectar con Pressa (login): " + (e && e.message ? e.message : String(e)) });
+      }
+    }
   }
   const loginBody = loginRes.json || {};
   if (loginRes.statusCode !== 200 || loginBody.errorCode !== 0) {
