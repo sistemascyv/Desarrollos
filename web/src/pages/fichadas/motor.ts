@@ -138,12 +138,19 @@ export function procesarPeriodo(params: {
           if (diff < bestSDiff && diff <= TOLERANCIA_MIN) { bestSDiff = diff; bestS = idx; }
         });
 
-        const entradaReal = bestE >= 0 ? marcasGlobal[bestE].abs : null;
-        const salidaReal = bestS >= 0 ? marcasGlobal[bestS].abs : null;
-        if (bestE >= 0) { usados[bestE] = true; depositoDelDia = marcasGlobal[bestE].deposito; }
-        if (bestS >= 0) { usados[bestS] = true; depositoDelDia = depositoDelDia || marcasGlobal[bestS].deposito; }
-        if (entradaReal !== null && salidaReal !== null) worked += salidaReal - entradaReal;
-        paresReales.push([entradaReal, salidaReal]);
+        // solo consumimos las marcas si matcheó COMPLETO (entrada y salida)
+        // contra este tramo esperado. Si solo matchea un lado (ej: alguien
+        // que entra 3+hs antes de lo que dice su horario asignado, y esa
+        // entrada temprana deja fuera de tolerancia a la salida real),
+        // no la consumimos acá — queda libre para el paso de "tramos
+        // extra" de abajo, que empareja entrada+salida reales aunque no
+        // se parezcan al horario teórico.
+        if (bestE >= 0 && bestS >= 0) {
+          usados[bestE] = true; usados[bestS] = true;
+          depositoDelDia = marcasGlobal[bestE].deposito;
+          worked += marcasGlobal[bestS].abs - marcasGlobal[bestE].abs;
+          paresReales.push([marcasGlobal[bestE].abs, marcasGlobal[bestS].abs]);
+        }
       });
 
       // tramos extra: marcas sobrantes del mismo día calendario, no
@@ -234,7 +241,7 @@ export function detectarDeposito(nombreArchivo: string): string {
   const n = nombreArchivo.toLowerCase();
   if (n.includes('cordoba') || n.includes('córdoba') || n.includes('cba')) return 'CORDOBA';
   if (n.includes('rosario')) return 'ROSARIO';
-  if (n.includes('buenos_aires') || n.includes('bsas') || n.includes('bs_as') || n.includes('buenos aires')) return 'BUENOS AIRES';
+  if (n.includes('buenos_aires') || n.includes('bsas') || n.includes('bs_as') || n.includes('buenos aires') || n.includes('cortejarena')) return 'BUENOS AIRES';
   if (n.includes('san_francisco') || n.includes('san francisco')) return 'SAN FRANCISCO';
   return 'DESCONOCIDO';
 }
