@@ -163,6 +163,10 @@ function EditorDias({ diasIniciales, onGuardar, guardando }: { diasIniciales: Di
     const f = diasIniciales.find((d) => d.dia === i + 1);
     return !f || !f.trabaja || !f.pares.length;
   }));
+  const [cortado, setCortado] = useState<boolean[]>(() => DIAS_SEMANA.map((_, i) => {
+    const f = diasIniciales.find((d) => d.dia === i + 1);
+    return (f?.pares.length ?? 0) > 1;
+  }));
   const [entrada, setEntrada] = useState<string[]>(() => DIAS_SEMANA.map((_, i) => {
     const f = diasIniciales.find((d) => d.dia === i + 1);
     return f?.pares[0] ? fmtDur(f.pares[0][0]) : '';
@@ -170,6 +174,14 @@ function EditorDias({ diasIniciales, onGuardar, guardando }: { diasIniciales: Di
   const [salida, setSalida] = useState<string[]>(() => DIAS_SEMANA.map((_, i) => {
     const f = diasIniciales.find((d) => d.dia === i + 1);
     return f?.pares[0] ? fmtDur(f.pares[0][1]) : '';
+  }));
+  const [entrada2, setEntrada2] = useState<string[]>(() => DIAS_SEMANA.map((_, i) => {
+    const f = diasIniciales.find((d) => d.dia === i + 1);
+    return f?.pares[1] ? fmtDur(f.pares[1][0]) : '';
+  }));
+  const [salida2, setSalida2] = useState<string[]>(() => DIAS_SEMANA.map((_, i) => {
+    const f = diasIniciales.find((d) => d.dia === i + 1);
+    return f?.pares[1] ? fmtDur(f.pares[1][1]) : '';
   }));
 
   function guardar() {
@@ -179,7 +191,14 @@ function EditorDias({ diasIniciales, onGuardar, guardando }: { diasIniciales: Di
       const e = hhmmAMinutos(entrada[i]);
       const s = hhmmAMinutos(salida[i]);
       if (e === null || s === null) { toast(`Revisá el horario del ${DIAS_SEMANA[i]} (formato HH:MM).`, 'warn'); return; }
-      dias.push({ dia: i + 1, trabaja: true, pares: [[e, s]] });
+      const pares: [number, number][] = [[e, s]];
+      if (cortado[i]) {
+        const e2 = hhmmAMinutos(entrada2[i]);
+        const s2 = hhmmAMinutos(salida2[i]);
+        if (e2 === null || s2 === null) { toast(`Revisá el segundo turno del ${DIAS_SEMANA[i]} (formato HH:MM).`, 'warn'); return; }
+        pares.push([e2, s2]);
+      }
+      dias.push({ dia: i + 1, trabaja: true, pares });
     }
     onGuardar(dias);
   }
@@ -187,17 +206,31 @@ function EditorDias({ diasIniciales, onGuardar, guardando }: { diasIniciales: Di
   return (
     <>
       {DIAS_SEMANA.map((nombre, i) => (
-        <div key={nombre} className="row" style={{ alignItems: 'center', marginBottom: 6 }}>
-          <div style={{ flex: '0 0 90px', fontWeight: 600, fontSize: 12 }}>{nombre}</div>
-          <div className="field"><label>Entrada</label><input value={entrada[i]} disabled={libre[i]} placeholder="HH:MM" onChange={(e) => setEntrada((a) => a.map((v, idx) => idx === i ? e.target.value : v))} /></div>
-          <div className="field"><label>Salida</label><input value={salida[i]} disabled={libre[i]} placeholder="HH:MM" onChange={(e) => setSalida((a) => a.map((v, idx) => idx === i ? e.target.value : v))} /></div>
-          <label style={{ fontSize: 12, fontWeight: 400 }}>
-            <input type="checkbox" checked={libre[i]} onChange={(e) => setLibre((a) => a.map((v, idx) => idx === i ? e.target.checked : v))} /> No trabaja
-          </label>
+        <div key={nombre} style={{ marginBottom: 10 }}>
+          <div className="row" style={{ alignItems: 'center' }}>
+            <div style={{ flex: '0 0 90px', fontWeight: 600, fontSize: 12 }}>{nombre}</div>
+            <div className="field"><label>Entrada</label><input value={entrada[i]} disabled={libre[i]} placeholder="HH:MM" onChange={(e) => setEntrada((a) => a.map((v, idx) => idx === i ? e.target.value : v))} /></div>
+            <div className="field"><label>Salida</label><input value={salida[i]} disabled={libre[i]} placeholder="HH:MM" onChange={(e) => setSalida((a) => a.map((v, idx) => idx === i ? e.target.value : v))} /></div>
+            <label style={{ fontSize: 12, fontWeight: 400 }}>
+              <input type="checkbox" checked={libre[i]} onChange={(e) => setLibre((a) => a.map((v, idx) => idx === i ? e.target.checked : v))} /> No trabaja
+            </label>
+            {!libre[i] && (
+              <label style={{ fontSize: 12, fontWeight: 400 }}>
+                <input type="checkbox" checked={cortado[i]} onChange={(e) => setCortado((a) => a.map((v, idx) => idx === i ? e.target.checked : v))} /> Turno cortado
+              </label>
+            )}
+          </div>
+          {!libre[i] && cortado[i] && (
+            <div className="row" style={{ alignItems: 'center', marginTop: 4 }}>
+              <div style={{ flex: '0 0 90px' }} />
+              <div className="field"><label>Entrada (2)</label><input value={entrada2[i]} placeholder="HH:MM" onChange={(e) => setEntrada2((a) => a.map((v, idx) => idx === i ? e.target.value : v))} /></div>
+              <div className="field"><label>Salida (2)</label><input value={salida2[i]} placeholder="HH:MM" onChange={(e) => setSalida2((a) => a.map((v, idx) => idx === i ? e.target.value : v))} /></div>
+            </div>
+          )}
         </div>
       ))}
       <button onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar días'}</button>
-      <div className="hint" style={{ marginTop: 6 }}>Solo admite un turno por día acá — si un empleado tiene turno partido, se puede cargar igual desde una migración a mano; avisame si hace falta.</div>
+      <div className="hint" style={{ marginTop: 6 }}>"Turno cortado" agrega un segundo Entrada/Salida ese día (ej: entra a la mañana, sale, vuelve a la tarde).</div>
     </>
   );
 }
