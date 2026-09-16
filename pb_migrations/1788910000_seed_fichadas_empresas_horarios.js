@@ -44,11 +44,11 @@ migrate((db) => {
   } catch (e) { /* no existía */ }
   try {
     const empresas = dao.findCollectionByNameOrId('fichadas_empresas');
-    dao.findRecordsByFilter(empresas.id, '', '', 1000, 0).forEach(r => dao.deleteRecord(r));
+    dao.findRecordsByFilter(empresas.id, "nombre != ''", '', 1000, 0).forEach(r => dao.deleteRecord(r));
   } catch (e) {}
   try {
     const horarios = dao.findCollectionByNameOrId('fichadas_horarios');
-    dao.findRecordsByFilter(horarios.id, '', '', 1000, 0).forEach(r => dao.deleteRecord(r));
+    dao.findRecordsByFilter(horarios.id, "nombre != ''", '', 1000, 0).forEach(r => dao.deleteRecord(r));
   } catch (e) {}
   return null;
 })
