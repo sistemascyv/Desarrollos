@@ -8,6 +8,7 @@ import { CentralDeudoresPage } from './pages/deudores/CentralDeudoresPage';
 import { ReporteCombustiblePage } from './pages/flota/ReporteCombustiblePage';
 import { PanelCubiertasPage } from './pages/flota/PanelCubiertasPage';
 import { PosicionFlotaPage } from './pages/flota/satelital/PosicionFlotaPage';
+import { FichadasPage } from './pages/fichadas/FichadasPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth, RequireAdmin, RequireModule } from './components/RequireAuth';
@@ -77,6 +78,15 @@ function App() {
           element={
             <RequireModule moduleId="flota_posicion">
               <PosicionFlotaPage />
+            </RequireModule>
+          }
+        />
+        <Route path="/rrhh/fichadas" element={<Navigate to="/rrhh/fichadas/carga" replace />} />
+        <Route
+          path="/rrhh/fichadas/:tab"
+          element={
+            <RequireModule moduleId="fichadas">
+              <FichadasPage />
             </RequireModule>
           }
         />

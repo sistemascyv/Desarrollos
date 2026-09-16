@@ -173,6 +173,58 @@ export interface ReporteArchivo extends BaseRecord {
   expand?: { usuario?: Usuario };
 }
 
+// Fichadas (RRHH) — análisis del reloj biométrico. `dias` describe la
+// semana completa (7 entradas) de una plantilla de horario u horario
+// personalizado: cada día trae sus pares [entradaMin, salidaMin] (0-1439,
+// minutos desde medianoche) — más de un par = turno partido.
+export interface DiaHorario {
+  dia: number; // 1=lunes .. 7=domingo
+  trabaja: boolean;
+  pares: [number, number][];
+}
+
+export interface FichadasEmpresa extends BaseRecord {
+  nombre: string;
+}
+
+export interface FichadasHorario extends BaseRecord {
+  nombre: string;
+  dias: DiaHorario[];
+}
+
+export interface FichadasLegajo extends BaseRecord {
+  nro_legajo?: string;
+  nro_tarjeta: string;
+  nombre: string;
+  empresa?: string;
+  horario?: string;
+  dias_personalizados?: DiaHorario[] | null;
+  estado: boolean;
+  expand?: { empresa?: FichadasEmpresa; horario?: FichadasHorario };
+}
+
+export interface FichadasMarca extends BaseRecord {
+  legajo?: string;
+  tarjeta: string;
+  fecha: string; // "YYYY-MM-DD"
+  hora: string; // "HH:MM"
+  minutos: number;
+  deposito?: string;
+  reloj?: string;
+  archivo_origen?: string;
+}
+
+export interface FichadasNovedad extends BaseRecord {
+  legajo: string;
+  fecha: string;
+  texto: string;
+}
+
+export interface FichadasFeriado extends BaseRecord {
+  fecha: string;
+  nombre?: string;
+}
+
 export interface ModuleDef {
   id: string;
   label: string;
@@ -187,4 +239,5 @@ export const MODULES: ModuleDef[] = [
   { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'MANTENIMIENTO', path: 'flota/consumo-combustible' },
   { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'MANTENIMIENTO', path: 'flota/panel-cubiertas' },
   { id: 'flota_posicion', label: 'Posición de Flota', group: 'MANTENIMIENTO', path: 'flota/posicion' },
+  { id: 'fichadas', label: 'Fichadas', group: 'RRHH', path: 'rrhh/fichadas' },
 ];
