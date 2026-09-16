@@ -250,14 +250,25 @@ function ResumenPorEmpleado({ filas }: { filas: ResultadoDia[] }) {
 // ---------- exportables a Excel ----------
 
 type Fila = (string | number | Date | null)[];
+type Par = [number | null, number | null] | undefined;
+
+// una celda Ent./Sal. de un tramo — null si no hubo marca (celda vacía en Excel, no "—")
+function celda(par: Par, pos: 0 | 1): string | null {
+  const v = par?.[pos];
+  return v != null ? fmtAbsHora(v) : null;
+}
 
 function construirEntradasSalidas(resultados: ResultadoDia[]): Record<string, Fila[]> {
   const porArea = new Map<string, ResultadoDia[]>();
   resultados.forEach((r) => { if (!porArea.has(r.area)) porArea.set(r.area, []); porArea.get(r.area)!.push(r); });
   const hojas: Record<string, Fila[]> = {};
   porArea.forEach((filas, area) => {
-    const aoa: Fila[] = [['INFORME DE ENTRADAS Y SALIDAS'], [],
-      ['Legajo', 'Identificador', 'Empleado', 'Fecha', 'Día', 'H N', 'H E', 'Ent.', 'Sal.', 'Ent. (2)', 'Sal. (2)', 'Novedad']];
+    const aoa: Fila[] = [
+      ['INFORME DE ENTRADAS Y SALIDAS'],
+      [],
+      [null, null, null, null, null, null, null, 'Horarios Trabajados', null, null, null, 'Horarios Teoricos'],
+      ['Legajo', 'Identificador', 'Empleado', 'Fecha', 'Dia', 'H N', 'H E', 'Ent.', 'Sal.', 'Ent.', 'Sal.', 'Ent.', 'Sal.', 'Ent.', 'Sal.', 'Novedad'],
+    ];
     const porEmpleado = new Map<string, ResultadoDia[]>();
     filas.forEach((r) => { if (!porEmpleado.has(r.idLegajo)) porEmpleado.set(r.idLegajo, []); porEmpleado.get(r.idLegajo)!.push(r); });
     porEmpleado.forEach((fs) => {
@@ -265,10 +276,10 @@ function construirEntradasSalidas(resultados: ResultadoDia[]): Record<string, Fi
         aoa.push([
           r.nroLegajo, r.identificador, r.nombre, r.fecha, r.dia,
           r.hN / 60, r.hE > 0 ? r.hE / 60 : null,
-          r.paresReales[0]?.[0] != null ? fmtAbsHora(r.paresReales[0][0]) : null,
-          r.paresReales[0]?.[1] != null ? fmtAbsHora(r.paresReales[0][1]) : null,
-          r.paresReales[1]?.[0] != null ? fmtAbsHora(r.paresReales[1][0]) : null,
-          r.paresReales[1]?.[1] != null ? fmtAbsHora(r.paresReales[1][1]) : null,
+          celda(r.paresReales[0], 0), celda(r.paresReales[0], 1),
+          celda(r.paresReales[1], 0), celda(r.paresReales[1], 1),
+          celda(r.paresEsperados[0], 0), celda(r.paresEsperados[0], 1),
+          celda(r.paresEsperados[1], 0), celda(r.paresEsperados[1], 1),
           r.ausente ? 'AUSENTE' : (r.novedad || null),
         ]);
       });
@@ -310,21 +321,39 @@ function construirHorasExtraMensual(resultados: ResultadoDia[]): Record<string, 
   return hojas;
 }
 
+function fechaDDMMAAAA(fecha: string): string {
+  const [y, m, d] = fecha.split('-');
+  return `${d}/${m}/${y}`;
+}
+
 function construirParteDiario(resultados: ResultadoDia[], fecha: string): Record<string, Fila[]> {
   const filas = resultados.filter((r) => r.fecha === fecha);
   const porArea = new Map<string, ResultadoDia[]>();
   filas.forEach((r) => { if (!porArea.has(r.area)) porArea.set(r.area, []); porArea.get(r.area)!.push(r); });
+  const fechaImpresion = fechaDDMMAAAA(new Date().toISOString().slice(0, 10));
   const hojas: Record<string, Fila[]> = {};
   porArea.forEach((empleados, area) => {
-    const aoa: Fila[] = [['PARTE DIARIO —', fecha, area], [],
-      ['Legajo', 'Identificador', 'Empleado', 'Ent.', 'Sal.', 'Ent. (2)', 'Sal. (2)', 'Novedades']];
+    const aoa: Fila[] = [
+      ['Fecha del parte diario:', null, fechaDDMMAAAA(fecha), 'PARTE DIARIO DE EMPLEADOS'],
+      ['Asistencia:', null, 'Todos'],
+      ['Novedad:', null, 'Todas'],
+      ['Empresa', null, area],
+      ['Fecha de impresión:', null, fechaImpresion, null, 'Horarios trabajados', null, null, null, null, null, null, null, 'Horarios teóricos'],
+      ['Legajo', 'Identificador', 'Empleado', 'DNI / CUIL',
+        'Ent.', 'Sal.', 'Ent.', 'Sal.', 'Ent.', 'Sal.', 'Ent.', 'Sal.',
+        'Ent.', 'Sal.', 'Ent.', 'Sal.', 'Ent.', 'Sal.', 'Ent.', 'Sal.', 'Novedades'],
+    ];
     empleados.sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach((r) => {
       aoa.push([
-        r.nroLegajo, r.identificador, r.nombre,
-        r.paresReales[0]?.[0] != null ? fmtAbsHora(r.paresReales[0][0]) : null,
-        r.paresReales[0]?.[1] != null ? fmtAbsHora(r.paresReales[0][1]) : null,
-        r.paresReales[1]?.[0] != null ? fmtAbsHora(r.paresReales[1][0]) : null,
-        r.paresReales[1]?.[1] != null ? fmtAbsHora(r.paresReales[1][1]) : null,
+        r.nroLegajo, r.identificador, r.nombre, r.dni || null,
+        celda(r.paresReales[0], 0), celda(r.paresReales[0], 1),
+        celda(r.paresReales[1], 0), celda(r.paresReales[1], 1),
+        celda(r.paresReales[2], 0), celda(r.paresReales[2], 1),
+        celda(r.paresReales[3], 0), celda(r.paresReales[3], 1),
+        celda(r.paresEsperados[0], 0), celda(r.paresEsperados[0], 1),
+        celda(r.paresEsperados[1], 0), celda(r.paresEsperados[1], 1),
+        celda(r.paresEsperados[2], 0), celda(r.paresEsperados[2], 1),
+        celda(r.paresEsperados[3], 0), celda(r.paresEsperados[3], 1),
         r.ausente ? 'AUSENTE' : (r.novedad || null),
       ]);
     });
@@ -333,22 +362,39 @@ function construirParteDiario(resultados: ResultadoDia[], fecha: string): Record
   return hojas;
 }
 
+// una columna por persona ausente ese día (como la planilla que arma RRHH a
+// mano) + una columna con el motivo, pero solo en el primer día de cada
+// racha (si ayer ya estaba con el mismo motivo, no se repite el texto).
 function construirControlAusentismo(resultados: ResultadoDia[]): Record<string, Fila[]> {
-  const porDeposito = new Map<string, Map<string, { nombre: string; motivo: string }[]>>();
+  const porDeposito = new Map<string, ResultadoDia[]>();
   resultados.forEach((r) => {
     if (!r.ausente && !r.novedad) return;
     const dep = r.deposito && r.deposito !== '—' ? r.deposito : 'SIN DEPÓSITO DETECTADO';
-    if (!porDeposito.has(dep)) porDeposito.set(dep, new Map());
-    const porFecha = porDeposito.get(dep)!;
-    if (!porFecha.has(r.fecha)) porFecha.set(r.fecha, []);
-    porFecha.get(r.fecha)!.push({ nombre: r.nombre, motivo: r.ausente ? 'AUSENTE (sin justificar)' : r.novedad });
+    if (!porDeposito.has(dep)) porDeposito.set(dep, []);
+    porDeposito.get(dep)!.push(r);
   });
   const hojas: Record<string, Fila[]> = {};
-  porDeposito.forEach((porFecha, dep) => {
+  porDeposito.forEach((items, dep) => {
+    const motivoPorLegajoFecha = new Map<string, string>();
+    items.forEach((r) => motivoPorLegajoFecha.set(r.idLegajo + '|' + r.fecha, r.ausente ? 'AUSENTE (sin justificar)' : r.novedad));
+
+    const porFecha = new Map<string, ResultadoDia[]>();
+    items.forEach((r) => { if (!porFecha.has(r.fecha)) porFecha.set(r.fecha, []); porFecha.get(r.fecha)!.push(r); });
+
     const aoa: Fila[] = [['DEPOSITO ' + dep], []];
     Array.from(porFecha.keys()).sort().forEach((fecha) => {
-      const items = porFecha.get(fecha)!;
-      aoa.push([fecha, nombreDiaCorto(fecha), items.map((i) => `${i.nombre} - ${i.motivo}`).join(' / ')]);
+      const personas = porFecha.get(fecha)!.slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
+      const fechaAnterior = new Date(new Date(fecha + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
+
+      const nuevos: string[] = [];
+      personas.forEach((r) => {
+        const motivo = r.ausente ? 'AUSENTE (sin justificar)' : r.novedad;
+        if (motivoPorLegajoFecha.get(r.idLegajo + '|' + fechaAnterior) !== motivo) nuevos.push(`${r.nombre} - ${motivo}`);
+      });
+
+      const fila: Fila = [fecha, nombreDiaCorto(fecha), nuevos.length ? nuevos.join(' / ') : null];
+      personas.forEach((r) => fila.push(r.nombre));
+      aoa.push(fila);
     });
     hojas[dep.substring(0, 31)] = aoa;
   });
