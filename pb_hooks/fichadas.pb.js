@@ -38,7 +38,7 @@ routerAdd("POST", "/api/fichadas/marcas/importar", (c) => {
   // mapa tarjeta -> id de legajo, una sola consulta (son ~250 legajos, no
   // vale la pena una consulta por marca)
   const legajoPorTarjeta = {};
-  dao.findRecordsByFilter(coleccionLegajos.id, "", "", 2000, 0).forEach((r) => {
+  dao.findRecordsByFilter(coleccionLegajos.id, "nro_tarjeta != ''", "", 2000, 0).forEach((r) => {
     const t = (r.get("nro_tarjeta") || "").trim();
     if (t) legajoPorTarjeta[t] = r.id;
   });
