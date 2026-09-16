@@ -196,6 +196,7 @@ export interface FichadasLegajo extends BaseRecord {
   nro_legajo?: string;
   nro_tarjeta: string;
   nombre: string;
+  dni?: string;
   empresa?: string;
   horario?: string;
   dias_personalizados?: DiaHorario[] | null;

@@ -7,12 +7,16 @@ import type { DiaHorario, FichadasFeriado, FichadasLegajo, FichadasMarca, Fichad
 
 export const DIAS_NOMBRE = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
 const TOLERANCIA_MIN = 180;
+// tope de tramos reales por día que soportan las planillas (Parte Diario
+// de CINTIA trae 4 pares Ent/Sal de "horarios trabajados")
+const MAX_TRAMOS = 4;
 
 export interface ResultadoDia {
   idLegajo: string;
   nroLegajo: string;
   identificador: string; // nro_tarjeta
   nombre: string;
+  dni: string;
   area: string;
   deposito: string;
   fecha: string;
@@ -142,26 +146,34 @@ export function procesarPeriodo(params: {
         paresReales.push([entradaReal, salidaReal]);
       });
 
-      // segundo tramo: marcas sobrantes del mismo día calendario, no
-      // matcheadas contra ningún par esperado (horario flexible / vuelta
-      // a marcar horas extra fuera del turno teórico)
-      if (paresReales.length < 2) {
-        const diaIndexAnchor = Math.round(anchorAbs / 1440);
+      // tramos extra: marcas sobrantes del mismo día calendario, no
+      // matcheadas contra ningún par esperado (horario flexible / vueltas
+      // a marcar fuera del turno teórico). Se emparejan de a 2 en orden
+      // cronológico hasta completar el tope de tramos reales por día.
+      if (paresReales.length < MAX_TRAMOS) {
+        const diaIndexAnchor = Math.floor(anchorAbs / 1440);
         const sobrantes: number[] = [];
         marcasGlobal.forEach((m, idx) => {
           if (usados[idx]) return;
-          if (Math.round(Math.floor(m.abs / 1440)) === diaIndexAnchor) sobrantes.push(idx);
+          if (Math.floor(m.abs / 1440) === diaIndexAnchor) sobrantes.push(idx);
         });
         sobrantes.sort((a, b) => marcasGlobal[a].abs - marcasGlobal[b].abs);
-        if (sobrantes.length >= 2) {
-          const idxE = sobrantes[0], idxS = sobrantes[1];
-          usados[idxE] = true; usados[idxS] = true;
+        let i = 0;
+        while (i < sobrantes.length && paresReales.length < MAX_TRAMOS) {
+          const idxE = sobrantes[i];
+          const idxS = i + 1 < sobrantes.length ? sobrantes[i + 1] : null;
+          usados[idxE] = true;
           depositoDelDia = depositoDelDia || marcasGlobal[idxE].deposito;
-          worked += marcasGlobal[idxS].abs - marcasGlobal[idxE].abs;
-          paresReales.push([marcasGlobal[idxE].abs, marcasGlobal[idxS].abs]);
-        } else if (sobrantes.length === 1) {
-          usados[sobrantes[0]] = true;
-          paresReales.push([marcasGlobal[sobrantes[0]].abs, null]);
+          if (idxS !== null) {
+            usados[idxS] = true;
+            depositoDelDia = depositoDelDia || marcasGlobal[idxS].deposito;
+            worked += marcasGlobal[idxS].abs - marcasGlobal[idxE].abs;
+            paresReales.push([marcasGlobal[idxE].abs, marcasGlobal[idxS].abs]);
+            i += 2;
+          } else {
+            paresReales.push([marcasGlobal[idxE].abs, null]);
+            i += 1;
+          }
         }
       }
 
@@ -175,7 +187,7 @@ export function procesarPeriodo(params: {
 
       resultados.push({
         idLegajo, nroLegajo: legajo.nro_legajo || '', identificador: legajo.nro_tarjeta,
-        nombre: legajo.nombre, area: areaNombre, deposito: depositoDelDia || '—',
+        nombre: legajo.nombre, dni: legajo.dni || '', area: areaNombre, deposito: depositoDelDia || '—',
         fecha, dia: nombreDia,
         paresEsperados: pares, paresReales,
         hN, hE, ausente, novedad,
