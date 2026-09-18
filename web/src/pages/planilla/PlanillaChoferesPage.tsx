@@ -68,13 +68,19 @@ export function PlanillaChoferesPage() {
     }
     try {
       setVehiculos(await pb.collection('vehiculos').getFullList<Vehiculo>({ filter: 'activo=true', sort: 'codigo' }));
-    } catch { /* offline, ignore */ }
+    } catch (e) {
+      toast('No se pudieron cargar los vehículos: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
     try {
       setClientes(await pb.collection('clientes').getFullList<Cliente>({ filter: 'activo=true', sort: 'nombre' }));
-    } catch { /* offline, ignore */ }
+    } catch (e) {
+      toast('No se pudieron cargar los clientes: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
     try {
       setRutas(await pb.collection('rutas').getFullList<Ruta>({ filter: 'activo=true', sort: 'origen' }));
-    } catch { /* offline, ignore */ }
+    } catch (e) {
+      toast('No se pudieron cargar las rutas: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
   }
 
   async function fetchTarifaFor(mes: string): Promise<Tarifa | null> {
@@ -310,7 +316,7 @@ export function PlanillaChoferesPage() {
             <input type="number" step="0.0001" value={tarifaKm} onChange={(e) => setTarifaKm(e.target.value)} placeholder="ej: 169.6053" />
           </div>
           <div className="field">
-            <label>Viático por noche ($) — regla a confirmar</label>
+            <label>Viático por noche ($)</label>
             <input type="number" step="0.01" value={viaticoNoche} onChange={(e) => setViaticoNoche(e.target.value)} placeholder="ej: 5000" />
           </div>
           <button className="secondary" onClick={saveTarifa}>Guardar valores del mes</button>
