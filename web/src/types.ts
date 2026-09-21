@@ -37,6 +37,15 @@ export interface Tarifa extends BaseRecord {
   mes: string; // "YYYY-MM"
   tarifa_km: number;
   valor_viatico_noche?: number;
+  creado_por?: string; // lo completa el servidor
+  editado_por?: string;
+}
+
+// Un mes en esta lista no admite cambios en tramos ni tarifas hasta que un
+// admin lo reabra (pb_hooks/planilla.pb.js).
+export interface PeriodoCerrado extends BaseRecord {
+  mes: string; // "YYYY-MM"
+  cerrado_por?: string;
 }
 
 export interface Tramo extends BaseRecord {
@@ -72,6 +81,8 @@ export interface Tramo extends BaseRecord {
   litros_equipo_frio?: number;
   chofer: string;
   mes: string; // "YYYY-MM", calculado de dia_salida
+  creado_por?: string; // los completa el servidor (auditoría)
+  editado_por?: string;
 }
 
 export interface Usuario extends BaseRecord {
