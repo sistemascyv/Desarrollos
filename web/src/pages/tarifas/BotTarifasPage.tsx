@@ -160,9 +160,11 @@ export function BotTarifasPage() {
               hacé clic acá para abrir el bot en esta PC
             </a>.
             <br />
-            <strong>Después de ese clic, el navegador va a mostrar su propio cartelito</strong> (arriba, cerca de la
-            barra de direcciones) preguntando algo como "¿Abrir BOT ACT TARIFAS?" — hay que decirle que sí ahí
-            también. Si tildás la opción de "recordar esta elección", la próxima vez no vuelve a preguntar.
+            <strong>Después de ese clic, el navegador te va a preguntar si confirmás.</strong> Según el navegador que
+            uses se ve distinto: en Firefox aparece un recuadro oscuro en el medio de la pantalla ("¿Permitir que
+            este archivo abra el enlace bottarifas con Python?") con un botón "Abrir enlace"; en Chrome/Edge aparece
+            un cartelito chico arriba, cerca de la barra de direcciones. Decile que sí. Si tildás la opción de
+            "recordar"/"siempre permitir", la próxima vez no vuelve a preguntar.
           </div>
         )}
         {esperando && (
@@ -171,11 +173,12 @@ export function BotTarifasPage() {
             también queda en el historial de abajo.
             {avisoTardanza && (
               <div style={{ marginTop: 6, color: 'var(--warn)' }}>
-                Pasó más de medio minuto sin respuesta. <strong>Fijate si el navegador te mostró un cartelito</strong>{' '}
-                cerca de la barra de direcciones (arriba) preguntando algo como "¿Abrir BOT ACT TARIFAS?" — es fácil
-                pasarlo por alto. Si está ahí, hacé clic en Abrir. Si no aparece ningún cartelito y tampoco se abrió
-                Chrome, puede que falte instalar el conector en esta PC (avisale a Sistemas) — el bot en el paso de
-                Acuerdos Especiales puede tardar igual hasta 10 minutos una vez que arrancó.
+                Pasó más de medio minuto sin respuesta. <strong>Fijate si el navegador te mostró una pregunta de
+                confirmación</strong> — en Firefox es un recuadro oscuro en el medio de la pantalla, en Chrome/Edge
+                un cartelito chico arriba cerca de la barra de direcciones. Es fácil no verla la primera vez. Si
+                está ahí, confirmá que sí. Si no aparece nada y tampoco se abre Chrome, puede que falte instalar el
+                conector en esta PC (avisale a Sistemas) — el bot en el paso de Acuerdos Especiales puede tardar
+                igual hasta 10 minutos una vez que arrancó.
               </div>
             )}
           </div>
