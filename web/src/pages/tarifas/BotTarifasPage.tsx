@@ -10,19 +10,6 @@ import type { TarifaBotAjuste } from '../../types';
 const SEGUNDOS_AVISO_SIN_RESPUESTA = 30;
 const MINUTOS_LIMITE_ESPERA = 15;
 
-// window.location.href a un protocolo sin manejador registrado navega la
-// pestaña a una página de error (se pierde el estado de "esperando"). Un
-// iframe oculto dispara el mismo protocolo sin tocar la página visible —
-// funciona igual cuando el protocolo SÍ está registrado, y no arriesga nada
-// cuando no lo está.
-function dispararProtocolo(url: string) {
-  const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  iframe.src = url;
-  document.body.appendChild(iframe);
-  setTimeout(() => iframe.remove(), 2000);
-}
-
 function fechaHora(iso: string | undefined) {
   return iso ? new Date(iso.replace(' ', 'T')).toLocaleString('es-AR') : '';
 }
@@ -32,6 +19,7 @@ export function BotTarifasPage() {
   const confirm = useConfirm();
 
   const [porcentaje, setPorcentaje] = useState('');
+  const [linkListo, setLinkListo] = useState<string | null>(null);
   const [esperando, setEsperando] = useState(false);
   const [avisoTardanza, setAvisoTardanza] = useState(false);
   const [historial, setHistorial] = useState<TarifaBotAjuste[]>([]);
@@ -119,8 +107,18 @@ export function BotTarifasPage() {
     const token = pb.authStore.token;
     if (!token) { toast('Tu sesión no tiene token válido — recargá la página e iniciá sesión de nuevo.', 'err'); return; }
     const url = `bottarifas://ejecutar?porcentaje=${encodeURIComponent(limpio)}&token=${encodeURIComponent(token)}&pbUrl=${encodeURIComponent(pb.baseUrl)}`;
+    // Dejamos que lo dispare un click real del usuario sobre un <a href>,
+    // en vez de hacerlo nosotros por JS (location.href o un iframe): un
+    // navegador puede tratar distinto una navegación a un protocolo propio
+    // según si viene de un gesto genuino del usuario o de código — con un
+    // click real es como funciona en todos lados (mailto:, etc.) y evita
+    // que el intento quede bloqueado en silencio.
+    setLinkListo(url);
+  }
+
+  function onClickLink() {
     empezarAEsperarResultado();
-    dispararProtocolo(url);
+    setLinkListo(null);
   }
 
   function toggleExpand(id: string) {
@@ -153,17 +151,31 @@ export function BotTarifasPage() {
               style={{ width: 100 }}
             />
           </div>
-          <button onClick={ejecutar} disabled={esperando}>{esperando ? 'Esperando resultado…' : 'Actualizar tarifas'}</button>
+          <button onClick={ejecutar} disabled={esperando || !!linkListo}>{esperando ? 'Esperando resultado…' : 'Actualizar tarifas'}</button>
         </div>
+        {linkListo && (
+          <div className="hint" style={{ marginTop: 10, padding: 10, border: '1px solid var(--brand)', borderRadius: 6 }}>
+            Confirmado. Por seguridad del navegador, el último paso lo tenés que hacer vos con un clic directo:{' '}
+            <a className="link" href={linkListo} onClick={onClickLink} style={{ fontWeight: 700 }}>
+              hacé clic acá para abrir el bot en esta PC
+            </a>.
+            <br />
+            <strong>Después de ese clic, el navegador va a mostrar su propio cartelito</strong> (arriba, cerca de la
+            barra de direcciones) preguntando algo como "¿Abrir BOT ACT TARIFAS?" — hay que decirle que sí ahí
+            también. Si tildás la opción de "recordar esta elección", la próxima vez no vuelve a preguntar.
+          </div>
+        )}
         {esperando && (
           <div className="hint" style={{ marginTop: 10 }}>
             Debería haberse abierto Chrome en esta PC. No cierres esta pestaña — el resultado aparece acá solo, y
             también queda en el historial de abajo.
             {avisoTardanza && (
               <div style={{ marginTop: 6, color: 'var(--warn)' }}>
-                Pasó más de medio minuto sin respuesta. Si no se abrió Chrome, puede que falte instalar el conector
-                en esta PC (avisale a Sistemas) — el bot en el paso de Acuerdos Especiales puede tardar igual hasta
-                10 minutos una vez que arrancó.
+                Pasó más de medio minuto sin respuesta. <strong>Fijate si el navegador te mostró un cartelito</strong>{' '}
+                cerca de la barra de direcciones (arriba) preguntando algo como "¿Abrir BOT ACT TARIFAS?" — es fácil
+                pasarlo por alto. Si está ahí, hacé clic en Abrir. Si no aparece ningún cartelito y tampoco se abrió
+                Chrome, puede que falte instalar el conector en esta PC (avisale a Sistemas) — el bot en el paso de
+                Acuerdos Especiales puede tardar igual hasta 10 minutos una vez que arrancó.
               </div>
             )}
           </div>
