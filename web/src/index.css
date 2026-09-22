@@ -370,6 +370,12 @@ tbody tr:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
+tr.detail-row {
+  display: none;
+}
+tr.detail-row.open {
+  display: table-row;
+}
 tr.detail-row td {
   background: var(--panel2);
   white-space: normal;
