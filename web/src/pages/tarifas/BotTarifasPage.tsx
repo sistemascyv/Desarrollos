@@ -198,6 +198,7 @@ export function BotTarifasPage() {
               {historial.map((h) => {
                 const open = expanded.has(h.id);
                 const sucursales = Object.entries(h.sucursales || {});
+                const basicas = Object.entries(h.basicas || {});
                 return (
                   <Fragment key={h.id}>
                     <tr>
@@ -222,6 +223,20 @@ export function BotTarifasPage() {
                             {sucursales.map(([suc, s]) => (
                               <div className="d-item" key={suc}>
                                 <div className="lbl">Sucursal {suc}</div>
+                                <div className="val">
+                                  {s.antes ?? '—'} → {s.despues ?? '—'}
+                                  {s.cambio_pct != null ? ` (${s.cambio_pct}%)` : ''}{' '}
+                                  {s.ok ? <span style={{ color: 'var(--ok)' }}>✔</span> : <span style={{ color: 'var(--err)' }}>✘</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {basicas.length > 0 && (
+                          <div className="detail-grid" style={{ marginTop: sucursales.length > 0 ? 10 : 0 }}>
+                            {basicas.map(([etiqueta, s]) => (
+                              <div className="d-item" key={etiqueta}>
+                                <div className="lbl">Generales Básicas: {etiqueta}</div>
                                 <div className="val">
                                   {s.antes ?? '—'} → {s.despues ?? '—'}
                                   {s.cambio_pct != null ? ` (${s.cambio_pct}%)` : ''}{' '}
