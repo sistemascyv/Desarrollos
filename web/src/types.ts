@@ -252,4 +252,22 @@ export const MODULES: ModuleDef[] = [
   { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'MANTENIMIENTO', path: 'flota/panel-cubiertas' },
   { id: 'flota_posicion', label: 'Posición de Flota', group: 'MANTENIMIENTO', path: 'flota/posicion' },
   { id: 'fichadas', label: 'Fichadas', group: 'RRHH', path: 'rrhh/fichadas' },
+  { id: 'bot_tarifas', label: 'Actualizar Tarifas', group: 'COMERCIAL', path: 'comercial/bot-tarifas' },
 ];
+
+// Resultado de una corrida del Bot Act Tarifas (Python + Selenium, corre en
+// una PC de la oficina) contra el sistema de ventas de terceros.
+export interface SucursalTarifaAjuste {
+  antes: string | null;
+  despues: string | null;
+  cambio_pct: number | null;
+  ok: boolean;
+}
+
+export interface TarifaBotAjuste extends BaseRecord {
+  porcentaje: number;
+  exito?: boolean;
+  sucursales?: Record<string, SucursalTarifaAjuste>;
+  error?: string;
+  ejecutado_por?: string;
+}
