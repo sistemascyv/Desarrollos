@@ -435,7 +435,7 @@ export function PlanillaChoferesPage() {
       ['Chofer', choferNombre],
       ['Período', `${desde} a ${hasta}`],
       ['Meses incluidos', meses.map((m) => monthLabel(m) + (mesesCerrados.has(m) ? ' (cerrado)' : ' (abierto)')).join(', ')],
-      ['Generado', `${new Date().toLocaleString('es-AR')} por ${usuario?.nombre || usuario?.username || '—'}`],
+      ['Generado', `${new Date().toLocaleString('es-AR', { hour12: false })} por ${usuario?.nombre || usuario?.username || '—'}`],
       [],
       ['Total vales', summary.totalVales],
       ['Total gastos', summary.totalGastos],
@@ -466,7 +466,7 @@ export function PlanillaChoferesPage() {
       <div id="print-header" style={{ display: 'none' }}>
         <h1>CyV — Rendición de chofer</h1>
         <div className="sub">
-          Chofer: {choferNombre || '—'} · Del {desde || '—'} al {hasta || '—'} · Impreso: {new Date().toLocaleString('es-AR')}
+          Chofer: {choferNombre || '—'} · Del {desde || '—'} al {hasta || '—'} · Impreso: {new Date().toLocaleString('es-AR', { hour12: false })}
         </div>
       </div>
 

@@ -24,9 +24,10 @@ export function uid(): string {
 }
 
 // PocketBase manda "created"/"updated" con espacio ("2026-09-22 12:34:56.789Z")
-// en vez del "T" que exige ISO 8601. Algunos navegadores lo aceptan igual,
-// otros lo interpretan como hora LOCAL en vez de UTC -- mismo dato, hora
-// mostrada corrida. Este helper lo normaliza antes de crear el Date.
+// en vez del "T" que exige ISO 8601 -- lo normalizamos antes de crear el
+// Date. Además, toLocaleString('es-AR') sin opciones devuelve reloj de 12
+// horas SIN indicar a.m./p.m. en este entorno (13:31 se mostraba "01:31"),
+// así que forzamos 24 horas explícitamente.
 export function fechaHora(pbDate: string | undefined | null): string {
-  return pbDate ? new Date(pbDate.replace(' ', 'T')).toLocaleString('es-AR') : '';
+  return pbDate ? new Date(pbDate.replace(' ', 'T')).toLocaleString('es-AR', { hour12: false }) : '';
 }

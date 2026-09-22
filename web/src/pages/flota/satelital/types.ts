@@ -30,7 +30,7 @@ export const num = (n: number, d = 0) => n.toLocaleString('es-AR', { minimumFrac
 
 export function formatoFecha(unixSeconds: number | null): string {
   if (!unixSeconds) return '—';
-  return new Date(unixSeconds * 1000).toLocaleString('es-AR');
+  return new Date(unixSeconds * 1000).toLocaleString('es-AR', { hour12: false });
 }
 
 export function haceCuanto(unixSeconds: number | null): string {
