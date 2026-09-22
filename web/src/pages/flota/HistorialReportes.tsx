@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useAuth } from '../../lib/AuthContext';
+import { fechaHora } from '../../lib/format';
 import type { ReporteArchivo } from '../../types';
 
 // Historial de archivos subidos a los reportes de Flota (Combustible,
@@ -52,7 +53,7 @@ export function HistorialReportes({
               <tr key={it.id}>
                 <td className="admin-name">{it.nombre_archivo}</td>
                 <td>{it.expand?.usuario?.nombre || it.expand?.usuario?.username || '—'}</td>
-                <td>{new Date(it.created).toLocaleString('es-AR')}</td>
+                <td>{fechaHora(it.created)}</td>
                 <td>
                   <button className="small" onClick={() => onCargar(it.datos, it.nombre_archivo)}>Ver</button>
                   {' '}

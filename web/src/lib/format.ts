@@ -22,3 +22,11 @@ export function monthLabel(ym: string): string {
 export function uid(): string {
   return 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 }
+
+// PocketBase manda "created"/"updated" con espacio ("2026-09-22 12:34:56.789Z")
+// en vez del "T" que exige ISO 8601. Algunos navegadores lo aceptan igual,
+// otros lo interpretan como hora LOCAL en vez de UTC -- mismo dato, hora
+// mostrada corrida. Este helper lo normaliza antes de crear el Date.
+export function fechaHora(pbDate: string | undefined | null): string {
+  return pbDate ? new Date(pbDate.replace(' ', 'T')).toLocaleString('es-AR') : '';
+}

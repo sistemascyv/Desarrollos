@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
+import { fechaHora } from '../../lib/format';
 import type { TarifaBotAjuste } from '../../types';
 
 // Cuánto esperar por un resultado antes de avisar que puede que el conector
@@ -9,10 +10,6 @@ import type { TarifaBotAjuste } from '../../types';
 // en el paso de Acuerdos Especiales — no dejamos de esperar antes de eso).
 const SEGUNDOS_AVISO_SIN_RESPUESTA = 30;
 const MINUTOS_LIMITE_ESPERA = 15;
-
-function fechaHora(iso: string | undefined) {
-  return iso ? new Date(iso.replace(' ', 'T')).toLocaleString('es-AR') : '';
-}
 
 export function BotTarifasPage() {
   const toast = useToast();
@@ -72,7 +69,7 @@ export function BotTarifasPage() {
 
     pollRef.current = setInterval(async () => {
       const items = await cargarHistorial();
-      const nuevo = items.find((it) => disparadoDesde.current != null && new Date(it.created).getTime() > disparadoDesde.current);
+      const nuevo = items.find((it) => disparadoDesde.current != null && new Date(it.created.replace(' ', 'T')).getTime() > disparadoDesde.current);
       if (nuevo) {
         detenerEspera();
         setEsperando(false);

@@ -3,7 +3,7 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import type { BcraResultado, Cheque } from '../../types';
-import { money } from '../../lib/format';
+import { money, fechaHora } from '../../lib/format';
 import { leerChequesDeImagen } from '../../lib/ocr';
 import { esCuitValido } from '../../lib/cuit';
 
@@ -511,7 +511,7 @@ export function ControlChequesPage() {
                 )}
               </div>
               {c.bcra_fecha_consulta && (
-                <div className="row"><strong>Consultado:</strong> {new Date(c.bcra_fecha_consulta).toLocaleString('es-AR')}</div>
+                <div className="row"><strong>Consultado:</strong> {fechaHora(c.bcra_fecha_consulta)}</div>
               )}
               {rechazos.length > 0 && (
                 <div className="row">
