@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { isoDate } from '../../lib/format';
+import { isoDate, money, fechaHora } from '../../lib/format';
+import { useAuth } from '../../lib/AuthContext';
+import { useConfirm } from '../../lib/ConfirmContext';
 import type { Chofer, ValeCaja } from '../../types';
 
 export function ValeCajaPage() {
   const toast = useToast();
+  const { isAdmin } = useAuth();
+  const confirm = useConfirm();
+  const [historial, setHistorial] = useState<(ValeCaja & { expand?: { chofer?: Chofer } })[]>([]);
+  const [filtroChofer, setFiltroChofer] = useState('');
 
   const [choferes, setChoferes] = useState<Chofer[]>([]);
   const [choferId, setChoferId] = useState('');
@@ -25,6 +31,23 @@ export function ValeCajaPage() {
       .catch((e) => toast('No se pudieron cargar los choferes: ' + (e instanceof Error ? e.message : ''), 'err'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function cargarHistorial() {
+    try {
+      const filtro = filtroChofer ? pb.filter('chofer = {:c}', { c: filtroChofer }) : '';
+      const items = await pb.collection('vales_caja').getList<ValeCaja & { expand?: { chofer?: Chofer } }>(1, 50, {
+        filter: filtro, sort: '-numero', expand: 'chofer',
+      });
+      setHistorial(items.items);
+    } catch (e) {
+      toast('No se pudo cargar el historial: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  useEffect(() => {
+    cargarHistorial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroChofer]);
 
   function elegirChofer(id: string) {
     setChoferId(id);
@@ -46,6 +69,18 @@ export function ValeCajaPage() {
     setUltimoCreado(null);
   }
 
+  async function eliminar(id: string, numero: number) {
+    const ok = await confirm(`¿Eliminar el Vale de Caja N° ${numero}? No se puede deshacer.`, 'Eliminar vale');
+    if (!ok) return;
+    try {
+      await pb.collection('vales_caja').delete(id);
+      toast('Vale eliminado.', 'ok');
+      cargarHistorial();
+    } catch (e) {
+      toast('No se pudo eliminar: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
   async function guardar() {
     const valor = Number(importe.replace(',', '.'));
     if (!choferId) { toast('Elegí un chofer.', 'warn'); return; }
@@ -63,6 +98,7 @@ export function ValeCajaPage() {
       });
       setUltimoCreado(creado);
       toast(`Vale de Caja N° ${creado.numero} guardado.`, 'ok');
+      cargarHistorial();
     } catch (e) {
       toast('No se pudo guardar el vale: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
@@ -132,6 +168,43 @@ export function ValeCajaPage() {
               <button onClick={limpiar} className="secondary">Cargar otro</button>
             </>
           )}
+        </div>
+      </div>
+      <div className="card" style={{ marginTop: 16 }}>
+        <h2 style={{ margin: 0 }}>Historial</h2>
+        <div className="row" style={{ marginTop: 10 }}>
+          <div className="field">
+            <label>Filtrar por chofer</label>
+            <select value={filtroChofer} onChange={(e) => setFiltroChofer(e.target.value)}>
+              <option value="">Todos</option>
+              {choferes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="table-wrap" style={{ marginTop: 10 }}>
+          <table>
+            <thead>
+              <tr>
+                <th className="num">N°</th><th>Fecha</th><th>Chofer</th><th className="num">Importe</th>
+                <th>Moneda</th><th>Usado</th><th>Emitido por</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {historial.map((v) => (
+                <tr key={v.id}>
+                  <td className="num">{v.numero}</td>
+                  <td>{fechaHora(v.fecha)}</td>
+                  <td>{v.expand?.chofer?.nombre || '—'}</td>
+                  <td className="num">{money(v.importe)}</td>
+                  <td>{v.moneda}</td>
+                  <td>{v.usado ? 'Sí' : 'No'}</td>
+                  <td>{v.creado_por || '—'}</td>
+                  <td>{isAdmin && <button className="small danger" onClick={() => eliminar(v.id, v.numero)}>Eliminar</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {historial.length === 0 && <div className="empty">Todavía no se cargó ningún vale.</div>}
         </div>
       </div>
     </main>
