@@ -16,3 +16,53 @@ onRecordBeforeCreateRequest((e) => {
     e.record.set("creado_por", auth.get("nombre") || auth.get("username") || auth.id);
   }
 }, "vales_caja");
+
+routerAdd("POST", "/api/vales-caja/:id/usar", (c) => {
+  const info = $apis.requestInfo(c);
+  const auth = info.authRecord;
+  if (!auth) {
+    throw new ForbiddenError("No tenés permiso para esto.");
+  }
+  const rawModulos = auth.get("modulos");
+  const modulosTexto = (Array.isArray(rawModulos) ? String.fromCharCode.apply(null, rawModulos) : JSON.stringify(rawModulos || [])).toLowerCase();
+  const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("planilla_choferes") !== -1 || modulosTexto.indexOf("vale_caja") !== -1;
+  if (!tieneAcceso) {
+    throw new ForbiddenError("No tenés permiso para esto.");
+  }
+  const dao = $app.dao();
+  const id = c.pathParam("id");
+  let record;
+  try {
+    record = dao.findRecordById("vales_caja", id);
+  } catch (err) {
+    throw new NotFoundError("Vale de caja no encontrado.");
+  }
+  record.set("usado", true);
+  dao.saveRecord(record);
+  return c.json(200, { usado: true });
+});
+
+routerAdd("POST", "/api/vales-caja/:id/liberar", (c) => {
+  const info = $apis.requestInfo(c);
+  const auth = info.authRecord;
+  if (!auth) {
+    throw new ForbiddenError("No tenés permiso para esto.");
+  }
+  const rawModulos = auth.get("modulos");
+  const modulosTexto = (Array.isArray(rawModulos) ? String.fromCharCode.apply(null, rawModulos) : JSON.stringify(rawModulos || [])).toLowerCase();
+  const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("planilla_choferes") !== -1 || modulosTexto.indexOf("vale_caja") !== -1;
+  if (!tieneAcceso) {
+    throw new ForbiddenError("No tenés permiso para esto.");
+  }
+  const dao = $app.dao();
+  const id = c.pathParam("id");
+  let record;
+  try {
+    record = dao.findRecordById("vales_caja", id);
+  } catch (err) {
+    throw new NotFoundError("Vale de caja no encontrado.");
+  }
+  record.set("usado", false);
+  dao.saveRecord(record);
+  return c.json(200, { usado: false });
+});
