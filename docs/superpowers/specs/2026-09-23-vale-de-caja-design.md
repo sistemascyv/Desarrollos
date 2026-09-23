@@ -82,8 +82,8 @@ Un hook `onRecordBeforeCreateRequest` sobre `vales_caja`:
 
 ### Permisos
 
-- `listRule` / `viewRule` / `createRule`: admin **o** módulo `tesoreria`
-  asignado (`@request.auth.modulos ~ "tesoreria"` — operador `~`, no
+- `listRule` / `viewRule` / `createRule`: admin **o** módulo `vale_caja`
+  asignado (`@request.auth.modulos ~ "vale_caja"` — operador `~`, no
   `?=`; `modulos` es un campo `json`, y `?=` ya causó este mismo bug en
   Fichadas, Cheques y Reportes de Flota en este mismo proyecto).
 - `updateRule`: `null` (nadie edita un vale por la API genérica — ni
@@ -95,12 +95,12 @@ Un hook `onRecordBeforeCreateRequest` sobre `vales_caja`:
 
 Tildar/destildar un vale en Planilla Choferes lo hace alguien con el
 módulo `planilla_choferes`, que normalmente **no** tiene el módulo
-`tesoreria` — y como `updateRule` es `null`, no podría tocar el registro
+`vale_caja` — y como `updateRule` es `null`, no podría tocar el registro
 por la vía normal. Se resuelve con dos rutas de hook chicas, igual que
 `/api/deudores/bcra/...` o `/api/flota/pressa/...`:
 
 - `POST /api/vales-caja/:id/usar` — exige `planilla_choferes` o
-  `tesoreria` o admin, pone `usado = true`.
+  `vale_caja` o admin, pone `usado = true`.
 - `POST /api/vales-caja/:id/liberar` — mismo chequeo, pone `usado = false`.
 
 Así el contenido del vale (importe, chofer, texto) sigue siendo
@@ -185,7 +185,7 @@ levantar el server con los hooks reales, y probar por API antes de
 desplegar — en particular:
 - Que la numeración correlativa funciona y no se puede pisar desde el
   cliente.
-- Que un usuario con `planilla_choferes` pero sin `tesoreria` puede
+- Que un usuario con `planilla_choferes` pero sin `vale_caja` puede
   usar/liberar un vale pero no puede verlo/crearlo/editarlo en Tesorería.
 - Que las reglas de permiso realmente usan `~` (verificar leyendo el
   valor final guardado en la base, no solo el archivo de migración — en
