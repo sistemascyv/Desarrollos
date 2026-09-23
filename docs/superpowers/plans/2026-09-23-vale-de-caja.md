@@ -248,19 +248,29 @@ git commit -m "Vale de Caja: numeración correlativa y creado_por por hook"
 
 - [ ] **Step 1: Add the two routes to the hook file**
 
-```javascript
-function tieneAcceso(auth) {
-  if (!auth) return false;
-  if (auth.get("rol") === "admin") return true;
-  const rawModulos = auth.get("modulos");
-  const modulosTexto = (Array.isArray(rawModulos) ? String.fromCharCode.apply(null, rawModulos) : JSON.stringify(rawModulos || [])).toLowerCase();
-  return modulosTexto.indexOf("planilla_choferes") !== -1 || modulosTexto.indexOf("vale_caja") !== -1;
-}
+**Critical constraint, copied verbatim from the top-of-file comment in
+`pb_hooks/pressa.pb.js`:** *"Toda la lógica vive DENTRO del callback de
+routerAdd (nada de funciones/variables sueltas arriba del archivo):
+PocketBase corre ese callback en un contexto que en producción no
+siempre ve lo declarado afuera ('ReferenceError: ... is not defined')
+— ya nos pasó una vez con este hook nuevo."* This is not a style
+preference — it has caused a real production crash before. Do **not**
+factor the checks below into a shared top-level function. Each
+`routerAdd` callback must be fully self-contained, duplicating the
+access check inline, exactly like the three routes in
+`pb_hooks/pressa.pb.js` each do.
 
-function marcarUsado(c, usado) {
+```javascript
+routerAdd("POST", "/api/vales-caja/:id/usar", (c) => {
   const info = $apis.requestInfo(c);
   const auth = info.authRecord;
-  if (!tieneAcceso(auth)) {
+  if (!auth) {
+    throw new ForbiddenError("No tenés permiso para esto.");
+  }
+  const rawModulos = auth.get("modulos");
+  const modulosTexto = (Array.isArray(rawModulos) ? String.fromCharCode.apply(null, rawModulos) : JSON.stringify(rawModulos || [])).toLowerCase();
+  const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("planilla_choferes") !== -1 || modulosTexto.indexOf("vale_caja") !== -1;
+  if (!tieneAcceso) {
     throw new ForbiddenError("No tenés permiso para esto.");
   }
   const dao = $app.dao();
@@ -271,16 +281,38 @@ function marcarUsado(c, usado) {
   } catch (err) {
     throw new NotFoundError("Vale de caja no encontrado.");
   }
-  record.set("usado", usado);
+  record.set("usado", true);
   dao.saveRecord(record);
-  return c.json(200, { usado: usado });
-}
+  return c.json(200, { usado: true });
+});
 
-routerAdd("POST", "/api/vales-caja/:id/usar", (c) => marcarUsado(c, true));
-routerAdd("POST", "/api/vales-caja/:id/liberar", (c) => marcarUsado(c, false));
+routerAdd("POST", "/api/vales-caja/:id/liberar", (c) => {
+  const info = $apis.requestInfo(c);
+  const auth = info.authRecord;
+  if (!auth) {
+    throw new ForbiddenError("No tenés permiso para esto.");
+  }
+  const rawModulos = auth.get("modulos");
+  const modulosTexto = (Array.isArray(rawModulos) ? String.fromCharCode.apply(null, rawModulos) : JSON.stringify(rawModulos || [])).toLowerCase();
+  const tieneAcceso = auth.get("rol") === "admin" || modulosTexto.indexOf("planilla_choferes") !== -1 || modulosTexto.indexOf("vale_caja") !== -1;
+  if (!tieneAcceso) {
+    throw new ForbiddenError("No tenés permiso para esto.");
+  }
+  const dao = $app.dao();
+  const id = c.pathParam("id");
+  let record;
+  try {
+    record = dao.findRecordById("vales_caja", id);
+  } catch (err) {
+    throw new NotFoundError("Vale de caja no encontrado.");
+  }
+  record.set("usado", false);
+  dao.saveRecord(record);
+  return c.json(200, { usado: false });
+});
 ```
 
-Append this below the `onRecordBeforeCreateRequest` block already in `pb_hooks/vales_caja.pb.js` from Task 2 — all logic stays inside these callbacks, matching this project's established JSVM pattern (top-level helper functions called from a hook body have caused `ReferenceError` in production before; `tieneAcceso`/`marcarUsado` here are plain top-level functions referenced from `routerAdd` callbacks, which is fine — it's *hook* callbacks like `onRecordBeforeCreateRequest` that must keep all logic inline, not `routerAdd` route handlers, which this project already uses this exact style for in `pb_hooks/pressa.pb.js` and `pb_hooks/deudores.pb.js`).
+Append this below the `onRecordBeforeCreateRequest` block already in `pb_hooks/vales_caja.pb.js` from Task 2. The duplication between the two routes is intentional — see the constraint above.
 
 - [ ] **Step 2: Restart the local server with the updated hook and test the happy path**
 
