@@ -1009,9 +1009,3 @@ body.imprimiendo-vale #vale-imprimible {
   font-family: Arial, sans-serif;
   font-size: 13px;
 }
-@media print {
-  @page {
-    size: A4;
-    margin: 0;
-  }
-}

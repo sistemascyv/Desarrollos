@@ -30,9 +30,13 @@ export function ValeCajaPage() {
   function imprimir(v: ValeCaja & { expand?: { chofer?: Chofer } }) {
     setParaImprimir(v);
     document.body.classList.add('imprimiendo-vale');
+    const estiloPagina = document.createElement('style');
+    estiloPagina.textContent = '@media print { @page { size: A4; margin: 0; } }';
+    document.head.appendChild(estiloPagina);
     setTimeout(() => {
       window.print();
       document.body.classList.remove('imprimiendo-vale');
+      document.head.removeChild(estiloPagina);
     }, 50);
   }
 
