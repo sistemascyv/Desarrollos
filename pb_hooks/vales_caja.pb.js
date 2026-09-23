@@ -11,7 +11,7 @@ onRecordBeforeCreateRequest((e) => {
   const siguiente = ultimos.length ? ultimos[0].getInt("numero") + 1 : 1;
   e.record.set("numero", siguiente);
 
-  const auth = e.httpContext.get("authRecord");
+  const auth = $apis.requestInfo(e.httpContext).authRecord;
   if (auth) {
     e.record.set("creado_por", auth.get("nombre") || auth.get("username") || auth.id);
   }
