@@ -79,6 +79,7 @@ export function PlanillaChoferesPage() {
   // la pantalla con datos de otro chofer.
   const tramosReq = useRef(0);
   const tarifaReq = useRef(0);
+  const valesReq = useRef(0);
 
   const selMes = anioTarifa + '-' + mesTarifa;
   const mesesCerrados = useMemo(() => new Set(Object.keys(cerrados)), [cerrados]);
@@ -284,14 +285,17 @@ export function PlanillaChoferesPage() {
 
   async function loadValesDisponibles() {
     if (!choferId) { setValesDisponibles([]); setValesTildados(new Set()); return; }
+    const mi = ++valesReq.current;
     try {
       const items = await pb.collection('vales_caja').getFullList<ValeCaja>({
         filter: pb.filter('chofer = {:c} && usado = false', { c: choferId }),
         sort: 'fecha',
       });
+      if (mi !== valesReq.current) return;
       setValesDisponibles(items);
       setValesTildados(new Set());
     } catch (e) {
+      if (mi !== valesReq.current) return;
       toast('No se pudieron cargar los vales de caja: ' + mensajeDeError(e), 'err');
     }
   }
