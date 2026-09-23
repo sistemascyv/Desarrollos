@@ -4,6 +4,7 @@ import { useToast } from '../../lib/ToastContext';
 import { isoDate, money, fechaHora } from '../../lib/format';
 import { useAuth } from '../../lib/AuthContext';
 import { useConfirm } from '../../lib/ConfirmContext';
+import { importeEnLetras } from '../../lib/numeroEnLetras';
 import type { Chofer, ValeCaja } from '../../types';
 
 export function ValeCajaPage() {
@@ -24,6 +25,16 @@ export function ValeCajaPage() {
   const [nombreFirmaTocado, setNombreFirmaTocado] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [ultimoCreado, setUltimoCreado] = useState<ValeCaja | null>(null);
+  const [paraImprimir, setParaImprimir] = useState<(ValeCaja & { expand?: { chofer?: Chofer } }) | null>(null);
+
+  function imprimir(v: ValeCaja & { expand?: { chofer?: Chofer } }) {
+    setParaImprimir(v);
+    document.body.classList.add('imprimiendo-vale');
+    setTimeout(() => {
+      window.print();
+      document.body.classList.remove('imprimiendo-vale');
+    }, 50);
+  }
 
   useEffect(() => {
     pb.collection('choferes').getFullList<Chofer>({ filter: 'activo=true', sort: 'nombre' })
@@ -165,6 +176,7 @@ export function ValeCajaPage() {
           ) : (
             <>
               <span className="hint">Vale N° {ultimoCreado.numero} guardado.</span>
+              <button onClick={() => imprimir(ultimoCreado)}>Imprimir</button>
               <button onClick={limpiar} className="secondary">Cargar otro</button>
             </>
           )}
@@ -199,7 +211,11 @@ export function ValeCajaPage() {
                   <td>{v.moneda}</td>
                   <td>{v.usado ? 'Sí' : 'No'}</td>
                   <td>{v.creado_por || '—'}</td>
-                  <td>{isAdmin && <button className="small danger" onClick={() => eliminar(v.id, v.numero)}>Eliminar</button>}</td>
+                  <td>
+                    <button className="small" onClick={() => imprimir(v)}>Reimprimir</button>
+                    {' '}
+                    {isAdmin && <button className="small danger" onClick={() => eliminar(v.id, v.numero)}>Eliminar</button>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -207,6 +223,30 @@ export function ValeCajaPage() {
           {historial.length === 0 && <div className="empty">Todavía no se cargó ningún vale.</div>}
         </div>
       </div>
+      {paraImprimir && (
+        <div id="vale-imprimible">
+          <div style={{ textAlign: 'right', fontWeight: 700, marginBottom: 20 }}>
+            VALE DE CAJA N° {String(paraImprimir.numero).padStart(4, '0')}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div>Recibí de Carossio Vairolatti y Cía SRL</div>
+            <div>{fechaHora(paraImprimir.fecha)}</div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            la cantidad de {paraImprimir.moneda === 'BRL' ? 'reales' : 'pesos argentinos'}{' '}
+            {importeEnLetras(paraImprimir.importe).toLowerCase()}
+          </div>
+          <div style={{ borderBottom: '1px solid #000', marginTop: 24, paddingBottom: 2 }}>{paraImprimir.observacion1}</div>
+          <div style={{ borderBottom: '1px solid #000', marginTop: 20, paddingBottom: 2 }}>{paraImprimir.observacion2}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 30 }}>
+            <div>{paraImprimir.moneda === 'BRL' ? 'Son R$' : 'Son $'} {money(paraImprimir.importe)}</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ borderBottom: '1px solid #000', width: 200 }}>&nbsp;</div>
+              {paraImprimir.nombre_firma}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

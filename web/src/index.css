@@ -985,4 +985,33 @@ a.link {
     font-size: 12px;
     color: #333;
   }
+  #vale-imprimible {
+    display: none;
+  }
+}
+
+body.imprimiendo-vale * {
+  visibility: hidden;
+}
+body.imprimiendo-vale #vale-imprimible,
+body.imprimiendo-vale #vale-imprimible * {
+  visibility: visible;
+}
+body.imprimiendo-vale #vale-imprimible {
+  display: block !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 210mm;
+  height: 148mm;
+  padding: 14mm;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
 }
