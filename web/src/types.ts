@@ -12,6 +12,19 @@ export interface Chofer extends BaseRecord {
   activo: boolean;
 }
 
+export interface ValeCaja extends BaseRecord {
+  numero: number;
+  fecha: string;
+  chofer: string;
+  nombre_firma: string;
+  importe: number;
+  moneda: 'ARS' | 'BRL';
+  observacion1?: string;
+  observacion2?: string;
+  usado: boolean;
+  creado_por?: string;
+}
+
 export interface Vehiculo extends BaseRecord {
   codigo: string;
   patente?: string;
@@ -248,6 +261,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'planilla_choferes', label: 'Planilla Choferes', group: 'RRHH', path: 'liquidacion/planilla-choferes' },
   { id: 'control_cheques', label: 'Control de Cheques', group: 'TESORERIA', path: 'finanzas/control-cheques' },
   { id: 'central_deudores', label: 'Central de Deudores', group: 'TESORERIA', path: 'finanzas/central-deudores' },
+  { id: 'vale_caja', label: 'Vale de Caja', group: 'TESORERIA', path: 'finanzas/vale-de-caja' },
   { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'MANTENIMIENTO', path: 'flota/consumo-combustible' },
   { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'MANTENIMIENTO', path: 'flota/panel-cubiertas' },
   { id: 'flota_posicion', label: 'Posición de Flota', group: 'MANTENIMIENTO', path: 'flota/posicion' },

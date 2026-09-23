@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage';
 import { PlanillaChoferesPage } from './pages/planilla/PlanillaChoferesPage';
 import { ControlChequesPage } from './pages/cheques/ControlChequesPage';
 import { CentralDeudoresPage } from './pages/deudores/CentralDeudoresPage';
+import { ValeCajaPage } from './pages/tesoreria/ValeCajaPage';
 import { ReporteCombustiblePage } from './pages/flota/ReporteCombustiblePage';
 import { PanelCubiertasPage } from './pages/flota/PanelCubiertasPage';
 import { PosicionFlotaPage } from './pages/flota/satelital/PosicionFlotaPage';
@@ -54,6 +55,14 @@ function App() {
           element={
             <RequireModule moduleId="central_deudores">
               <CentralDeudoresPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/finanzas/vale-de-caja"
+          element={
+            <RequireModule moduleId="vale_caja">
+              <ValeCajaPage />
             </RequireModule>
           }
         />
