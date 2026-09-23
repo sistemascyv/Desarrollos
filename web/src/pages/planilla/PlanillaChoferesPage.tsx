@@ -5,7 +5,7 @@ import { amendQueuedCreate, esErrorDeRed, getQueue, mensajeDeError, queueOp, rem
 import { useAuth } from '../../lib/AuthContext';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import type { Chofer, Cliente, PeriodoCerrado, Ruta, Tarifa, Tramo, Vehiculo } from '../../types';
+import type { Chofer, Cliente, PeriodoCerrado, Ruta, Tarifa, Tramo, Vehiculo, ValeCaja } from '../../types';
 import { money, monthLabel, NOMBRES_MESES, isoDate, uid } from '../../lib/format';
 import { TramoModal } from './TramoModal';
 
@@ -66,6 +66,8 @@ export function PlanillaChoferesPage() {
   const [viaticoNoche, setViaticoNoche] = useState('');
 
   const [tramos, setTramos] = useState<Tramo[]>([]);
+  const [valesDisponibles, setValesDisponibles] = useState<ValeCaja[]>([]);
+  const [valesTildados, setValesTildados] = useState<Set<string>>(new Set());
   const [cargando, setCargando] = useState(false);
   const [tarifasCache, setTarifasCache] = useState<Record<string, Tarifa | null>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -92,7 +94,7 @@ export function PlanillaChoferesPage() {
   }, [selMes]);
 
   useEffect(() => {
-    if (choferId) loadTramos();
+    if (choferId) { loadTramos(); loadValesDisponibles(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choferId]);
 
@@ -280,6 +282,34 @@ export function PlanillaChoferesPage() {
     if (mi === tramosReq.current) setCargando(false);
   }
 
+  async function loadValesDisponibles() {
+    if (!choferId) { setValesDisponibles([]); setValesTildados(new Set()); return; }
+    try {
+      const items = await pb.collection('vales_caja').getFullList<ValeCaja>({
+        filter: pb.filter('chofer = {:c} && usado = false', { c: choferId }),
+        sort: 'fecha',
+      });
+      setValesDisponibles(items);
+      setValesTildados(new Set());
+    } catch (e) {
+      toast('No se pudieron cargar los vales de caja: ' + mensajeDeError(e), 'err');
+    }
+  }
+
+  async function toggleVale(v: ValeCaja) {
+    const marcando = !valesTildados.has(v.id);
+    try {
+      await pb.send(`/api/vales-caja/${v.id}/${marcando ? 'usar' : 'liberar'}`, { method: 'POST' });
+      setValesTildados((cur) => {
+        const next = new Set(cur);
+        if (marcando) next.add(v.id); else next.delete(v.id);
+        return next;
+      });
+    } catch (e) {
+      toast('No se pudo actualizar el vale: ' + mensajeDeError(e), 'err');
+    }
+  }
+
   function toggleExpand(id: string) {
     setExpanded((cur) => {
       const next = new Set(cur);
@@ -361,7 +391,11 @@ export function PlanillaChoferesPage() {
   }
 
   const summary = useMemo(() => {
-    const totalVales = tramos.reduce((s, t) => s + (Number(t.vale_importe) || 0), 0);
+    const totalValesTramos = tramos.reduce((s, t) => s + (Number(t.vale_importe) || 0), 0);
+    const totalValesCaja = valesDisponibles
+      .filter((v) => valesTildados.has(v.id))
+      .reduce((s, v) => s + (Number(v.importe) || 0), 0);
+    const totalVales = totalValesTramos + totalValesCaja;
     const totalKmAlargue = tramos.reduce((s, t) => s + (Number(t.km_alargue) || 0), 0);
     const totalGastos = tramos.reduce((s, t) => s + (Number(t.total_gastos) || 0), 0);
     const totalPermanencia = tramos.reduce((s, t) => s + (Number(t.permanencia) || 0), 0);
@@ -394,7 +428,7 @@ export function PlanillaChoferesPage() {
     const totalALiquidar = montoAlargue + viaticos + totalGastos - totalVales;
 
     return { totalVales, totalKmAlargue, totalGastos, totalPermanencia, saldo, montoAlargue, viaticos, avisoAlargue, avisoViaticos, incompleto, totalALiquidar };
-  }, [tramos, tarifasCache]);
+  }, [tramos, tarifasCache, valesDisponibles, valesTildados]);
 
   const sum = (f: keyof Tramo) => tramos.reduce((s, t) => s + (Number(t[f]) || 0), 0);
 
@@ -555,6 +589,23 @@ export function PlanillaChoferesPage() {
           Total a liquidar = monto alargue + viáticos + total gastos − total vales. Positivo: la empresa le debe al chofer; negativo: el chofer tiene que rendir la diferencia.
         </div>
       </div>
+
+      {valesDisponibles.length > 0 && (
+        <div className="card" style={{ background: 'var(--panel2)' }}>
+          <h3 style={{ margin: '0 0 8px' }}>Vales de caja disponibles</h3>
+          <div className="detail-grid">
+            {valesDisponibles.map((v) => (
+              <label key={v.id} className="d-item" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={valesTildados.has(v.id)} onChange={() => toggleVale(v)} />
+                <div>
+                  <div className="lbl">{fechaCorta(v.fecha)}</div>
+                  <div className="val">{money(v.importe)}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h2>Tramos</h2>
