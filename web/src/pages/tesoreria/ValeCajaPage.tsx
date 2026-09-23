@@ -224,7 +224,7 @@ export function ValeCajaPage() {
                   <td className="num">{v.numero}</td>
                   <td>{fechaSola(v.fecha)}</td>
                   <td>{v.expand?.chofer?.nombre || '—'}</td>
-                  <td className="num">{v.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                  <td className="num">{v.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   <td>{v.moneda}</td>
                   <td>{v.usado ? 'Sí' : 'No'}</td>
                   <td>{v.creado_por || '—'}</td>
@@ -258,7 +258,7 @@ export function ValeCajaPage() {
           <div style={{ borderBottom: '1px solid #000', marginTop: 24, paddingBottom: 2 }}>{paraImprimir.observacion1}</div>
           <div style={{ borderBottom: '1px solid #000', marginTop: 20, paddingBottom: 2 }}>{paraImprimir.observacion2}</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 30 }}>
-            <div>{paraImprimir.moneda === 'BRL' ? 'Son R$' : 'Son $'} {paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
+            <div>{paraImprimir.moneda === 'BRL' ? 'Son R$' : 'Son $'} {paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ borderBottom: '1px solid #000', width: 200 }}>&nbsp;</div>
               {paraImprimir.nombre_firma}
