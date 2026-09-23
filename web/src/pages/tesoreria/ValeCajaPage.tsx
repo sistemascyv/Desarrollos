@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { isoDate, money, fechaHora } from '../../lib/format';
+import { isoDate, fechaSola } from '../../lib/format';
 import { useAuth } from '../../lib/AuthContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { importeEnLetras } from '../../lib/numeroEnLetras';
@@ -34,9 +34,12 @@ export function ValeCajaPage() {
     estiloPagina.textContent = '@media print { @page { size: A4; margin: 0; } }';
     document.head.appendChild(estiloPagina);
     setTimeout(() => {
-      window.print();
-      document.body.classList.remove('imprimiendo-vale');
-      document.head.removeChild(estiloPagina);
+      try {
+        window.print();
+      } finally {
+        document.body.classList.remove('imprimiendo-vale');
+        document.head.removeChild(estiloPagina);
+      }
     }, 50);
   }
 
@@ -93,6 +96,16 @@ export function ValeCajaPage() {
       cargarHistorial();
     } catch (e) {
       toast('No se pudo eliminar: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  async function liberar(id: string) {
+    try {
+      await pb.send(`/api/vales-caja/${id}/liberar`, { method: 'POST' });
+      toast('Vale liberado.', 'ok');
+      cargarHistorial();
+    } catch (e) {
+      toast('No se pudo liberar el vale: ' + (e instanceof Error ? e.message : ''), 'err');
     }
   }
 
@@ -209,14 +222,16 @@ export function ValeCajaPage() {
               {historial.map((v) => (
                 <tr key={v.id}>
                   <td className="num">{v.numero}</td>
-                  <td>{fechaHora(v.fecha)}</td>
+                  <td>{fechaSola(v.fecha)}</td>
                   <td>{v.expand?.chofer?.nombre || '—'}</td>
-                  <td className="num">{money(v.importe)}</td>
+                  <td className="num">{v.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
                   <td>{v.moneda}</td>
                   <td>{v.usado ? 'Sí' : 'No'}</td>
                   <td>{v.creado_por || '—'}</td>
                   <td>
                     <button className="small" onClick={() => imprimir(v)}>Reimprimir</button>
+                    {' '}
+                    {v.usado && <button className="small secondary" onClick={() => liberar(v.id)}>Liberar</button>}
                     {' '}
                     {isAdmin && <button className="small danger" onClick={() => eliminar(v.id, v.numero)}>Eliminar</button>}
                   </td>
@@ -234,7 +249,7 @@ export function ValeCajaPage() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <div>Recibí de Carossio Vairolatti y Cía SRL</div>
-            <div>{fechaHora(paraImprimir.fecha)}</div>
+            <div>{fechaSola(paraImprimir.fecha)}</div>
           </div>
           <div style={{ marginTop: 16 }}>
             la cantidad de {paraImprimir.moneda === 'BRL' ? 'reales' : 'pesos argentinos'}{' '}
@@ -243,7 +258,7 @@ export function ValeCajaPage() {
           <div style={{ borderBottom: '1px solid #000', marginTop: 24, paddingBottom: 2 }}>{paraImprimir.observacion1}</div>
           <div style={{ borderBottom: '1px solid #000', marginTop: 20, paddingBottom: 2 }}>{paraImprimir.observacion2}</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 30 }}>
-            <div>{paraImprimir.moneda === 'BRL' ? 'Son R$' : 'Son $'} {money(paraImprimir.importe)}</div>
+            <div>{paraImprimir.moneda === 'BRL' ? 'Son R$' : 'Son $'} {paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ borderBottom: '1px solid #000', width: 200 }}>&nbsp;</div>
               {paraImprimir.nombre_firma}

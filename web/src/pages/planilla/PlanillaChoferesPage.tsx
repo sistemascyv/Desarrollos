@@ -6,7 +6,7 @@ import { useAuth } from '../../lib/AuthContext';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import type { Chofer, Cliente, PeriodoCerrado, Ruta, Tarifa, Tramo, Vehiculo, ValeCaja } from '../../types';
-import { money, monthLabel, NOMBRES_MESES, isoDate, uid } from '../../lib/format';
+import { money, monthLabel, NOMBRES_MESES, isoDate, uid, fechaSola } from '../../lib/format';
 import { TramoModal } from './TramoModal';
 
 const DETAIL_FIELDS: [keyof Tramo, string, boolean][] = [
@@ -288,7 +288,7 @@ export function PlanillaChoferesPage() {
     const mi = ++valesReq.current;
     try {
       const items = await pb.collection('vales_caja').getFullList<ValeCaja>({
-        filter: pb.filter('chofer = {:c} && usado = false', { c: choferId }),
+        filter: pb.filter('chofer = {:c} && usado = false && moneda = {:m}', { c: choferId, m: 'ARS' }),
         sort: 'fecha',
       });
       if (mi !== valesReq.current) return;
@@ -602,7 +602,7 @@ export function PlanillaChoferesPage() {
               <label key={v.id} className="d-item" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input type="checkbox" checked={valesTildados.has(v.id)} onChange={() => toggleVale(v)} />
                 <div>
-                  <div className="lbl">{fechaCorta(v.fecha)}</div>
+                  <div className="lbl">{fechaSola(v.fecha)}</div>
                   <div className="val">{money(v.importe)}</div>
                 </div>
               </label>

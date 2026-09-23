@@ -31,3 +31,13 @@ export function uid(): string {
 export function fechaHora(pbDate: string | undefined | null): string {
   return pbDate ? new Date(pbDate.replace(' ', 'T')).toLocaleString('es-AR', { hour12: false }) : '';
 }
+
+// Para campos PocketBase type:"date" (sin hora real, ej "2026-09-23 00:00:00.000Z").
+// A diferencia de fechaHora(), nunca construye un Date -- así se evita que la
+// conversión a horario de Argentina (UTC-3) corra el día para atrás cuando el
+// valor guardado está a medianoche UTC.
+export function fechaSola(pbDate: string | undefined | null): string {
+  if (!pbDate) return '';
+  const [y, m, d] = pbDate.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}

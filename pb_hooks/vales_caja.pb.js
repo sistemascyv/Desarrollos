@@ -10,6 +10,7 @@ onRecordBeforeCreateRequest((e) => {
   const ultimos = dao.findRecordsByFilter("vales_caja", "numero >= 0", "-numero", 1, 0);
   const siguiente = ultimos.length ? ultimos[0].getInt("numero") + 1 : 1;
   e.record.set("numero", siguiente);
+  e.record.set("usado", false);
 
   const auth = $apis.requestInfo(e.httpContext).authRecord;
   if (auth) {

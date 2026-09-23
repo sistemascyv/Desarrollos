@@ -985,9 +985,10 @@ a.link {
     font-size: 12px;
     color: #333;
   }
-  #vale-imprimible {
-    display: none;
-  }
+}
+
+#vale-imprimible {
+  display: none;
 }
 
 body.imprimiendo-vale * {

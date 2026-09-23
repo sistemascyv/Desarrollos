@@ -322,6 +322,7 @@ export function TramoModal({ tramo, vehiculos, clientes, rutas, mesesCerrados, o
               <div className="field"><label>Vale N°</label><input value={form.vale_nro} onChange={(e) => set('vale_nro', e.target.value)} /></div>
               <Num label="Vale importe" step="0.01" value={form.vale_importe} onChange={(n) => set('vale_importe', n)} />
             </div>
+            <div className="hint">Histórico — los vales nuevos se cargan en Tesorería → Vale de Caja.</div>
           </fieldset>
 
           <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
