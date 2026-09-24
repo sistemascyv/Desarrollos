@@ -108,9 +108,41 @@ routerAdd("GET", "/api/flota/km-real/:desde/:hasta", (c) => {
 
   const dao = $app.dao();
   const vehiculosMegatrans = dao.findRecordsByFilter("vehiculos", "codigo_megatrans != ''", "", 500, 0);
+
+  // Dedup contra lo que ya puso Pressa en `unidades` -- evita contar dos
+  // veces el mismo vehículo físico:
+  //  - por patente (normalizada sin espacios y en mayúsculas, porque el
+  //    formato de patente es inconsistente entre proveedores), para el
+  //    caso de una unidad con GPS de ambos proveedores a la vez;
+  //  - por codigo_megatrans repetido entre dos registros de `vehiculos`
+  //    (p.ej. T133/T134 comparten el mismo CodigoEntidad en los datos
+  //    reales), para no pegarle dos veces a Megatrans por el mismo
+  //    CodigoEntidad y sumar el mismo km dos veces.
+  const normalizarPatente = (p) => (p || "").replace(/\s+/g, "").toUpperCase();
+  const patentesPressa = new Set(unidades.map((u) => normalizarPatente(u.patente)).filter((p) => p));
+  const codigosMegatransVistos = new Set();
+
+  // Circuit breaker: si Megatrans está colgado (no responde, no rechaza
+  // rápido), cortar la racha de llamadas en vez de esperar ~20s por cada
+  // uno de los ~60 vehículos restantes. Se corta a los 3 fallos SEGUIDOS
+  // (un éxito en el medio resetea el contador); lo que queda sin procesar
+  // se cuenta igual en megatransFallidos para que el aviso al usuario
+  // refleje cuántas unidades quedaron sin dato real.
+  const MAX_FALLOS_CONSECUTIVOS = 3;
+  let fallosConsecutivos = 0;
   let megatransFallidos = 0;
-  vehiculosMegatrans.forEach((veh) => {
+  let megatransOmitidos = 0; // duplicados legítimos (no son fallas de Megatrans)
+
+  for (let i = 0; i < vehiculosMegatrans.length; i++) {
+    const veh = vehiculosMegatrans[i];
     const codigoEntidad = veh.getString("codigo_megatrans");
+
+    if (codigosMegatransVistos.has(codigoEntidad)) {
+      megatransOmitidos++;
+      continue;
+    }
+    codigosMegatransVistos.add(codigoEntidad);
+
     try {
       // $http.send en este proyecto no tiene ningún uso confirmado de una
       // opción "query" para armar el query string -- se arma la URL a
@@ -138,18 +170,33 @@ routerAdd("GET", "/api/flota/km-real/:desde/:hasta", (c) => {
       });
       const body = res.json || {};
       if (res.statusCode === 200 && body.Dato) {
-        unidades.push({
-          alias: veh.getString("codigo"),
-          patente: body.Dato.Patente || "",
-          distanciaKm: parseFloat(body.Dato.KmRecorridos) || 0,
-        });
+        const patenteNormalizada = normalizarPatente(body.Dato.Patente);
+        if (patenteNormalizada && patentesPressa.has(patenteNormalizada)) {
+          megatransOmitidos++;
+        } else {
+          unidades.push({
+            alias: veh.getString("codigo"),
+            patente: body.Dato.Patente || "",
+            distanciaKm: parseFloat(body.Dato.KmRecorridos) || 0,
+          });
+        }
+        fallosConsecutivos = 0;
       } else {
         megatransFallidos++;
+        fallosConsecutivos++;
       }
     } catch (e) {
       megatransFallidos++;
+      fallosConsecutivos++;
     }
-  });
 
-  return c.json(200, { total: unidades.length, unidades: unidades, megatransFallidos: megatransFallidos });
+    if (fallosConsecutivos >= MAX_FALLOS_CONSECUTIVOS) {
+      // Cortar acá: todo lo que quedaba sin procesar también cuenta como
+      // "no respondió", no solo lo que se llegó a intentar.
+      megatransFallidos += vehiculosMegatrans.length - i - 1;
+      break;
+    }
+  }
+
+  return c.json(200, { total: unidades.length, unidades: unidades, megatransFallidos: megatransFallidos, megatransOmitidos: megatransOmitidos });
 }, $apis.requireRecordAuth("usuarios"));

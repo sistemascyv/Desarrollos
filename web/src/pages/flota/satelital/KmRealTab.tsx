@@ -21,6 +21,7 @@ export function KmRealTab() {
   const [hasta, setHasta] = useState(isoDate(now.current));
   const [loading, setLoading] = useState(false);
   const [unidades, setUnidades] = useState<UnidadDistancia[] | null>(null);
+  const [megatransFallidos, setMegatransFallidos] = useState(0);
 
   async function buscar() {
     if (!desde || !hasta) { toast('Elegí el rango de fechas.', 'warn'); return; }
@@ -28,8 +29,12 @@ export function KmRealTab() {
     try {
       const desdeUnix = Math.floor(new Date(desde + 'T00:00:00').getTime() / 1000);
       const hastaUnix = Math.floor(new Date(hasta + 'T23:59:59').getTime() / 1000);
-      const res = await pb.send<{ unidades: UnidadDistancia[] }>(`/api/flota/km-real/${desdeUnix}/${hastaUnix}`, { method: 'GET' });
+      const res = await pb.send<{ unidades: UnidadDistancia[]; megatransFallidos?: number }>(`/api/flota/km-real/${desdeUnix}/${hastaUnix}`, { method: 'GET' });
       setUnidades((res.unidades || []).sort((a, b) => b.distanciaKm - a.distanciaKm));
+      setMegatransFallidos(res.megatransFallidos || 0);
+      if (res.megatransFallidos) {
+        toast(`${res.megatransFallidos} unidad(es) de Megatrans no respondieron — el total puede estar incompleto.`, 'warn');
+      }
     } catch (e) {
       toast('No se pudo traer la distancia real: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
@@ -56,6 +61,11 @@ export function KmRealTab() {
 
       {unidades && (
         <div className="card">
+          {megatransFallidos > 0 && (
+            <div className="hint" style={{ marginBottom: 10 }}>
+              {megatransFallidos} unidad(es) de Megatrans no respondieron — el total puede estar incompleto.
+            </div>
+          )}
           <div className="summary-grid summary-grid-compact" style={{ marginBottom: 14 }}>
             <div className="stat"><div className="lbl">Unidades</div><div className="val">{unidades.length}</div></div>
             <div className="stat"><div className="lbl">Km totales de flota</div><div className="val">{num(totalKm)}</div></div>
