@@ -8,8 +8,6 @@ interface UnidadDistancia {
   alias: string;
   patente: string;
   distanciaKm: number;
-  velocidadMin: number;
-  velocidadMax: number;
 }
 
 // Report Fleet Distance WS — km real por GPS/odómetro en un período, en
@@ -30,7 +28,7 @@ export function KmRealTab() {
     try {
       const desdeUnix = Math.floor(new Date(desde + 'T00:00:00').getTime() / 1000);
       const hastaUnix = Math.floor(new Date(hasta + 'T23:59:59').getTime() / 1000);
-      const res = await pb.send<{ unidades: UnidadDistancia[] }>(`/api/flota/pressa/distancia/${desdeUnix}/${hastaUnix}`, { method: 'GET' });
+      const res = await pb.send<{ unidades: UnidadDistancia[] }>(`/api/flota/km-real/${desdeUnix}/${hastaUnix}`, { method: 'GET' });
       setUnidades((res.unidades || []).sort((a, b) => b.distanciaKm - a.distanciaKm));
     } catch (e) {
       toast('No se pudo traer la distancia real: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -65,7 +63,7 @@ export function KmRealTab() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Unidad</th><th>Patente</th><th className="num">Km recorridos</th><th className="num">Velocidad máx.</th></tr>
+                <tr><th>Unidad</th><th>Patente</th><th className="num">Km recorridos</th></tr>
               </thead>
               <tbody>
                 {unidades.map((u) => (
@@ -73,10 +71,9 @@ export function KmRealTab() {
                     <td className="admin-name">{u.alias}</td>
                     <td>{u.patente}</td>
                     <td className="num">{num(u.distanciaKm)}</td>
-                    <td className="num">{num(u.velocidadMax)} km/h</td>
                   </tr>
                 ))}
-                {unidades.length === 0 && <tr><td className="empty" colSpan={4}>Sin datos para ese período.</td></tr>}
+                {unidades.length === 0 && <tr><td className="empty" colSpan={3}>Sin datos para ese período.</td></tr>}
               </tbody>
             </table>
           </div>
