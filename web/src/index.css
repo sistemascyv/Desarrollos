@@ -1009,4 +1009,10 @@ body.imprimiendo-vale #vale-imprimible {
   box-sizing: border-box;
   font-family: Arial, sans-serif;
   font-size: 13px;
+  background-image: url('/vale-marca-agua.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 65% auto;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
