@@ -71,13 +71,8 @@ T097=40554910  T102=40542510  T101=40541510  T096=40536410  T095=40402910
 T104=40352710  T094=40312110  T093=40226710  T103=40074010  T105=40030510
 ```
 
-Dos excepciones a resolver al implementar (no bloquean el diseño):
+Una excepción a resolver al implementar (no bloquea el diseño):
 
-- La fila con código de flota `ATEGO` (patente `IJX 154`, CodigoEntidad
-  `41463410`) no tiene un código `T0xx` como las demás — no hay forma
-  automática de saber a qué `vehiculos.codigo` corresponde. Se deja sin
-  sembrar y se reporta como advertencia; el usuario confirma después cuál
-  vehículo es.
 - `T133` y `T134` tienen el mismo `CodigoEntidad` (`44476310`) en la lista
   — probable error de carga del lado de Megatrans/origen. Se siembra tal
   cual viene (no es responsabilidad de esta migración corregir datos de
