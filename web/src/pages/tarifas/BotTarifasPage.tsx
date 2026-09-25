@@ -135,6 +135,13 @@ export function BotTarifasPage() {
           tipo de carga y generales) en todas las sucursales. Corre en esta PC — hace falta tener instalado el
           conector (bot) una sola vez.
         </div>
+        <div className="hint" style={{ marginBottom: 10 }}>
+          ¿Primera vez en esta PC?{' '}
+          <a className="link" href="/instalador_bot_tarifas.exe" download>
+            Descargar instalador
+          </a>
+          {' '}— se instala solo, sin pedir nada, con un doble clic.
+        </div>
         <div className="row" style={{ marginTop: 10 }}>
           <div className="field">
             <label>Porcentaje de aumento</label>
