@@ -132,13 +132,7 @@ export function BotTarifasPage() {
         <h2>Actualizar Tarifas</h2>
         <div className="hint">
           Aplica un aumento por porcentaje a todas las tarifas del sistema de ventas (clientes, acuerdos especiales,
-          tipo de carga y generales) en todas las sucursales. Corre en esta PC — hace falta tener instalado el
-          conector (bot) una sola vez.
-        </div>
-        <div className="hint" style={{ marginBottom: 10 }}>
-          ¿Primera vez en esta PC? Pedile a Sistemas el instalador — está en el share interno,{' '}
-          <code>\\SRV-DOCUMENTOS\SISTEMAS$\DESARROLLO CyV\Bot Tarifas - Instalador\</code>. Doble clic y queda
-          instalado, sin pedir nada más.
+          tipo de carga y generales) en todas las sucursales.
         </div>
         <div className="row" style={{ marginTop: 10 }}>
           <div className="field">
