@@ -135,6 +135,11 @@ export function BotTarifasPage() {
           tipo de carga y generales) en todas las sucursales. Corre en esta PC — hace falta tener instalado el
           conector (bot) una sola vez.
         </div>
+        <div className="hint" style={{ marginBottom: 10 }}>
+          ¿Primera vez en esta PC? Pedile a Sistemas el instalador — está en el share interno,{' '}
+          <code>\\SRV-DOCUMENTOS\SISTEMAS$\DESARROLLO CyV\Bot Tarifas - Instalador\</code>. Doble clic y queda
+          instalado, sin pedir nada más.
+        </div>
         <div className="row" style={{ marginTop: 10 }}>
           <div className="field">
             <label>Porcentaje de aumento</label>
