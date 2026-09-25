@@ -285,4 +285,5 @@ export interface TarifaBotAjuste extends BaseRecord {
   basicas?: Record<string, SucursalTarifaAjuste>;
   error?: string;
   ejecutado_por?: string;
+  entorno?: 'test' | 'produccion' | '';
 }

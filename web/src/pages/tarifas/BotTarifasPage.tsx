@@ -187,7 +187,7 @@ export function BotTarifasPage() {
           <table>
             <thead>
               <tr>
-                <th></th><th>Fecha</th><th>Ejecutado por</th><th className="num">Porcentaje</th><th>Resultado</th>
+                <th></th><th>Fecha</th><th>Ejecutado por</th><th className="num">Porcentaje</th><th>Entorno</th><th>Resultado</th>
               </tr>
             </thead>
             <tbody>
@@ -203,6 +203,15 @@ export function BotTarifasPage() {
                       <td>{h.ejecutado_por || '—'}</td>
                       <td className="num">{h.porcentaje}%</td>
                       <td>
+                        {h.entorno === 'produccion' ? (
+                          <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Producción</span>
+                        ) : h.entorno === 'test' ? (
+                          <span className="badge" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}>Test</span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>
                         {h.exito ? (
                           <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>OK</span>
                         ) : (
@@ -212,7 +221,7 @@ export function BotTarifasPage() {
                     </tr>
                     <tr className={`detail-row${open ? ' open' : ''}`}>
                       <td></td>
-                      <td colSpan={4}>
+                      <td colSpan={5}>
                         {h.error && <div style={{ color: 'var(--err)', marginBottom: 8 }}>{h.error}</div>}
                         {sucursales.length > 0 && (
                           <div className="detail-grid">
