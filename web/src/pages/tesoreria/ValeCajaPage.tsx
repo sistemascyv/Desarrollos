@@ -7,6 +7,12 @@ import { useConfirm } from '../../lib/ConfirmContext';
 import { importeEnLetras } from '../../lib/numeroEnLetras';
 import type { Chofer, ValeCaja } from '../../types';
 
+const MONEDA_INFO: Record<ValeCaja['moneda'], { palabra: string; simbolo: string }> = {
+  ARS: { palabra: 'pesos argentinos', simbolo: 'Son $' },
+  BRL: { palabra: 'reales', simbolo: 'Son R$' },
+  USD: { palabra: 'dólares estadounidenses', simbolo: 'Son U$S' },
+};
+
 export function ValeCajaPage() {
   const toast = useToast();
   const { isAdmin } = useAuth();
@@ -18,7 +24,7 @@ export function ValeCajaPage() {
   const [choferId, setChoferId] = useState('');
   const [fecha, setFecha] = useState(() => isoDate(new Date()));
   const [importe, setImporte] = useState('');
-  const [moneda, setMoneda] = useState<'ARS' | 'BRL'>('ARS');
+  const [moneda, setMoneda] = useState<ValeCaja['moneda']>('ARS');
   const [observacion1, setObservacion1] = useState('');
   const [observacion2, setObservacion2] = useState('');
   const [nombreFirma, setNombreFirma] = useState('');
@@ -158,9 +164,10 @@ export function ValeCajaPage() {
           </div>
           <div className="field">
             <label>Moneda</label>
-            <select value={moneda} onChange={(e) => setMoneda(e.target.value as 'ARS' | 'BRL')} disabled={!!ultimoCreado}>
+            <select value={moneda} onChange={(e) => setMoneda(e.target.value as ValeCaja['moneda'])} disabled={!!ultimoCreado}>
               <option value="ARS">Pesos Argentinos</option>
               <option value="BRL">Reales</option>
+              <option value="USD">Dólares</option>
             </select>
           </div>
         </div>
@@ -252,13 +259,13 @@ export function ValeCajaPage() {
             <div>{fechaSola(paraImprimir.fecha)}</div>
           </div>
           <div style={{ marginTop: 16 }}>
-            la cantidad de {paraImprimir.moneda === 'BRL' ? 'reales' : 'pesos argentinos'}{' '}
+            la cantidad de {MONEDA_INFO[paraImprimir.moneda].palabra}{' '}
             {importeEnLetras(paraImprimir.importe).toLowerCase()}
           </div>
           <div style={{ borderBottom: '1px solid #000', marginTop: 24, paddingBottom: 2 }}>{paraImprimir.observacion1}</div>
           <div style={{ borderBottom: '1px solid #000', marginTop: 20, paddingBottom: 2 }}>{paraImprimir.observacion2}</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 30 }}>
-            <div>{paraImprimir.moneda === 'BRL' ? 'Son R$' : 'Son $'} {paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div>{MONEDA_INFO[paraImprimir.moneda].simbolo} {paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ borderBottom: '1px solid #000', width: 200 }}>&nbsp;</div>
               {paraImprimir.nombre_firma}
