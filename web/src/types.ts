@@ -16,7 +16,7 @@ export interface ValeCaja extends BaseRecord {
   numero: number;
   fecha: string;
   chofer: string;
-  nombre_firma: string;
+  nombre_firma?: string;
   importe: number;
   moneda: 'ARS' | 'BRL' | 'USD';
   observacion1?: string;

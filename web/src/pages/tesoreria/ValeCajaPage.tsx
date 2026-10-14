@@ -4,36 +4,58 @@ import { useToast } from '../../lib/ToastContext';
 import { isoDate, fechaSola } from '../../lib/format';
 import { useAuth } from '../../lib/AuthContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import { importeEnLetras } from '../../lib/numeroEnLetras';
 import type { Chofer, ValeCaja } from '../../types';
 
-const MONEDA_INFO: Record<ValeCaja['moneda'], { palabra: string; simbolo: string }> = {
-  ARS: { palabra: 'pesos argentinos', simbolo: 'Son $' },
-  BRL: { palabra: 'reales', simbolo: 'Son R$' },
-  USD: { palabra: 'dólares estadounidenses', simbolo: 'Son U$S' },
-};
+type ValeConChofer = ValeCaja & { expand?: { chofer?: Chofer } };
+
+function CasillasFecha({ fecha }: { fecha: string }) {
+  const [anio, mes, dia] = (fecha || '').slice(0, 10).split('-');
+  const casillas = [
+    { etiqueta: 'DÍA', valor: dia },
+    { etiqueta: 'MES', valor: mes },
+    { etiqueta: 'AÑO', valor: anio?.slice(-2) },
+  ];
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {casillas.map((c) => (
+        <div key={c.etiqueta} style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 9 }}>{c.etiqueta}</div>
+          <div style={{ border: '1px solid #000', width: 28, height: 22, lineHeight: '22px' }}>{c.valor}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MembreteImpreso() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <img src="/vale-logo.jpg" alt="" style={{ height: 50 }} />
+      <div>
+        <div style={{ fontSize: 11, letterSpacing: 1 }}>transporte</div>
+        <div style={{ fontSize: 10, color: '#333' }}>SAN LORENZO 31<br />2400 SAN FRANCISCO (Cba.)</div>
+      </div>
+    </div>
+  );
+}
 
 export function ValeCajaPage() {
   const toast = useToast();
   const { isAdmin } = useAuth();
   const confirm = useConfirm();
-  const [historial, setHistorial] = useState<(ValeCaja & { expand?: { chofer?: Chofer } })[]>([]);
+  const [historial, setHistorial] = useState<ValeConChofer[]>([]);
   const [filtroChofer, setFiltroChofer] = useState('');
 
   const [choferes, setChoferes] = useState<Chofer[]>([]);
   const [choferId, setChoferId] = useState('');
   const [fecha, setFecha] = useState(() => isoDate(new Date()));
   const [importe, setImporte] = useState('');
-  const [moneda, setMoneda] = useState<ValeCaja['moneda']>('ARS');
-  const [observacion1, setObservacion1] = useState('');
-  const [observacion2, setObservacion2] = useState('');
-  const [nombreFirma, setNombreFirma] = useState('');
-  const [nombreFirmaTocado, setNombreFirmaTocado] = useState(false);
+  const [concepto, setConcepto] = useState('');
   const [guardando, setGuardando] = useState(false);
-  const [ultimoCreado, setUltimoCreado] = useState<ValeCaja | null>(null);
-  const [paraImprimir, setParaImprimir] = useState<(ValeCaja & { expand?: { chofer?: Chofer } }) | null>(null);
+  const [ultimoCreado, setUltimoCreado] = useState<ValeConChofer | null>(null);
+  const [paraImprimir, setParaImprimir] = useState<ValeConChofer | null>(null);
 
-  function imprimir(v: ValeCaja & { expand?: { chofer?: Chofer } }) {
+  function imprimir(v: ValeConChofer) {
     setParaImprimir(v);
     document.body.classList.add('imprimiendo-vale');
     const estiloPagina = document.createElement('style');
@@ -59,7 +81,7 @@ export function ValeCajaPage() {
   async function cargarHistorial() {
     try {
       const filtro = filtroChofer ? pb.filter('chofer = {:c}', { c: filtroChofer }) : '';
-      const items = await pb.collection('vales_caja').getList<ValeCaja & { expand?: { chofer?: Chofer } }>(1, 50, {
+      const items = await pb.collection('vales_caja').getList<ValeConChofer>(1, 50, {
         filter: filtro, sort: '-numero', expand: 'chofer',
       });
       setHistorial(items.items);
@@ -73,23 +95,11 @@ export function ValeCajaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroChofer]);
 
-  function elegirChofer(id: string) {
-    setChoferId(id);
-    if (!nombreFirmaTocado) {
-      const c = choferes.find((x) => x.id === id);
-      if (c) setNombreFirma(c.nombre);
-    }
-  }
-
   function limpiar() {
     setChoferId('');
     setFecha(isoDate(new Date()));
     setImporte('');
-    setMoneda('ARS');
-    setObservacion1('');
-    setObservacion2('');
-    setNombreFirma('');
-    setNombreFirmaTocado(false);
+    setConcepto('');
     setUltimoCreado(null);
   }
 
@@ -120,17 +130,15 @@ export function ValeCajaPage() {
     if (!choferId) { toast('Elegí un chofer.', 'warn'); return; }
     if (!fecha) { toast('Elegí una fecha.', 'warn'); return; }
     if (!valor || valor <= 0) { toast('El importe tiene que ser mayor a cero.', 'warn'); return; }
-    if (!nombreFirma.trim()) { toast('Falta el nombre de quien firma.', 'warn'); return; }
 
     setGuardando(true);
     try {
       const creado = await pb.collection('vales_caja').create<ValeCaja>({
-        fecha, chofer: choferId, importe: valor, moneda,
-        observacion1: observacion1.trim() || undefined,
-        observacion2: observacion2.trim() || undefined,
-        nombre_firma: nombreFirma.trim(),
+        fecha, chofer: choferId, importe: valor, moneda: 'ARS',
+        observacion1: concepto.trim() || undefined,
       });
-      setUltimoCreado(creado);
+      const choferElegido = choferes.find((c) => c.id === choferId);
+      setUltimoCreado({ ...creado, expand: { chofer: choferElegido } });
       toast(`Vale de Caja N° ${creado.numero} guardado.`, 'ok');
       cargarHistorial();
     } catch (e) {
@@ -144,12 +152,12 @@ export function ValeCajaPage() {
     <main>
       <div className="card">
         <h2 style={{ margin: 0 }}>Vale de Caja</h2>
-        <div className="hint">Pago en efectivo a un chofer. Recibí de Carossio Vairolatti y Cía SRL.</div>
+        <div className="hint">Pago en efectivo a un chofer.</div>
 
         <div className="row" style={{ marginTop: 14, flexWrap: 'wrap' }}>
           <div className="field">
             <label>Chofer</label>
-            <select value={choferId} onChange={(e) => elegirChofer(e.target.value)} disabled={!!ultimoCreado}>
+            <select value={choferId} onChange={(e) => setChoferId(e.target.value)} disabled={!!ultimoCreado}>
               <option value="">Elegir...</option>
               {choferes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
@@ -162,35 +170,12 @@ export function ValeCajaPage() {
             <label>Importe</label>
             <input inputMode="decimal" placeholder="ej: 50000" value={importe} onChange={(e) => setImporte(e.target.value)} disabled={!!ultimoCreado} style={{ width: 120 }} />
           </div>
-          <div className="field">
-            <label>Moneda</label>
-            <select value={moneda} onChange={(e) => setMoneda(e.target.value as ValeCaja['moneda'])} disabled={!!ultimoCreado}>
-              <option value="ARS">Pesos Argentinos</option>
-              <option value="BRL">Reales</option>
-              <option value="USD">Dólares</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
-          <div className="field" style={{ flex: 1, minWidth: 260 }}>
-            <label>Observación 1</label>
-            <input value={observacion1} onChange={(e) => setObservacion1(e.target.value)} disabled={!!ultimoCreado} />
-          </div>
-          <div className="field" style={{ flex: 1, minWidth: 260 }}>
-            <label>Observación 2</label>
-            <input value={observacion2} onChange={(e) => setObservacion2(e.target.value)} disabled={!!ultimoCreado} />
-          </div>
         </div>
 
         <div className="row" style={{ marginTop: 10 }}>
           <div className="field" style={{ flex: 1, minWidth: 260 }}>
-            <label>Nombre y Firma</label>
-            <input
-              value={nombreFirma}
-              onChange={(e) => { setNombreFirma(e.target.value); setNombreFirmaTocado(true); }}
-              disabled={!!ultimoCreado}
-            />
+            <label>Concepto</label>
+            <input value={concepto} onChange={(e) => setConcepto(e.target.value)} disabled={!!ultimoCreado} placeholder="ej: Gastos de viaje a Uruguay" />
           </div>
         </div>
 
@@ -251,24 +236,36 @@ export function ValeCajaPage() {
       </div>
       {paraImprimir && (
         <div id="vale-imprimible">
-          <div style={{ textAlign: 'right', fontWeight: 700, marginBottom: 20 }}>
-            VALE DE CAJA N° {String(paraImprimir.numero).padStart(4, '0')}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <MembreteImpreso />
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>N° {String(paraImprimir.numero).padStart(4, '0')}</div>
+              <CasillasFecha fecha={paraImprimir.fecha} />
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div>Recibí de Carossio Vairolatti y Cía SRL</div>
-            <div>{fechaSola(paraImprimir.fecha)}</div>
+
+          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 22, textDecoration: 'underline', marginTop: 20, marginBottom: 20 }}>
+            VALE DE CAJA
           </div>
-          <div style={{ marginTop: 16 }}>
-            la cantidad de {MONEDA_INFO[paraImprimir.moneda].palabra}{' '}
-            {importeEnLetras(paraImprimir.importe).toLowerCase()}
+
+          <div style={{ marginTop: 14 }}>
+            A favor de <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.expand?.chofer?.nombre}&nbsp;</span>
           </div>
-          <div style={{ borderBottom: '1px solid #000', marginTop: 24, paddingBottom: 2 }}>{paraImprimir.observacion1}</div>
-          <div style={{ borderBottom: '1px solid #000', marginTop: 20, paddingBottom: 2 }}>{paraImprimir.observacion2}</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 30 }}>
-            <div>{MONEDA_INFO[paraImprimir.moneda].simbolo} {paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div style={{ marginTop: 14 }}>
+            Por $ <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&nbsp;</span>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            CONCEPTO: <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.observacion1}&nbsp;</span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 50 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ borderBottom: '1px solid #000', width: 200 }}>&nbsp;</div>
-              {paraImprimir.nombre_firma}
+              <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
+              Firma
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
+              Firma Autorizada
             </div>
           </div>
         </div>
