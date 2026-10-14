@@ -39,7 +39,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!pb.authStore.isValid) return;
+    if (!pb.authStore.token) return; // nunca se logueó en esta PC -- nada que limpiar ni refrescar
+    if (!pb.authStore.isValid) {
+      // Token vencido: antes esto cortaba acá sin limpiar nada, dejando
+      // "usuario" cacheado como si siguiera logueado -- isAuthed quedaba
+      // true para siempre con un token muerto, y cada pedido a PocketBase
+      // volvía 200 OK con 0 resultados (la regla de acceso lo trata como
+      // no autenticado) en vez de mandar al login.
+      pb.authStore.clear();
+      return;
+    }
     // Los datos del usuario (rol, módulos) quedan cacheados en el navegador
     // desde el login. Al abrir la app pedimos una versión fresca al servidor
     // para que los cambios de un admin (agregar/quitar módulos, rol, activo)
