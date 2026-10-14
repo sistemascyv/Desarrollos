@@ -8,6 +8,12 @@ import type { Recibo } from '../../types';
 
 const RECIBIDO_DE_DEFAULT = 'Carossio Vairolatti y Cía SRL';
 
+// Precarga el logo del membrete apenas carga el módulo: window.print() dispara
+// 50ms después de montar el div de impresión, y Chrome no espera de forma
+// confiable una imagen recién pedida en ese momento -- el primer impreso de
+// la sesión podía salir sin logo.
+new Image().src = '/vale-logo.jpg';
+
 function CasillasFecha({ fecha }: { fecha: string }) {
   const [anio, mes, dia] = (fecha || '').slice(0, 10).split('-');
   const casillas = [
