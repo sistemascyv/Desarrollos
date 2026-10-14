@@ -25,6 +25,16 @@ export interface ValeCaja extends BaseRecord {
   creado_por?: string;
 }
 
+export interface Recibo extends BaseRecord {
+  numero: number;
+  fecha: string;
+  recibido_de: string;
+  importe: number;
+  moneda: 'ARS' | 'USD';
+  concepto?: string;
+  creado_por?: string;
+}
+
 export interface Vehiculo extends BaseRecord {
   codigo: string;
   patente?: string;
@@ -262,6 +272,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'control_cheques', label: 'Control de Cheques', group: 'TESORERIA', path: 'finanzas/control-cheques' },
   { id: 'central_deudores', label: 'Central de Deudores', group: 'TESORERIA', path: 'finanzas/central-deudores' },
   { id: 'vale_caja', label: 'Vale de Caja', group: 'TESORERIA', path: 'finanzas/vale-de-caja' },
+  { id: 'recibos', label: 'Recibos', group: 'TESORERIA', path: 'finanzas/recibos' },
   { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'MANTENIMIENTO', path: 'flota/consumo-combustible' },
   { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'MANTENIMIENTO', path: 'flota/panel-cubiertas' },
   { id: 'flota_posicion', label: 'Posición de Flota', group: 'MANTENIMIENTO', path: 'flota/posicion' },

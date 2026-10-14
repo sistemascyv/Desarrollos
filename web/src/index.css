@@ -1012,3 +1012,29 @@ body.imprimiendo-vale #vale-imprimible {
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
+
+#recibo-imprimible {
+  display: none;
+}
+
+body.imprimiendo-recibo * {
+  visibility: hidden;
+}
+body.imprimiendo-recibo #recibo-imprimible,
+body.imprimiendo-recibo #recibo-imprimible * {
+  visibility: visible;
+}
+body.imprimiendo-recibo #recibo-imprimible {
+  display: block !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 210mm;
+  height: 148mm;
+  padding: 14mm;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  font-size: 17px;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
