@@ -1004,22 +1004,23 @@ body.imprimiendo-vale #vale-imprimible {
   top: 0;
   left: 0;
   width: 210mm;
-  height: 297mm;
   font-family: Arial, sans-serif;
   font-size: 17px;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
-/* Dos copias (ORIGINAL arriba, DUPLICADO abajo) en la misma hoja A4 --
-   148mm x 2 = 296mm, entra justo en una hoja de 297mm. */
+/* Dos copias (ORIGINAL y DUPLICADO), cada una en su propia hoja de
+   210mm x 148mm -- acá se imprime en medias hojas de A4, no en una A4
+   entera, así que cada copia tiene que salir como una página aparte. */
 #vale-imprimible .copia-imprimible {
   width: 210mm;
   height: 148mm;
   padding: 14mm;
   box-sizing: border-box;
 }
-#vale-imprimible .copia-imprimible + .copia-imprimible {
-  border-top: 1px dashed #999;
+#vale-imprimible .copia-imprimible:first-child {
+  page-break-after: always;
+  break-after: page;
 }
 
 #recibo-imprimible {
@@ -1039,20 +1040,21 @@ body.imprimiendo-recibo #recibo-imprimible {
   top: 0;
   left: 0;
   width: 210mm;
-  height: 297mm;
   font-family: Arial, sans-serif;
   font-size: 17px;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
-/* Dos copias (ORIGINAL arriba, DUPLICADO abajo) en la misma hoja A4 --
-   148mm x 2 = 296mm, entra justo en una hoja de 297mm. */
+/* Dos copias (ORIGINAL y DUPLICADO), cada una en su propia hoja de
+   210mm x 148mm -- acá se imprime en medias hojas de A4, no en una A4
+   entera, así que cada copia tiene que salir como una página aparte. */
 #recibo-imprimible .copia-imprimible {
   width: 210mm;
   height: 148mm;
   padding: 14mm;
   box-sizing: border-box;
 }
-#recibo-imprimible .copia-imprimible + .copia-imprimible {
-  border-top: 1px dashed #999;
+#recibo-imprimible .copia-imprimible:first-child {
+  page-break-after: always;
+  break-after: page;
 }
