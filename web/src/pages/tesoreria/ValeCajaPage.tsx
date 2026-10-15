@@ -104,7 +104,7 @@ export function ValeCajaPage() {
     setParaImprimir(v);
     document.body.classList.add('imprimiendo-vale');
     const estiloPagina = document.createElement('style');
-    estiloPagina.textContent = '@media print { @page { size: 210mm 148mm; margin: 0; } }';
+    estiloPagina.textContent = '@media print { @page { size: A4 portrait; margin: 0; } }';
     document.head.appendChild(estiloPagina);
     setTimeout(() => {
       try {
