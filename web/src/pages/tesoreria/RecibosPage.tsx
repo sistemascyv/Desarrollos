@@ -36,7 +36,7 @@ function CasillasFecha({ fecha }: { fecha: string }) {
 function MembreteImpreso() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <img src="/vale-logo.jpg" alt="" style={{ height: 50 }} />
+      <img src="/vale-logo.jpg" alt="" style={{ height: 90 }} />
       <div>
         <div style={{ fontSize: 11, letterSpacing: 1 }}>transporte</div>
         <div style={{ fontSize: 10, color: '#333' }}>SAN LORENZO 31<br />2400 SAN FRANCISCO (Cba.)</div>
@@ -221,8 +221,10 @@ export function RecibosPage() {
             </div>
           </div>
 
-          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 22, textDecoration: 'underline', marginTop: 20, marginBottom: 20 }}>
-            RECIBO
+          <div style={{ textAlign: 'center', marginTop: 20, marginBottom: 20 }}>
+            <span style={{ display: 'inline-block', border: '2px solid #000', padding: '4px 24px', fontWeight: 700, fontSize: 22 }}>
+              RECIBO
+            </span>
           </div>
 
           <div style={{ marginTop: 14 }}>
