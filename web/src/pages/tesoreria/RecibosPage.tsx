@@ -36,9 +36,8 @@ function CasillasFecha({ fecha }: { fecha: string }) {
 function MembreteImpreso() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <img src="/vale-logo.jpg" alt="" style={{ height: 90 }} />
+      <img src="/vale-logo.jpg" alt="" style={{ height: 120 }} />
       <div>
-        <div style={{ fontSize: 11, letterSpacing: 1 }}>transporte</div>
         <div style={{ fontSize: 10, color: '#333' }}>SAN LORENZO 31<br />2400 SAN FRANCISCO (Cba.)</div>
       </div>
     </div>
