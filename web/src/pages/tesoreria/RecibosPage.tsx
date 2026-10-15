@@ -167,6 +167,7 @@ export function RecibosPage() {
       setUltimoCreado(creado);
       toast(`Recibo N° ${creado.numero} guardado.`, 'ok');
       cargarHistorial();
+      imprimir(creado);
     } catch (e) {
       toast('No se pudo guardar el recibo: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {

@@ -183,9 +183,11 @@ export function ValeCajaPage() {
         observacion1: concepto.trim() || undefined,
       });
       const choferElegido = choferes.find((c) => c.id === choferId);
-      setUltimoCreado({ ...creado, expand: { chofer: choferElegido } });
+      const creadoConChofer = { ...creado, expand: { chofer: choferElegido } };
+      setUltimoCreado(creadoConChofer);
       toast(`Vale de Caja N° ${creado.numero} guardado.`, 'ok');
       cargarHistorial();
+      imprimir(creadoConChofer);
     } catch (e) {
       toast('No se pudo guardar el vale: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
