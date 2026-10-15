@@ -1004,13 +1004,22 @@ body.imprimiendo-vale #vale-imprimible {
   top: 0;
   left: 0;
   width: 210mm;
-  height: 148mm;
-  padding: 14mm;
-  box-sizing: border-box;
+  height: 297mm;
   font-family: Arial, sans-serif;
   font-size: 17px;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+}
+/* Dos copias (ORIGINAL arriba, DUPLICADO abajo) en la misma hoja A4 --
+   148mm x 2 = 296mm, entra justo en una hoja de 297mm. */
+#vale-imprimible .copia-imprimible {
+  width: 210mm;
+  height: 148mm;
+  padding: 14mm;
+  box-sizing: border-box;
+}
+#vale-imprimible .copia-imprimible + .copia-imprimible {
+  border-top: 1px dashed #999;
 }
 
 #recibo-imprimible {
@@ -1030,11 +1039,20 @@ body.imprimiendo-recibo #recibo-imprimible {
   top: 0;
   left: 0;
   width: 210mm;
-  height: 148mm;
-  padding: 14mm;
-  box-sizing: border-box;
+  height: 297mm;
   font-family: Arial, sans-serif;
   font-size: 17px;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+}
+/* Dos copias (ORIGINAL arriba, DUPLICADO abajo) en la misma hoja A4 --
+   148mm x 2 = 296mm, entra justo en una hoja de 297mm. */
+#recibo-imprimible .copia-imprimible {
+  width: 210mm;
+  height: 148mm;
+  padding: 14mm;
+  box-sizing: border-box;
+}
+#recibo-imprimible .copia-imprimible + .copia-imprimible {
+  border-top: 1px dashed #999;
 }

@@ -44,6 +44,48 @@ function MembreteImpreso() {
   );
 }
 
+function CopiaRecibo({ r, etiqueta }: { r: Recibo; etiqueta: string }) {
+  return (
+    <div className="copia-imprimible">
+      <div style={{ textAlign: 'right', fontSize: 10, letterSpacing: 2, marginBottom: 4 }}>{etiqueta}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <MembreteImpreso />
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>N° {String(r.numero).padStart(4, '0')}</div>
+          <CasillasFecha fecha={r.fecha} />
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', marginTop: 20, marginBottom: 20 }}>
+        <span style={{ display: 'inline-block', border: '2px solid #000', padding: '4px 24px', fontWeight: 700, fontSize: 22 }}>
+          RECIBO
+        </span>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        Recibí de <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{r.recibido_de}&nbsp;</span>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        Por {r.moneda === 'USD' ? 'U$S' : '$'} <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{r.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&nbsp;</span>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        CONCEPTO: <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{r.concepto}&nbsp;</span>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 50 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
+          Firma
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
+          Firma Autorizada
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function RecibosPage() {
   const toast = useToast();
   const { isAdmin } = useAuth();
@@ -212,40 +254,8 @@ export function RecibosPage() {
       </div>
       {paraImprimir && (
         <div id="recibo-imprimible">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <MembreteImpreso />
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>N° {String(paraImprimir.numero).padStart(4, '0')}</div>
-              <CasillasFecha fecha={paraImprimir.fecha} />
-            </div>
-          </div>
-
-          <div style={{ textAlign: 'center', marginTop: 20, marginBottom: 20 }}>
-            <span style={{ display: 'inline-block', border: '2px solid #000', padding: '4px 24px', fontWeight: 700, fontSize: 22 }}>
-              RECIBO
-            </span>
-          </div>
-
-          <div style={{ marginTop: 14 }}>
-            Recibí de <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.recibido_de}&nbsp;</span>
-          </div>
-          <div style={{ marginTop: 14 }}>
-            Por {paraImprimir.moneda === 'USD' ? 'U$S' : '$'} <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&nbsp;</span>
-          </div>
-          <div style={{ marginTop: 14 }}>
-            CONCEPTO: <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.concepto}&nbsp;</span>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 50 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
-              Firma
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
-              Firma Autorizada
-            </div>
-          </div>
+          <CopiaRecibo r={paraImprimir} etiqueta="ORIGINAL" />
+          <CopiaRecibo r={paraImprimir} etiqueta="DUPLICADO" />
         </div>
       )}
     </main>

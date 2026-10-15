@@ -44,6 +44,46 @@ function MembreteImpreso() {
   );
 }
 
+function CopiaVale({ v, etiqueta }: { v: ValeConChofer; etiqueta: string }) {
+  return (
+    <div className="copia-imprimible">
+      <div style={{ textAlign: 'right', fontSize: 10, letterSpacing: 2, marginBottom: 4 }}>{etiqueta}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <MembreteImpreso />
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>N° {String(v.numero).padStart(4, '0')}</div>
+          <CasillasFecha fecha={v.fecha} />
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 22, textDecoration: 'underline', marginTop: 20, marginBottom: 20 }}>
+        VALE DE CAJA
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        A favor de <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{v.expand?.chofer?.nombre}&nbsp;</span>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        Por $ <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{v.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&nbsp;</span>
+      </div>
+      <div style={{ marginTop: 14 }}>
+        CONCEPTO: <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{v.observacion1}&nbsp;</span>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 50 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
+          Firma
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
+          Firma Autorizada
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ValeCajaPage() {
   const toast = useToast();
   const { isAdmin } = useAuth();
@@ -241,38 +281,8 @@ export function ValeCajaPage() {
       </div>
       {paraImprimir && (
         <div id="vale-imprimible">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <MembreteImpreso />
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>N° {String(paraImprimir.numero).padStart(4, '0')}</div>
-              <CasillasFecha fecha={paraImprimir.fecha} />
-            </div>
-          </div>
-
-          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 22, textDecoration: 'underline', marginTop: 20, marginBottom: 20 }}>
-            VALE DE CAJA
-          </div>
-
-          <div style={{ marginTop: 14 }}>
-            A favor de <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.expand?.chofer?.nombre}&nbsp;</span>
-          </div>
-          <div style={{ marginTop: 14 }}>
-            Por $ <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.importe.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}&nbsp;</span>
-          </div>
-          <div style={{ marginTop: 14 }}>
-            CONCEPTO: <span style={{ borderBottom: '1px dotted #000', paddingBottom: 2 }}>&nbsp;{paraImprimir.observacion1}&nbsp;</span>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 50 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
-              Firma
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ borderBottom: '1px solid #000', width: 180 }}>&nbsp;</div>
-              Firma Autorizada
-            </div>
-          </div>
+          <CopiaVale v={paraImprimir} etiqueta="ORIGINAL" />
+          <CopiaVale v={paraImprimir} etiqueta="DUPLICADO" />
         </div>
       )}
     </main>
