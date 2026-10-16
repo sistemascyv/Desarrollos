@@ -284,3 +284,66 @@ export function parsearTxtReloj(texto: string, nombreArchivo: string): MarcaPars
   }
   return out;
 }
+
+// ---------- Estadística de Horas Extras (agrupado por área y mes) ----------
+
+export interface EstadisticaAreaMes {
+  dotacion: number;
+  hs: number; // horas (no minutos)
+  hsTotalMes: number; // horas de TODAS las áreas ese mismo mes
+  porcentaje: number; // hs / (dotacion * horasPosiblesMensuales), 0 si dotacion=0
+  hsPorPersona: number; // hs / dotacion, 0 si dotacion=0
+}
+
+export interface FilaEstadisticaArea {
+  area: string;
+  meses: EstadisticaAreaMes[]; // 12 posiciones, índice 0=enero .. 11=diciembre
+  promedioHs: number;
+  totalHs: number;
+}
+
+export function calcularEstadisticaHorasExtras(params: {
+  resultados: ResultadoDia[];
+  areas: string[]; // nombres de área a incluir, en el orden a mostrar
+  dotacionPorArea: Map<string, number>;
+  horasPosiblesMensuales: number;
+}): { filas: FilaEstadisticaArea[]; total: FilaEstadisticaArea } {
+  const { resultados, areas, dotacionPorArea, horasPosiblesMensuales } = params;
+
+  const hsPorAreaMes = new Map<string, number[]>(); // minutos acumulados
+  areas.forEach((a) => hsPorAreaMes.set(a, new Array(12).fill(0)));
+  const hsTotalPorMesMin = new Array(12).fill(0);
+
+  resultados.forEach((r) => {
+    const mesIndex = Number(r.fecha.slice(5, 7)) - 1;
+    if (mesIndex < 0 || mesIndex > 11) return;
+    hsTotalPorMesMin[mesIndex] += r.hE;
+    if (!hsPorAreaMes.has(r.area)) hsPorAreaMes.set(r.area, new Array(12).fill(0));
+    hsPorAreaMes.get(r.area)![mesIndex] += r.hE;
+  });
+
+  function calcularFila(area: string, dotacion: number, minutosPorMes: number[]): FilaEstadisticaArea {
+    const meses: EstadisticaAreaMes[] = minutosPorMes.map((min, i) => {
+      const hs = min / 60;
+      const hsTotalMes = hsTotalPorMesMin[i] / 60;
+      const porcentaje = dotacion > 0 ? hs / (dotacion * horasPosiblesMensuales) : 0;
+      const hsPorPersona = dotacion > 0 ? hs / dotacion : 0;
+      return { dotacion, hs, hsTotalMes, porcentaje, hsPorPersona };
+    });
+    const totalHs = meses.reduce((a, m) => a + m.hs, 0);
+    const promedioHs = totalHs / 12;
+    return { area, meses, promedioHs, totalHs };
+  }
+
+  const filas = areas.map((area) => calcularFila(area, dotacionPorArea.get(area) || 0, hsPorAreaMes.get(area) || new Array(12).fill(0)));
+
+  const dotacionTotal = areas.reduce((acc, area) => acc + (dotacionPorArea.get(area) || 0), 0);
+  const minutosPorMesTotal = new Array(12).fill(0);
+  areas.forEach((area) => {
+    const arr = hsPorAreaMes.get(area) || [];
+    arr.forEach((min, i) => { minutosPorMesTotal[i] += min; });
+  });
+  const total = calcularFila('TOTAL', dotacionTotal, minutosPorMesTotal);
+
+  return { filas, total };
+}
