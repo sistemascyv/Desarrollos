@@ -30,6 +30,7 @@ export function EstadisticasTab() {
   const [totalHorasExtras, setTotalHorasExtras] = useState<FilaEstadisticaArea | null>(null);
   const [filasAusentismo, setFilasAusentismo] = useState<FilaEstadisticaCausa[] | null>(null);
   const [totalAusentismo, setTotalAusentismo] = useState<FilaEstadisticaCausa | null>(null);
+  const [ultimaFechaConDatos, setUltimaFechaConDatos] = useState<string | null>(null);
 
   useEffect(() => {
     pb.collection('fichadas_configuracion').getFullList<FichadasConfiguracion>()
@@ -97,8 +98,12 @@ export function EstadisticasTab() {
       setFilasHorasExtras(fHE);
       setTotalHorasExtras(tHE);
 
+      const ultimaConDatos = marcas.length ? marcas.reduce((max, m) => (m.fecha > max ? m.fecha : max), marcas[0].fecha) : null;
+      setUltimaFechaConDatos(ultimaConDatos);
+
       const { filas: fAus, total: tAus } = calcularEstadisticaAusentismo({
         resultados, dotacionTotal, horasPosiblesMensuales: n, mesesTranscurridos,
+        ultimaFechaConDatos: ultimaConDatos || undefined,
       });
       setFilasAusentismo(fAus);
       setTotalAusentismo(tAus);
@@ -179,6 +184,11 @@ export function EstadisticasTab() {
         <button onClick={calcular} disabled={cargando}>{cargando ? 'Calculando…' : 'Calcular'}</button>
       </div>
 
+      {hayDatos && vista === 'ausentismo' && ultimaFechaConDatos && (
+        <div className="hint" style={{ marginTop: 16 }}>
+          Fichadas cargadas hasta el {ultimaFechaConDatos.split('-').reverse().join('/')} — los días sin fichadas importadas todavía no se cuentan como "Sin Justificar".
+        </div>
+      )}
       {hayDatos && (
         <div className="table-wrap" style={{ marginTop: 16 }}>
           <table>

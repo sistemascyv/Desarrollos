@@ -396,8 +396,13 @@ export function calcularEstadisticaAusentismo(params: {
   dotacionTotal: number;
   horasPosiblesMensuales: number;
   mesesTranscurridos?: number;
+  // Última fecha con fichadas reales importadas (el .txt del reloj se sube
+  // a mano, no en tiempo real). Sin esto, cada día entre la última subida
+  // y hoy se contaría como "Sin Justificar" para todo el mundo -- no es
+  // ausentismo, es que todavía no se cargó el archivo del reloj.
+  ultimaFechaConDatos?: string;
 }): { filas: FilaEstadisticaCausa[]; total: FilaEstadisticaCausa } {
-  const { resultados, dotacionTotal, horasPosiblesMensuales, mesesTranscurridos = 12 } = params;
+  const { resultados, dotacionTotal, horasPosiblesMensuales, mesesTranscurridos = 12, ultimaFechaConDatos } = params;
   const causas = [...CAUSAS_AUSENTISMO, CAUSA_SIN_JUSTIFICAR];
 
   const horasPorCausaMes = new Map<string, number[]>();
@@ -405,6 +410,7 @@ export function calcularEstadisticaAusentismo(params: {
 
   resultados.forEach((r) => {
     if (!r.causa || !horasPorCausaMes.has(r.causa)) return;
+    if (r.causa === CAUSA_SIN_JUSTIFICAR && ultimaFechaConDatos && r.fecha > ultimaFechaConDatos) return;
     const mesIndex = Number(r.fecha.slice(5, 7)) - 1;
     if (mesIndex < 0 || mesIndex > 11) return;
     horasPorCausaMes.get(r.causa)![mesIndex] += horasEsperadasDelDia(r);
