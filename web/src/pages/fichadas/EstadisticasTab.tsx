@@ -54,29 +54,34 @@ export function EstadisticasTab() {
   async function calcular() {
     const n = Number(horasPosibles.replace(',', '.'));
     if (!isFinite(n) || n <= 0) { toast('Las horas posibles tienen que ser un número mayor a cero.', 'warn'); return; }
+    const anioActual = new Date().getFullYear();
+    if (!isFinite(anio) || anio < 2000 || anio > anioActual) { toast('Elegí un año válido.', 'warn'); return; }
     setCargando(true);
     try {
+      const hoy = new Date();
       const desde = isoDate(new Date(anio, 0, 1));
-      const hasta = isoDate(new Date(anio, 11, 31));
-      const [legajos, marcas, novedades, feriados, empresas] = await Promise.all([
-        pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ filter: 'estado = true', expand: 'empresa,horario' }),
+      const finDeAnio = new Date(anio, 11, 31);
+      const hasta = isoDate(finDeAnio.getTime() > hoy.getTime() ? hoy : finDeAnio);
+      const mesesTranscurridos = anio < anioActual ? 12 : hoy.getMonth() + 1;
+      const [legajosTodos, marcas, novedades, feriados, empresas] = await Promise.all([
+        pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ expand: 'empresa,horario' }), // sin filtro estado: las horas pasadas de ex-empleados tienen que contarse igual
         pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' }),
       ]);
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
-      const { resultados } = procesarPeriodo({ legajos, marcas, novedades, feriados, empresaNombrePorId, desde, hasta });
+      const { resultados } = procesarPeriodo({ legajos: legajosTodos, marcas, novedades, feriados, empresaNombrePorId, desde, hasta });
 
       const dotacionPorArea = new Map<string, number>();
-      legajos.forEach((l) => {
+      legajosTodos.filter((l) => l.estado).forEach((l) => {
         const nombreArea = l.empresa ? empresaNombrePorId.get(l.empresa) : undefined;
         if (!nombreArea) return;
         dotacionPorArea.set(nombreArea, (dotacionPorArea.get(nombreArea) || 0) + 1);
       });
 
       const { filas: f, total: t } = calcularEstadisticaHorasExtras({
-        resultados, areas: empresas.map((e) => e.nombre), dotacionPorArea, horasPosiblesMensuales: n,
+        resultados, areas: empresas.map((e) => e.nombre), dotacionPorArea, horasPosiblesMensuales: n, mesesTranscurridos,
       });
       setFilas(f);
       setTotal(t);
@@ -118,7 +123,7 @@ export function EstadisticasTab() {
       <div className="row" style={{ marginTop: 14, flexWrap: 'wrap', alignItems: 'end' }}>
         <div className="field">
           <label>Año</label>
-          <input type="number" value={anio} onChange={(e) => setAnio(Number(e.target.value))} style={{ width: 90 }} />
+          <input type="number" min={2015} max={new Date().getFullYear()} value={anio} onChange={(e) => setAnio(Number(e.target.value))} style={{ width: 90 }} />
         </div>
         <div className="field">
           <label>Horas posibles por mes</label>

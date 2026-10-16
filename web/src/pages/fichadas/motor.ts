@@ -307,8 +307,9 @@ export function calcularEstadisticaHorasExtras(params: {
   areas: string[]; // nombres de área a incluir, en el orden a mostrar
   dotacionPorArea: Map<string, number>;
   horasPosiblesMensuales: number;
+  mesesTranscurridos?: number; // 1-12, cantidad de meses sobre los que promediar; default 12 (año completo)
 }): { filas: FilaEstadisticaArea[]; total: FilaEstadisticaArea } {
-  const { resultados, areas, dotacionPorArea, horasPosiblesMensuales } = params;
+  const { resultados, areas, dotacionPorArea, horasPosiblesMensuales, mesesTranscurridos = 12 } = params;
 
   const hsPorAreaMes = new Map<string, number[]>(); // minutos acumulados
   areas.forEach((a) => hsPorAreaMes.set(a, new Array(12).fill(0)));
@@ -331,7 +332,7 @@ export function calcularEstadisticaHorasExtras(params: {
       return { dotacion, hs, hsTotalMes, porcentaje, hsPorPersona };
     });
     const totalHs = meses.reduce((a, m) => a + m.hs, 0);
-    const promedioHs = totalHs / 12;
+    const promedioHs = totalHs / mesesTranscurridos;
     return { area, meses, promedioHs, totalHs };
   }
 
