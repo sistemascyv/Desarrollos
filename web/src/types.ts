@@ -226,6 +226,11 @@ export interface FichadasHorario extends BaseRecord {
   dias: DiaHorario[];
 }
 
+export interface HoraExtraFija {
+  dia: number; // 1=lunes .. 7=domingo, mismo criterio que DiaHorario
+  horas: number;
+}
+
 export interface FichadasLegajo extends BaseRecord {
   nro_legajo?: string;
   nro_tarjeta: string;
@@ -234,6 +239,7 @@ export interface FichadasLegajo extends BaseRecord {
   empresa?: string;
   horario?: string;
   dias_personalizados?: DiaHorario[] | null;
+  horas_extra_fijas?: HoraExtraFija[] | null;
   estado: boolean;
   expand?: { empresa?: FichadasEmpresa; horario?: FichadasHorario };
 }

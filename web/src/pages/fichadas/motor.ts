@@ -187,7 +187,13 @@ export function procesarPeriodo(params: {
       const hN = teoricoTotal > 0 ? Math.min(worked, teoricoTotal) : worked;
       const hEcruda = Math.max(0, worked - teoricoTotal);
       const incremento = incrementoRedondeo(depositoDelDia);
-      const hE = Math.floor(hEcruda / incremento) * incremento;
+      const hECalculada = Math.floor(hEcruda / incremento) * incremento;
+      // Horas extra fijas por acuerdo (ej: Ludeña en Córdoba) -- se suman
+      // siempre para el día de la semana configurado, haya fichado o no
+      // ese día puntual, y sin pasar por el redondeo de arriba (no son
+      // horas derivadas de fichadas reales).
+      const horaFijaDelDia = (legajo.horas_extra_fijas || []).find((h) => h.dia === dia);
+      const hE = hECalculada + (horaFijaDelDia ? horaFijaDelDia.horas * 60 : 0);
 
       const sinNingunaMarca = paresReales.every((p) => p[0] === null && p[1] === null);
       const ausente = trabaja && sinNingunaMarca && !novedad;
