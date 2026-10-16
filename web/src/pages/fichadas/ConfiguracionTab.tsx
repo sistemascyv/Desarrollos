@@ -342,6 +342,7 @@ function HorasFijasSub({ legajos, onChanged }: { legajos: FichadasLegajo[]; onCh
 }
 
 function EditorHorasFijas({ horasIniciales, onGuardar, guardando }: { horasIniciales: HoraExtraFija[]; onGuardar: (horas: HoraExtraFija[]) => void; guardando: boolean }) {
+  const toast = useToast();
   const [valores, setValores] = useState<string[]>(() => DIAS_SEMANA.map((_, i) => {
     const f = horasIniciales.find((h) => h.dia === i + 1);
     return f ? String(f.horas).replace('.', ',') : '';
@@ -353,7 +354,7 @@ function EditorHorasFijas({ horasIniciales, onGuardar, guardando }: { horasInici
       const txt = valores[i].trim();
       if (!txt) continue;
       const n = Number(txt.replace(',', '.'));
-      if (isNaN(n) || n <= 0) continue;
+      if (isNaN(n) || n <= 0) { toast(`Revisá las horas del ${DIAS_SEMANA[i]}.`, 'warn'); return; }
       horas.push({ dia: i + 1, horas: n });
     }
     onGuardar(horas);
