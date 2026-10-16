@@ -27,7 +27,17 @@ export interface ResultadoDia {
   hE: number;
   ausente: boolean;
   novedad: string;
+  causa: string; // '' (no es ausencia), 'Sin Justificar', o una de CAUSAS_AUSENTISMO
 }
+
+// Lista fija, igual a la que ya usaba el Excel de RRHH -- no agregar ni
+// sacar ninguna sin actualizar también la migración del campo `causa`.
+export const CAUSAS_AUSENTISMO: string[] = [
+  'Enfermedad', 'Accidente', 'COVID-19', 'Examen', 'Permiso Gremial', 'Capacitación',
+  'Casamiento', 'Nacimiento', 'Fallecimiento de Familiar', 'Donación de Sangre', 'Mudanza',
+  'Fam. Enfermo', 'Razones Particulares', 'Maternidad', 'Cuarentena', 'PARO', 'Suspendido',
+];
+export const CAUSA_SIN_JUSTIFICAR = 'Sin Justificar';
 
 function jsDayToColumnDia(jsDay: number): number {
   return jsDay === 0 ? 7 : jsDay;
@@ -63,14 +73,14 @@ export function procesarPeriodo(params: {
   const legajoPorTarjeta = new Map<string, FichadasLegajo>();
   legajos.forEach((l) => legajoPorTarjeta.set(l.nro_tarjeta.trim(), l));
 
-  const novedadPorLegajoFecha = new Map<string, string>();
-  novedades.forEach((n) => novedadPorLegajoFecha.set(n.legajo + '|' + n.fecha, n.texto));
+  const novedadPorLegajoFecha = new Map<string, { texto: string; causa: string }>();
+  novedades.forEach((n) => novedadPorLegajoFecha.set(n.legajo + '|' + n.fecha, { texto: n.texto, causa: n.causa || '' }));
   const feriadoPorFecha = new Map<string, string>();
   feriados.forEach((f) => feriadoPorFecha.set(f.fecha, f.nombre || 'Feriado'));
 
   function novedadManual(idLegajo: string, fecha: string): string {
     const m = novedadPorLegajoFecha.get(idLegajo + '|' + fecha);
-    if (m) return m;
+    if (m) return m.texto;
     const f = feriadoPorFecha.get(fecha);
     if (f) return 'FERIADO — ' + f;
     return '';
@@ -206,13 +216,17 @@ export function procesarPeriodo(params: {
 
       const sinNingunaMarca = paresReales.every((p) => p[0] === null && p[1] === null);
       const ausente = trabaja && sinNingunaMarca && !novedad;
+      // Feriados nunca llegan acá con causa (no están en novedadPorLegajoFecha,
+      // solo en feriadoPorFecha) -- quedan afuera de Ausentismo naturalmente.
+      const causaNovedad = novedadPorLegajoFecha.get(idLegajo + '|' + fecha)?.causa || '';
+      const causa = ausente ? CAUSA_SIN_JUSTIFICAR : causaNovedad;
 
       resultados.push({
         idLegajo, nroLegajo: legajo.nro_legajo || '', identificador: legajo.nro_tarjeta,
         nombre: legajo.nombre, dni: legajo.dni || '', area: areaNombre, deposito: depositoDelDia || '—',
         fecha, dia: nombreDia,
         paresEsperados: pares, paresReales,
-        hN, hE, ausente, novedad,
+        hN, hE, ausente, novedad, causa,
       });
     }
   }
@@ -345,6 +359,65 @@ export function calcularEstadisticaHorasExtras(params: {
     arr.forEach((min, i) => { minutosPorMesTotal[i] += min; });
   });
   const total = calcularFila('TOTAL', dotacionTotal, minutosPorMesTotal);
+
+  return { filas, total };
+}
+
+// ---------- Estadística de Ausentismo (agrupado por causa y mes) ----------
+
+export interface EstadisticaCausaMes {
+  horas: number;
+  porcentaje: number; // horas / (dotacionTotal * horasPosiblesMensuales)
+}
+
+export interface FilaEstadisticaCausa {
+  causa: string;
+  meses: EstadisticaCausaMes[]; // 12 posiciones, índice 0=enero .. 11=diciembre
+  promedioHoras: number;
+  totalHoras: number;
+}
+
+function horasEsperadasDelDia(r: ResultadoDia): number {
+  const minutos = r.paresEsperados.reduce((acc, [e, s]) => acc + (s >= e ? s - e : s + 1440 - e), 0);
+  return minutos / 60;
+}
+
+export function calcularEstadisticaAusentismo(params: {
+  resultados: ResultadoDia[];
+  dotacionTotal: number;
+  horasPosiblesMensuales: number;
+  mesesTranscurridos?: number;
+}): { filas: FilaEstadisticaCausa[]; total: FilaEstadisticaCausa } {
+  const { resultados, dotacionTotal, horasPosiblesMensuales, mesesTranscurridos = 12 } = params;
+  const causas = [...CAUSAS_AUSENTISMO, CAUSA_SIN_JUSTIFICAR];
+
+  const horasPorCausaMes = new Map<string, number[]>();
+  causas.forEach((c) => horasPorCausaMes.set(c, new Array(12).fill(0)));
+
+  resultados.forEach((r) => {
+    if (!r.causa || !horasPorCausaMes.has(r.causa)) return;
+    const mesIndex = Number(r.fecha.slice(5, 7)) - 1;
+    if (mesIndex < 0 || mesIndex > 11) return;
+    horasPorCausaMes.get(r.causa)![mesIndex] += horasEsperadasDelDia(r);
+  });
+
+  function calcularFila(causa: string, horasPorMes: number[]): FilaEstadisticaCausa {
+    const meses: EstadisticaCausaMes[] = horasPorMes.map((horas) => {
+      const porcentaje = dotacionTotal > 0 ? horas / (dotacionTotal * horasPosiblesMensuales) : 0;
+      return { horas, porcentaje };
+    });
+    const totalHoras = meses.reduce((a, m) => a + m.horas, 0);
+    const promedioHoras = totalHoras / mesesTranscurridos;
+    return { causa, meses, promedioHoras, totalHoras };
+  }
+
+  const filas = causas.map((c) => calcularFila(c, horasPorCausaMes.get(c)!));
+
+  const horasPorMesTotal = new Array(12).fill(0);
+  causas.forEach((c) => {
+    horasPorCausaMes.get(c)!.forEach((h, i) => { horasPorMesTotal[i] += h; });
+  });
+  const total = calcularFila('TOTAL', horasPorMesTotal);
 
   return { filas, total };
 }

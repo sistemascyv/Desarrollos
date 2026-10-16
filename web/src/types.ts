@@ -259,6 +259,7 @@ export interface FichadasNovedad extends BaseRecord {
   legajo: string;
   fecha: string;
   texto: string;
+  causa?: string;
 }
 
 export interface FichadasFeriado extends BaseRecord {
