@@ -91,6 +91,15 @@ export function procesarPeriodo(params: {
   });
   marcasPorLegajo.forEach((arr) => arr.sort((a, b) => a.abs - b.abs));
 
+  // Legajos con horas extra fijas configuradas tienen que procesarse igual
+  // aunque no tengan ninguna fichada en todo el período (ej: vacaciones) --
+  // las horas fijas se aplican siempre, confirmado con el usuario.
+  legajos.forEach((l) => {
+    if (l.horas_extra_fijas?.length && !marcasPorLegajo.has(l.id)) {
+      marcasPorLegajo.set(l.id, []);
+    }
+  });
+
   const [yD, mD, dD] = desde.split('-').map(Number);
   const [yH, mH, dH] = hasta.split('-').map(Number);
   const utcDesde = Date.UTC(yD, mD - 1, dD);
@@ -112,8 +121,9 @@ export function procesarPeriodo(params: {
       const { trabaja, pares } = horarioEsperado(legajo, dia);
       const anchorAbs = fechaAMinutosAbsolutos(fecha);
       const novedad = novedadManual(idLegajo, fecha);
+      const horaFijaDelDia = (legajo.horas_extra_fijas || []).find((h) => h.dia === dia);
 
-      if (!trabaja && !novedad) continue; // día libre programado, sin novedad: no se reporta
+      if (!trabaja && !novedad && !horaFijaDelDia) continue; // día libre programado, sin novedad ni horas fijas: no se reporta
 
       const paresReales: [number | null, number | null][] = [];
       let worked = 0;
@@ -192,7 +202,6 @@ export function procesarPeriodo(params: {
       // siempre para el día de la semana configurado, haya fichado o no
       // ese día puntual, y sin pasar por el redondeo de arriba (no son
       // horas derivadas de fichadas reales).
-      const horaFijaDelDia = (legajo.horas_extra_fijas || []).find((h) => h.dia === dia);
       const hE = hECalculada + (horaFijaDelDia ? horaFijaDelDia.horas * 60 : 0);
 
       const sinNingunaMarca = paresReales.every((p) => p[0] === null && p[1] === null);

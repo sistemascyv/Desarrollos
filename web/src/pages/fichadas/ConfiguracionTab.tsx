@@ -354,7 +354,7 @@ function EditorHorasFijas({ horasIniciales, onGuardar, guardando }: { horasInici
       const txt = valores[i].trim();
       if (!txt) continue;
       const n = Number(txt.replace(',', '.'));
-      if (isNaN(n) || n <= 0) { toast(`Revisá las horas del ${DIAS_SEMANA[i]}.`, 'warn'); return; }
+      if (!isFinite(n) || n <= 0 || n > 24) { toast(`Revisá las horas del ${DIAS_SEMANA[i]}.`, 'warn'); return; }
       horas.push({ dia: i + 1, horas: n });
     }
     onGuardar(horas);
