@@ -71,6 +71,7 @@ export function EstadisticasTab() {
       const hasta = isoDate(finDeAnio.getTime() > hoy.getTime() ? hoy : finDeAnio);
       const mesesTranscurridos = anio < anioActual ? 12 : hoy.getMonth() + 1;
       const [legajosTodos, marcas, novedades, feriados, empresas] = await Promise.all([
+        // sin filtro estado: las horas pasadas de ex-empleados tienen que contarse igual
         pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ expand: 'empresa,horario' }),
         pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
@@ -78,6 +79,7 @@ export function EstadisticasTab() {
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' }),
       ]);
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
+      // ex-empleados: no inventar horas extra fijas para períodos posteriores a su baja
       const legajosParaCalculo = legajosTodos.map((l) => (l.estado ? l : { ...l, horas_extra_fijas: null }));
       const { resultados } = procesarPeriodo({ legajos: legajosParaCalculo, marcas, novedades, feriados, empresaNombrePorId, desde, hasta });
 
