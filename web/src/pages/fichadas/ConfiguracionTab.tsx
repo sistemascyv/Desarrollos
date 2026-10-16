@@ -3,12 +3,13 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { hhmmAMinutos, fmtDur } from './motor';
-import type { DiaHorario, FichadasEmpresa, FichadasHorario, FichadasLegajo } from '../../types';
+import type { DiaHorario, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const SUB_TABS = [
   { id: 'empleados', label: 'Empleados' },
   { id: 'horario_personal', label: 'Horario personalizado' },
+  { id: 'horas_fijas', label: 'Horas extra fijas' },
   { id: 'plantillas', label: 'Plantillas de horario' },
   { id: 'areas', label: 'Áreas' },
 ] as const;
@@ -51,6 +52,7 @@ export function ConfiguracionTab() {
       <div style={{ marginTop: 14 }}>
         {subTab === 'empleados' && <EmpleadosSub empresas={empresas} horarios={horarios} legajos={legajos} onChanged={refrescar} />}
         {subTab === 'horario_personal' && <HorarioPersonalSub legajos={legajos} onChanged={refrescar} />}
+        {subTab === 'horas_fijas' && <HorasFijasSub legajos={legajos} onChanged={refrescar} />}
         {subTab === 'plantillas' && <PlantillasSub horarios={horarios} legajos={legajos} onChanged={refrescar} />}
         {subTab === 'areas' && <AreasSub empresas={empresas} legajos={legajos} onChanged={refrescar} />}
       </div>
@@ -292,6 +294,87 @@ function HorarioPersonalSub({ legajos, onChanged }: { legajos: FichadasLegajo[];
           <EditorDias diasIniciales={diasActuales} onGuardar={guardar} guardando={guardando} />
         </div>
       )}
+    </>
+  );
+}
+
+// ---------- Horas extra fijas (por empleado) ----------
+
+function HorasFijasSub({ legajos, onChanged }: { legajos: FichadasLegajo[]; onChanged: () => void }) {
+  const toast = useToast();
+  const [idLegajo, setIdLegajo] = useState(legajos[0]?.id || '');
+  const [guardando, setGuardando] = useState(false);
+  useEffect(() => { if (!idLegajo && legajos[0]) setIdLegajo(legajos[0].id); }, [legajos, idLegajo]);
+
+  const legajo = legajos.find((l) => l.id === idLegajo);
+
+  async function guardar(horas: HoraExtraFija[]) {
+    setGuardando(true);
+    try {
+      await pb.collection('fichadas_legajos').update(idLegajo, { horas_extra_fijas: horas.length ? horas : null });
+      toast('Horas extra fijas guardadas.', 'ok');
+      onChanged();
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="hint">Un monto de horas que se suma siempre a las horas extra calculadas de esa persona, para el día de la semana elegido — haya fichado ese día o no. Dejar un día en blanco significa que no tiene nada fijo ese día.</div>
+      <div className="row" style={{ marginTop: 10 }}>
+        <div className="field" style={{ flex: 2 }}>
+          <label>Empleado</label>
+          <select value={idLegajo} onChange={(e) => setIdLegajo(e.target.value)}>
+            {legajos.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+          </select>
+        </div>
+      </div>
+      {legajo && (
+        <div style={{ marginTop: 14 }} key={idLegajo}>
+          <EditorHorasFijas horasIniciales={legajo.horas_extra_fijas || []} onGuardar={guardar} guardando={guardando} />
+        </div>
+      )}
+    </>
+  );
+}
+
+function EditorHorasFijas({ horasIniciales, onGuardar, guardando }: { horasIniciales: HoraExtraFija[]; onGuardar: (horas: HoraExtraFija[]) => void; guardando: boolean }) {
+  const [valores, setValores] = useState<string[]>(() => DIAS_SEMANA.map((_, i) => {
+    const f = horasIniciales.find((h) => h.dia === i + 1);
+    return f ? String(f.horas).replace('.', ',') : '';
+  }));
+
+  function guardar() {
+    const horas: HoraExtraFija[] = [];
+    for (let i = 0; i < 7; i++) {
+      const txt = valores[i].trim();
+      if (!txt) continue;
+      const n = Number(txt.replace(',', '.'));
+      if (isNaN(n) || n <= 0) continue;
+      horas.push({ dia: i + 1, horas: n });
+    }
+    onGuardar(horas);
+  }
+
+  return (
+    <>
+      {DIAS_SEMANA.map((nombre, i) => (
+        <div key={nombre} className="row" style={{ alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ flex: '0 0 90px', fontWeight: 600, fontSize: 12 }}>{nombre}</div>
+          <div className="field" style={{ flex: '0 0 100px' }}>
+            <input
+              value={valores[i]}
+              placeholder="0"
+              onChange={(e) => setValores((a) => a.map((v, idx) => idx === i ? e.target.value : v))}
+            />
+          </div>
+          <div className="hint" style={{ margin: 0 }}>horas</div>
+        </div>
+      ))}
+      <button onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar horas fijas'}</button>
     </>
   );
 }
