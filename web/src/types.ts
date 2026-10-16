@@ -266,6 +266,10 @@ export interface FichadasFeriado extends BaseRecord {
   nombre?: string;
 }
 
+export interface FichadasConfiguracion extends BaseRecord {
+  horas_posibles_mensuales: number;
+}
+
 export interface ModuleDef {
   id: string;
   label: string;

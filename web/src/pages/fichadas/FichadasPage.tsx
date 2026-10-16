@@ -1,11 +1,13 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { CargaTab } from './CargaTab';
 import { ResultadosTab } from './ResultadosTab';
+import { EstadisticasTab } from './EstadisticasTab';
 import { ConfiguracionTab } from './ConfiguracionTab';
 
 const TABS = [
   { id: 'carga', label: 'Carga y novedades' },
   { id: 'resultados', label: 'Resultados' },
+  { id: 'estadisticas', label: 'Estadísticas' },
   { id: 'configuracion', label: 'Configuración' },
 ];
 
@@ -38,6 +40,7 @@ export function FichadasPage() {
 
       {tab === 'carga' && <CargaTab />}
       {tab === 'resultados' && <ResultadosTab />}
+      {tab === 'estadisticas' && <EstadisticasTab />}
       {tab === 'configuracion' && <ConfiguracionTab />}
     </main>
   );
