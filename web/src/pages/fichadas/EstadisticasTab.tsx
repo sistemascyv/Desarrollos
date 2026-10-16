@@ -71,7 +71,9 @@ export function EstadisticasTab() {
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' }),
       ]);
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
-      const { resultados } = procesarPeriodo({ legajos: legajosTodos, marcas, novedades, feriados, empresaNombrePorId, desde, hasta });
+      // ex-empleados: no inventar horas extra fijas para períodos posteriores a su baja
+      const legajosParaCalculo = legajosTodos.map((l) => (l.estado ? l : { ...l, horas_extra_fijas: null }));
+      const { resultados } = procesarPeriodo({ legajos: legajosParaCalculo, marcas, novedades, feriados, empresaNombrePorId, desde, hasta });
 
       const dotacionPorArea = new Map<string, number>();
       legajosTodos.filter((l) => l.estado).forEach((l) => {
