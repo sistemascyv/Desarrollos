@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import { parsearTxtReloj, type MarcaParseada } from './motor';
+import { parsearTxtReloj, CAUSAS_AUSENTISMO, type MarcaParseada } from './motor';
 import type { FichadasEmpresa, FichadasFeriado, FichadasLegajo } from '../../types';
 
 function readFileAsText(file: File): Promise<string> {
@@ -32,6 +32,7 @@ export function CargaTab() {
   const [novDesde, setNovDesde] = useState('');
   const [novHasta, setNovHasta] = useState('');
   const [novTexto, setNovTexto] = useState('');
+  const [novCausa, setNovCausa] = useState('');
   const [aplicandoNovedad, setAplicandoNovedad] = useState(false);
 
   useEffect(() => {
@@ -135,14 +136,15 @@ export function CargaTab() {
             );
           } catch { /* no existía */ }
           if (existente) {
-            await pb.collection('fichadas_novedades').update(existente.id, { texto: novTexto.trim() });
+            await pb.collection('fichadas_novedades').update(existente.id, { texto: novTexto.trim(), causa: novCausa || null });
           } else {
-            await pb.collection('fichadas_novedades').create({ legajo: idLegajo, fecha, texto: novTexto.trim() });
+            await pb.collection('fichadas_novedades').create({ legajo: idLegajo, fecha, texto: novTexto.trim(), causa: novCausa || null });
           }
         }
       }
       toast('Novedad aplicada.', 'ok');
       setNovTexto('');
+      setNovCausa('');
     } catch (e) {
       toast('No se pudo aplicar la novedad: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
@@ -222,6 +224,13 @@ export function CargaTab() {
           <div className="field"><label>Hasta</label><input type="date" value={novHasta} onChange={(e) => setNovHasta(e.target.value)} /></div>
         </div>
         <div className="row" style={{ marginTop: 10 }}>
+          <div className="field">
+            <label>Causa (para Ausentismo)</label>
+            <select value={novCausa} onChange={(e) => setNovCausa(e.target.value)}>
+              <option value="">Sin especificar</option>
+              {CAUSAS_AUSENTISMO.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
           <div className="field" style={{ flex: 2 }}><label>Motivo</label><input value={novTexto} onChange={(e) => setNovTexto(e.target.value)} placeholder="Ej: vacaciones" /></div>
           <button disabled={aplicandoNovedad} onClick={aplicarNovedad}>{aplicandoNovedad ? 'Aplicando…' : 'Aplicar'}</button>
         </div>
