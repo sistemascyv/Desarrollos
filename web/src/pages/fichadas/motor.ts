@@ -101,11 +101,16 @@ export function procesarPeriodo(params: {
   });
   marcasPorLegajo.forEach((arr) => arr.sort((a, b) => a.abs - b.abs));
 
-  // Legajos con horas extra fijas configuradas tienen que procesarse igual
-  // aunque no tengan ninguna fichada en todo el período (ej: vacaciones) --
-  // las horas fijas se aplican siempre, confirmado con el usuario.
+  // Todo legajo activo tiene que evaluarse día por día aunque no tenga
+  // ninguna fichada real en el período -- si alguien no vino nunca y nadie
+  // cargó ninguna justificación, eso es exactamente "Sin Justificar", el
+  // caso más claro de ausentismo sin justificar. (Confirmado con el
+  // usuario: esto puede marcar de más a alguien recién ingresado antes de
+  // su fecha real de alta, o a un ex-empleado antes de que se lo dé de
+  // baja a mano -- aceptado como limitación temporal hasta que exista
+  // fecha de alta/baja real, proyecto de Rotación.)
   legajos.forEach((l) => {
-    if (l.horas_extra_fijas?.length && !marcasPorLegajo.has(l.id)) {
+    if (l.estado && !marcasPorLegajo.has(l.id)) {
       marcasPorLegajo.set(l.id, []);
     }
   });
@@ -216,9 +221,13 @@ export function procesarPeriodo(params: {
 
       const sinNingunaMarca = paresReales.every((p) => p[0] === null && p[1] === null);
       const ausente = trabaja && sinNingunaMarca && !novedad;
-      // Feriados nunca llegan acá con causa (no están en novedadPorLegajoFecha,
-      // solo en feriadoPorFecha) -- quedan afuera de Ausentismo naturalmente.
-      const causaNovedad = novedadPorLegajoFecha.get(idLegajo + '|' + fecha)?.causa || '';
+      // Un feriado nunca puede aportar causa de ausentismo, aunque exista
+      // una fichadas_novedades cargada para ese legajo+fecha (pasa seguido:
+      // "Asignar novedad" carga un rango de fechas que puede pisar un
+      // feriado sin que nadie lo note).
+      const causaNovedad = feriadoPorFecha.has(fecha)
+        ? ''
+        : novedadPorLegajoFecha.get(idLegajo + '|' + fecha)?.causa || '';
       const causa = ausente ? CAUSA_SIN_JUSTIFICAR : causaNovedad;
 
       resultados.push({
