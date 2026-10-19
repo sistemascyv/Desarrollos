@@ -487,7 +487,7 @@ export function calcularEstadisticaRotacion(params: {
   // "ingreso", porque no se sabe cuándo entró realmente).
   function activoAl(legajo: FichadasLegajo, fechaIso: string): boolean {
     const alta = legajo.fecha_alta || '0000-01-01';
-    return alta <= fechaIso && (!legajo.fecha_baja || legajo.fecha_baja > fechaIso);
+    return alta < fechaIso && (!legajo.fecha_baja || legajo.fecha_baja >= fechaIso);
   }
 
   const meses: RotacionMes[] = [];
