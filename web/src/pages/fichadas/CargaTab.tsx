@@ -23,6 +23,7 @@ export function CargaTab() {
   const [feriados, setFeriados] = useState<FichadasFeriado[]>([]);
   const [feriadoFecha, setFeriadoFecha] = useState('');
   const [feriadoNombre, setFeriadoNombre] = useState('');
+  const [importandoFeriados, setImportandoFeriados] = useState(false);
 
   const [legajos, setLegajos] = useState<FichadasLegajo[]>([]);
   const [empresas, setEmpresas] = useState<FichadasEmpresa[]>([]);
@@ -113,6 +114,30 @@ export function CargaTab() {
     }
   }
 
+  async function importarFeriados() {
+    setImportandoFeriados(true);
+    try {
+      const anio = new Date().getFullYear();
+      const res = await fetch(`https://date.nager.at/api/v3/publicholidays/${anio}/AR`);
+      if (!res.ok) throw new Error(`La API respondió ${res.status}`);
+      const datos: { date: string; localName: string }[] = await res.json();
+      const fechasExistentes = new Set(feriados.map((f) => f.fecha));
+      let importados = 0;
+      let yaExistian = 0;
+      for (const d of datos) {
+        if (fechasExistentes.has(d.date)) { yaExistian++; continue; }
+        await pb.collection('fichadas_feriados').create({ fecha: d.date, nombre: d.localName });
+        importados++;
+      }
+      await cargarFeriados();
+      toast(`Importados: ${importados}, ya existían: ${yaExistian}.`, 'ok');
+    } catch (e) {
+      toast('No se pudo importar: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setImportandoFeriados(false);
+    }
+  }
+
   async function aplicarNovedad() {
     if (!novDesde || !novHasta || !novTexto.trim()) { toast('Completá el rango de fechas y el motivo.', 'warn'); return; }
     const idsLegajo = novModo === 'area'
@@ -182,6 +207,11 @@ export function CargaTab() {
           <div className="field"><label>Fecha</label><input type="date" value={feriadoFecha} onChange={(e) => setFeriadoFecha(e.target.value)} /></div>
           <div className="field" style={{ flex: 2 }}><label>Nombre (opcional)</label><input value={feriadoNombre} onChange={(e) => setFeriadoNombre(e.target.value)} placeholder="Ej: Día de la Bandera" /></div>
           <button onClick={agregarFeriado}>Agregar feriado</button>
+        </div>
+        <div className="row" style={{ marginTop: 10 }}>
+          <button className="secondary" disabled={importandoFeriados} onClick={importarFeriados}>
+            {importandoFeriados ? 'Importando…' : `Importar feriados ${new Date().getFullYear()}`}
+          </button>
         </div>
         <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
           {feriados.length === 0 && <div className="hint">Sin feriados cargados todavía.</div>}
