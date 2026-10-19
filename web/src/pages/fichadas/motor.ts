@@ -48,6 +48,11 @@ function fechaAMinutosAbsolutos(fechaStr: string): number {
   return Date.UTC(y, m - 1, d) / 60000;
 }
 
+function fechaAUtcMs(fechaStr: string): number {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
 function incrementoRedondeo(deposito: string | null): number {
   return deposito === 'CORDOBA' ? 15 : 30;
 }
@@ -104,11 +109,11 @@ export function procesarPeriodo(params: {
   // Todo legajo activo tiene que evaluarse día por día aunque no tenga
   // ninguna fichada real en el período -- si alguien no vino nunca y nadie
   // cargó ninguna justificación, eso es exactamente "Sin Justificar", el
-  // caso más claro de ausentismo sin justificar. (Confirmado con el
-  // usuario: esto puede marcar de más a alguien recién ingresado antes de
-  // su fecha real de alta, o a un ex-empleado antes de que se lo dé de
-  // baja a mano -- aceptado como limitación temporal hasta que exista
-  // fecha de alta/baja real, proyecto de Rotación.)
+  // caso más claro de ausentismo sin justificar. Esto puede marcar de más
+  // a alguien recién ingresado antes de su fecha_alta real -- si esa
+  // fecha está cargada, la ventana de abajo ya lo corta; si no está
+  // cargada (legajo de antes del sistema), sigue siendo una limitación
+  // conocida y aceptada.
   legajos.forEach((l) => {
     if (l.estado && !marcasPorLegajo.has(l.id)) {
       marcasPorLegajo.set(l.id, []);
@@ -128,7 +133,15 @@ export function procesarPeriodo(params: {
     const usados = new Array(marcasGlobal.length).fill(false);
     const areaNombre = legajo.empresa ? empresaNombrePorId.get(legajo.empresa) || '—' : '—';
 
-    for (let cur = utcDesde; cur <= utcHasta; cur += 86400000) {
+    // Ventana real de actividad de este legajo dentro del período pedido --
+    // si tiene fecha_alta/fecha_baja cargada, no se generan resultados
+    // fuera de ese rango (ex-empleado ya no cuenta después de su baja,
+    // alta reciente no cuenta antes de su ingreso real). Sin esas fechas
+    // cargadas, el comportamiento es igual al de siempre (todo el período).
+    const ventanaDesde = legajo.fecha_alta ? Math.max(utcDesde, fechaAUtcMs(legajo.fecha_alta)) : utcDesde;
+    const ventanaHasta = legajo.fecha_baja ? Math.min(utcHasta, fechaAUtcMs(legajo.fecha_baja)) : utcHasta;
+
+    for (let cur = ventanaDesde; cur <= ventanaHasta; cur += 86400000) {
       const dt = new Date(cur);
       const fecha = dt.toISOString().slice(0, 10);
       const dia = jsDayToColumnDia(dt.getUTCDay());
