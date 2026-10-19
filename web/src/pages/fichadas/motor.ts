@@ -114,8 +114,13 @@ export function procesarPeriodo(params: {
   // fecha está cargada, la ventana de abajo ya lo corta; si no está
   // cargada (legajo de antes del sistema), sigue siendo una limitación
   // conocida y aceptada.
+  // Un legajo dado de baja (estado=false) con fecha_baja cargada también se
+  // siembra acá: el recorte de ventana de abajo lo acota a su [fecha_alta,
+  // fecha_baja] real, así que si se fue mucho antes del período pedido
+  // simplemente no entra en ningún día del loop -- sembrarlo no agrega nada
+  // de más, y deja evaluar sus días sin fichar previos a su baja real.
   legajos.forEach((l) => {
-    if (l.estado && !marcasPorLegajo.has(l.id)) {
+    if ((l.estado || l.fecha_baja) && !marcasPorLegajo.has(l.id)) {
       marcasPorLegajo.set(l.id, []);
     }
   });

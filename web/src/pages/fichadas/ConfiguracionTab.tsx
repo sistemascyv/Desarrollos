@@ -111,6 +111,8 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
   async function confirmarBaja() {
     if (!idEnBaja) return;
     if (!fechaBaja || !motivoBaja) { toast('Completá fecha y motivo de la baja.', 'warn'); return; }
+    const hoyIso = new Date().toISOString().slice(0, 10);
+    if (fechaBaja > hoyIso) { toast('La fecha de baja no puede ser futura — cargala el día que sea efectiva.', 'warn'); return; }
     try {
       await pb.collection('fichadas_legajos').update(idEnBaja, { fecha_baja: fechaBaja, motivo_baja: motivoBaja, estado: false });
       setIdEnBaja(null);
@@ -179,7 +181,7 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
       <div className="table-wrap" style={{ maxHeight: '50vh' }}>
         <table>
-          <thead><tr><th>Legajo</th><th>Tarjeta</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Legajo</th><th>Tarjeta</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Fecha alta</th><th>Estado</th><th></th></tr></thead>
           <tbody>
             {legajos.map((l) => (
               <tr key={l.id} className={!l.estado ? 'inactivo' : ''}>
@@ -195,6 +197,9 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
                   <select value={l.horario || ''} onChange={(e) => editar(l.id, 'horario', e.target.value)}>
                     {horarios.map((h) => <option key={h.id} value={h.id}>{h.nombre}</option>)}
                   </select>
+                </td>
+                <td>
+                  <input type="date" value={l.fecha_alta || ''} onChange={(e) => editar(l.id, 'fecha_alta', e.target.value)} />
                 </td>
                 <td>
                   {l.estado

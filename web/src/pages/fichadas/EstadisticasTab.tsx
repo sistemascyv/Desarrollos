@@ -83,8 +83,11 @@ export function EstadisticasTab() {
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' }),
       ]);
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
-      // ex-empleados: no inventar horas extra fijas para períodos posteriores a su baja
-      const legajosParaCalculo = legajosTodos.map((l) => (l.estado ? l : { ...l, horas_extra_fijas: null }));
+      // ex-empleados SIN fecha_baja cargada (caso legacy): no inventar horas extra
+      // fijas para todo el período, no hay forma de saber cuándo se fueron. Si
+      // tienen fecha_baja, el recorte de ventana en procesarPeriodo ya corta sus
+      // horas fijas justo después de esa fecha -- no hace falta pisarlas acá.
+      const legajosParaCalculo = legajosTodos.map((l) => ((l.estado || l.fecha_baja) ? l : { ...l, horas_extra_fijas: null }));
       const { resultados } = procesarPeriodo({ legajos: legajosParaCalculo, marcas, novedades, feriados, empresaNombrePorId, desde, hasta });
 
       const dotacionPorArea = new Map<string, number>();
