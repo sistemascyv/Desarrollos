@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import { hhmmAMinutos, fmtDur } from './motor';
+import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from './motor';
 import type { DiaHorario, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -70,6 +70,10 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
   const [nombre, setNombre] = useState('');
   const [empresa, setEmpresa] = useState(empresas[0]?.id || '');
   const [horario, setHorario] = useState(horarios[0]?.id || '');
+  const [fechaAlta, setFechaAlta] = useState('');
+  const [idEnBaja, setIdEnBaja] = useState<string | null>(null);
+  const [fechaBaja, setFechaBaja] = useState('');
+  const [motivoBaja, setMotivoBaja] = useState('');
 
   useEffect(() => { if (!empresa && empresas[0]) setEmpresa(empresas[0].id); }, [empresas, empresa]);
   useEffect(() => { if (!horario && horarios[0]) setHorario(horarios[0].id); }, [horarios, horario]);
@@ -79,9 +83,9 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
     try {
       await pb.collection('fichadas_legajos').create({
         nro_legajo: nroLegajo.trim(), nro_tarjeta: nroTarjeta.trim(), nombre: nombre.trim().toUpperCase(),
-        empresa: empresa || null, horario: horario || null, estado: true,
+        empresa: empresa || null, horario: horario || null, estado: true, fecha_alta: fechaAlta || null,
       });
-      setNroLegajo(''); setNroTarjeta(''); setNombre('');
+      setNroLegajo(''); setNroTarjeta(''); setNombre(''); setFechaAlta('');
       onChanged();
       toast('Empleado agregado.', 'ok');
     } catch (e) {
@@ -98,8 +102,38 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
     }
   }
 
+  function abrirBaja(id: string) {
+    setIdEnBaja(id);
+    setFechaBaja('');
+    setMotivoBaja('');
+  }
+
+  async function confirmarBaja() {
+    if (!idEnBaja) return;
+    if (!fechaBaja || !motivoBaja) { toast('Completá fecha y motivo de la baja.', 'warn'); return; }
+    try {
+      await pb.collection('fichadas_legajos').update(idEnBaja, { fecha_baja: fechaBaja, motivo_baja: motivoBaja, estado: false });
+      setIdEnBaja(null);
+      onChanged();
+      toast('Baja registrada.', 'ok');
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  async function reactivar(id: string) {
+    if (!(await confirm('¿Reactivar a este empleado? Se borran la fecha y el motivo de baja cargados.', 'Reactivar empleado'))) return;
+    try {
+      await pb.collection('fichadas_legajos').update(id, { fecha_baja: null, motivo_baja: null, estado: true });
+      onChanged();
+      toast('Reactivado.', 'ok');
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
   async function eliminar(id: string) {
-    if (!(await confirm('¿Eliminar este empleado? Mejor usar "Inactivo" si solo dejó de trabajar, para no perder su historial de fichadas.', 'Eliminar empleado'))) return;
+    if (!(await confirm('¿Eliminar este empleado? Mejor usar "Dar de baja" si solo dejó de trabajar, para no perder su historial de fichadas.', 'Eliminar empleado'))) return;
     try {
       await pb.collection('fichadas_legajos').delete(id);
       onChanged();
@@ -108,6 +142,8 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
     }
   }
+
+  const legajoEnBaja = legajos.find((l) => l.id === idEnBaja);
 
   return (
     <>
@@ -118,8 +154,27 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
         <div className="field" style={{ flex: 2 }}><label>Nombre</label><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="APELLIDO NOMBRE" /></div>
         <div className="field"><label>Área</label><select value={empresa} onChange={(e) => setEmpresa(e.target.value)}>{empresas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select></div>
         <div className="field"><label>Horario</label><select value={horario} onChange={(e) => setHorario(e.target.value)}>{horarios.map((h) => <option key={h.id} value={h.id}>{h.nombre}</option>)}</select></div>
+        <div className="field"><label>Fecha de alta</label><input type="date" value={fechaAlta} onChange={(e) => setFechaAlta(e.target.value)} /></div>
         <button onClick={agregar}>Agregar</button>
       </div>
+
+      {legajoEnBaja && (
+        <>
+          <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Dar de baja a "{legajoEnBaja.nombre}"</h3>
+          <div className="row">
+            <div className="field"><label>Fecha de baja</label><input type="date" value={fechaBaja} onChange={(e) => setFechaBaja(e.target.value)} /></div>
+            <div className="field">
+              <label>Motivo</label>
+              <select value={motivoBaja} onChange={(e) => setMotivoBaja(e.target.value)}>
+                <option value="">Elegir…</option>
+                {MOTIVOS_BAJA.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <button onClick={confirmarBaja}>Confirmar baja</button>
+            <button className="secondary" onClick={() => setIdEnBaja(null)}>Cancelar</button>
+          </div>
+        </>
+      )}
 
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
       <div className="table-wrap" style={{ maxHeight: '50vh' }}>
@@ -142,10 +197,13 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
                   </select>
                 </td>
                 <td>
-                  <select value={l.estado ? '1' : '0'} onChange={(e) => editar(l.id, 'estado', e.target.value === '1')}>
-                    <option value="1">Activo</option>
-                    <option value="0">Inactivo</option>
-                  </select>
+                  {l.estado
+                    ? <button className="small secondary" onClick={() => abrirBaja(l.id)}>Dar de baja</button>
+                    : (
+                      <span title={l.fecha_baja ? `${l.motivo_baja || ''} — ${l.fecha_baja}` : ''}>
+                        Inactivo <button className="small secondary" onClick={() => reactivar(l.id)}>Reactivar</button>
+                      </span>
+                    )}
                 </td>
                 <td><button className="small danger" onClick={() => eliminar(l.id)}>Eliminar</button></td>
               </tr>
