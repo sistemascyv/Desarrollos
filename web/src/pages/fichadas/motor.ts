@@ -449,3 +449,79 @@ export function calcularEstadisticaAusentismo(params: {
 
   return { filas, total };
 }
+
+// ---------- Estadística de Rotación (altas/bajas mensuales, total empresa) ----------
+
+// Mismos 4 motivos que ya usaba el Excel de RRHH -- no agregar ni sacar
+// ninguno sin actualizar también la migración del campo `motivo_baja`.
+export const MOTIVOS_BAJA: string[] = ['Despido', 'Renuncia', 'Acuerdo', 'Jubilación'];
+
+export interface RotacionMes {
+  dotacionInicial: number;
+  ingresos: number;
+  despidos: number;
+  renuncias: number;
+  acuerdos: number;
+  jubilaciones: number;
+  totalEgresos: number;
+  dotacionFinal: number;
+  indiceRotacion: number; // totalEgresos / dotacionInicial, 0 si dotacionInicial=0 (fracción, no %)
+}
+
+export interface MovimientoRotacion {
+  nombre: string;
+  fecha: string;
+  tipo: 'ingreso' | 'egreso';
+  motivo?: string; // solo para egresos
+}
+
+export function calcularEstadisticaRotacion(params: {
+  legajos: FichadasLegajo[];
+  anio: number;
+  mesesTranscurridos?: number; // 1-12, default 12 (año completo)
+}): { meses: RotacionMes[]; movimientos: MovimientoRotacion[] } {
+  const { legajos, anio, mesesTranscurridos = 12 } = params;
+
+  // Un legajo sin fecha_alta se asume "de antes" -- siempre activo desde
+  // el inicio de cualquier período que se calcule acá (nunca cuenta como
+  // "ingreso", porque no se sabe cuándo entró realmente).
+  function activoAl(legajo: FichadasLegajo, fechaIso: string): boolean {
+    const alta = legajo.fecha_alta || '0000-01-01';
+    return alta <= fechaIso && (!legajo.fecha_baja || legajo.fecha_baja > fechaIso);
+  }
+
+  const meses: RotacionMes[] = [];
+  const movimientos: MovimientoRotacion[] = [];
+
+  for (let m = 0; m < 12; m++) {
+    if (m >= mesesTranscurridos) {
+      // Mes futuro (año actual todavía no llegó ahí): no se inventa nada.
+      meses.push({ dotacionInicial: 0, ingresos: 0, despidos: 0, renuncias: 0, acuerdos: 0, jubilaciones: 0, totalEgresos: 0, dotacionFinal: 0, indiceRotacion: 0 });
+      continue;
+    }
+    const inicioMes = `${anio}-${String(m + 1).padStart(2, '0')}-01`;
+    const ultimoDia = new Date(Date.UTC(anio, m + 1, 0)).getUTCDate();
+    const finMes = `${anio}-${String(m + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+
+    const dotacionInicial = legajos.filter((l) => activoAl(l, inicioMes)).length;
+    const ingresosDelMes = legajos.filter((l) => l.fecha_alta && l.fecha_alta >= inicioMes && l.fecha_alta <= finMes);
+    const egresosDelMes = legajos.filter((l) => l.fecha_baja && l.fecha_baja >= inicioMes && l.fecha_baja <= finMes);
+
+    const despidos = egresosDelMes.filter((l) => l.motivo_baja === 'Despido').length;
+    const renuncias = egresosDelMes.filter((l) => l.motivo_baja === 'Renuncia').length;
+    const acuerdos = egresosDelMes.filter((l) => l.motivo_baja === 'Acuerdo').length;
+    const jubilaciones = egresosDelMes.filter((l) => l.motivo_baja === 'Jubilación').length;
+    const totalEgresos = egresosDelMes.length;
+    const ingresos = ingresosDelMes.length;
+    const dotacionFinal = dotacionInicial + ingresos - totalEgresos;
+    const indiceRotacion = dotacionInicial > 0 ? totalEgresos / dotacionInicial : 0;
+
+    ingresosDelMes.forEach((l) => movimientos.push({ nombre: l.nombre, fecha: l.fecha_alta!, tipo: 'ingreso' }));
+    egresosDelMes.forEach((l) => movimientos.push({ nombre: l.nombre, fecha: l.fecha_baja!, tipo: 'egreso', motivo: l.motivo_baja }));
+
+    meses.push({ dotacionInicial, ingresos, despidos, renuncias, acuerdos, jubilaciones, totalEgresos, dotacionFinal, indiceRotacion });
+  }
+
+  movimientos.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  return { meses, movimientos };
+}
