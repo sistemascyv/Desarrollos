@@ -26,7 +26,7 @@ un workbook con 3 hojas a partir de los datos **ya calculados en
 memoria** (`filasHorasExtras`/`totalHorasExtras`,
 `filasAusentismo`/`totalAusentismo`, `rotacionMeses`/`rotacionMovimientos`)
 — no vuelve a pedir nada a PocketBase ni recalcula nada — y lo descarga
-como `estadisticas_fichadas_{año}.xlsx` (el año elegido en el selector al
+como `estadisticas_rrhh_{año}.xlsx` (el año elegido en el selector al
 momento de descargar).
 
 ## Contenido de cada hoja
