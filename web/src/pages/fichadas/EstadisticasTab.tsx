@@ -3,13 +3,13 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { isoDate } from '../../lib/format';
 import {
-  procesarPeriodo, calcularEstadisticaHorasExtras, calcularEstadisticaAusentismo,
-  type FilaEstadisticaArea, type FilaEstadisticaCausa,
+  procesarPeriodo, calcularEstadisticaHorasExtras, calcularEstadisticaAusentismo, calcularEstadisticaRotacion,
+  type FilaEstadisticaArea, type FilaEstadisticaCausa, type RotacionMes, type MovimientoRotacion,
 } from './motor';
 import type { FichadasConfiguracion, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad } from '../../types';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-type Vista = 'horas_extras' | 'ausentismo';
+type Vista = 'horas_extras' | 'ausentismo' | 'rotacion';
 
 function fmtHs(n: number): string {
   return n.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -31,6 +31,9 @@ export function EstadisticasTab() {
   const [filasAusentismo, setFilasAusentismo] = useState<FilaEstadisticaCausa[] | null>(null);
   const [totalAusentismo, setTotalAusentismo] = useState<FilaEstadisticaCausa | null>(null);
   const [ultimaFechaConDatos, setUltimaFechaConDatos] = useState<string | null>(null);
+  const [rotacionMeses, setRotacionMeses] = useState<RotacionMes[] | null>(null);
+  const [rotacionMovimientos, setRotacionMovimientos] = useState<MovimientoRotacion[] | null>(null);
+  const [rotacionMesesTranscurridos, setRotacionMesesTranscurridos] = useState(12);
 
   useEffect(() => {
     pb.collection('fichadas_configuracion').getFullList<FichadasConfiguracion>()
@@ -107,6 +110,11 @@ export function EstadisticasTab() {
       });
       setFilasAusentismo(fAus);
       setTotalAusentismo(tAus);
+
+      const { meses: mesesRot, movimientos: movRot } = calcularEstadisticaRotacion({ legajos: legajosTodos, anio, mesesTranscurridos });
+      setRotacionMeses(mesesRot);
+      setRotacionMovimientos(movRot);
+      setRotacionMesesTranscurridos(mesesTranscurridos);
     } catch (e) {
       toast('No se pudo calcular: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
@@ -157,12 +165,30 @@ export function EstadisticasTab() {
     );
   }
 
-  const hayDatos = vista === 'horas_extras' ? (filasHorasExtras && totalHorasExtras) : (filasAusentismo && totalAusentismo);
+  function filasRotacion(meses: RotacionMes[], mesesTranscurridos: number) {
+    function prom(valores: number[]) { return valores.slice(0, mesesTranscurridos).reduce((a, b) => a + b, 0) / mesesTranscurridos; }
+    function total(valores: number[]) { return valores.reduce((a, b) => a + b, 0); }
+    return [
+      { etiqueta: 'Dotación Inicial', valores: meses.map((m) => m.dotacionInicial), prom: prom(meses.map((m) => m.dotacionInicial)) },
+      { etiqueta: 'Ingresos', valores: meses.map((m) => m.ingresos), prom: prom(meses.map((m) => m.ingresos)), tot: total(meses.map((m) => m.ingresos)) },
+      { etiqueta: 'Despidos', valores: meses.map((m) => m.despidos), prom: prom(meses.map((m) => m.despidos)), tot: total(meses.map((m) => m.despidos)) },
+      { etiqueta: 'Renuncias', valores: meses.map((m) => m.renuncias), prom: prom(meses.map((m) => m.renuncias)), tot: total(meses.map((m) => m.renuncias)) },
+      { etiqueta: 'Acuerdos', valores: meses.map((m) => m.acuerdos), prom: prom(meses.map((m) => m.acuerdos)), tot: total(meses.map((m) => m.acuerdos)) },
+      { etiqueta: 'Jubilación', valores: meses.map((m) => m.jubilaciones), prom: prom(meses.map((m) => m.jubilaciones)), tot: total(meses.map((m) => m.jubilaciones)) },
+      { etiqueta: 'Total Egresos', valores: meses.map((m) => m.totalEgresos), prom: prom(meses.map((m) => m.totalEgresos)), tot: total(meses.map((m) => m.totalEgresos)) },
+      { etiqueta: 'Dotación Final', valores: meses.map((m) => m.dotacionFinal), prom: prom(meses.map((m) => m.dotacionFinal)) },
+      { etiqueta: 'Índice de Rotación', valores: meses.map((m) => m.indiceRotacion), esPorcentaje: true, prom: prom(meses.map((m) => m.indiceRotacion)) },
+    ] as { etiqueta: string; valores: number[]; esPorcentaje?: boolean; prom?: number; tot?: number }[];
+  }
+
+  const hayDatos = vista === 'horas_extras' ? !!(filasHorasExtras && totalHorasExtras)
+    : vista === 'ausentismo' ? !!(filasAusentismo && totalAusentismo)
+    : rotacionMeses !== null;
 
   return (
     <div className="card">
       <h2>Estadísticas</h2>
-      <div className="hint">Resumen anual por área/causa — reemplaza las planillas que arma RRHH a mano.</div>
+      <div className="hint">Resumen anual por área/causa/rotación — reemplaza las planillas que arma RRHH a mano.</div>
 
       <div className="row" style={{ marginTop: 14, flexWrap: 'wrap', alignItems: 'end' }}>
         <div className="field">
@@ -170,6 +196,7 @@ export function EstadisticasTab() {
           <select value={vista} onChange={(e) => setVista(e.target.value as Vista)}>
             <option value="horas_extras">Horas Extras</option>
             <option value="ausentismo">Ausentismo</option>
+            <option value="rotacion">Rotación</option>
           </select>
         </div>
         <div className="field">
@@ -189,7 +216,8 @@ export function EstadisticasTab() {
           Fichadas cargadas hasta el {ultimaFechaConDatos.split('-').reverse().join('/')} — los días sin fichadas importadas todavía no se cuentan como "Sin Justificar".
         </div>
       )}
-      {hayDatos && (
+
+      {hayDatos && vista !== 'rotacion' && (
         <div className="table-wrap" style={{ marginTop: 16 }}>
           <table>
             <thead>
@@ -216,6 +244,48 @@ export function EstadisticasTab() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {hayDatos && vista === 'rotacion' && rotacionMeses && (
+        <>
+          <div className="table-wrap" style={{ marginTop: 16 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th colSpan={2}>Métrica</th>
+                  {MESES.map((m) => <th key={m} className="num">{m}</th>)}
+                  <th className="num">Prom.</th>
+                  <th className="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filasRotacion(rotacionMeses, rotacionMesesTranscurridos).map((f) => (
+                  <tr key={f.etiqueta}>
+                    <td colSpan={2} style={{ fontWeight: 700 }}>{f.etiqueta}</td>
+                    {f.valores.map((v, idx) => <td key={idx} className="num">{f.esPorcentaje ? fmtPct(v) : String(v)}</td>)}
+                    <td className="num">{f.prom !== undefined ? (f.esPorcentaje ? fmtPct(f.prom) : fmtHs(f.prom)) : ''}</td>
+                    <td className="num">{f.tot !== undefined ? String(f.tot) : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {rotacionMovimientos && rotacionMovimientos.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '0 0 8px' }}>Movimientos del año</h3>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {rotacionMovimientos.map((mv, idx) => (
+                  <li key={idx} style={{ fontSize: 12 }}>
+                    {mv.fecha.split('-').reverse().join('/')} — {mv.nombre} — {mv.tipo === 'ingreso' ? 'Alta' : `Baja (${mv.motivo || 'sin motivo'})`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {rotacionMovimientos && rotacionMovimientos.length === 0 && (
+            <div className="empty" style={{ marginTop: 16 }}>Sin altas ni bajas cargadas este año.</div>
+          )}
+        </>
       )}
       {!hayDatos && !cargando && <div className="empty" style={{ marginTop: 16 }}>Elegí un año y apretá "Calcular".</div>}
     </div>
