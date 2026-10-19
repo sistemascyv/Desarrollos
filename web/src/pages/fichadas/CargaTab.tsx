@@ -43,7 +43,7 @@ export function CargaTab() {
 
   async function cargarFeriados() {
     try {
-      const items = await pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ sort: '-fecha' });
+      const items = await pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ sort: 'fecha' });
       setFeriados(items);
     } catch (e) {
       toast('No se pudieron cargar los feriados: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -213,15 +213,23 @@ export function CargaTab() {
             {importandoFeriados ? 'Importando…' : `Importar feriados ${new Date().getFullYear()}`}
           </button>
         </div>
-        <div className="row" style={{ marginTop: 10, flexWrap: 'wrap' }}>
-          {feriados.length === 0 && <div className="hint">Sin feriados cargados todavía.</div>}
-          {feriados.map((f) => (
-            <span key={f.id} className="tag tag-extra" style={{ marginRight: 6, marginBottom: 6 }}>
-              {f.fecha} — {f.nombre}
-              <button className="small secondary" style={{ marginLeft: 6, padding: '0 6px' }} onClick={() => quitarFeriado(f.id)}>✕</button>
-            </span>
-          ))}
-        </div>
+        {feriados.length === 0 && <div className="hint" style={{ marginTop: 10 }}>Sin feriados cargados todavía.</div>}
+        {feriados.length > 0 && (
+          <div className="table-wrap" style={{ marginTop: 10, maxHeight: 280 }}>
+            <table>
+              <thead><tr><th>Fecha</th><th>Nombre</th><th></th></tr></thead>
+              <tbody>
+                {feriados.map((f) => (
+                  <tr key={f.id}>
+                    <td>{f.fecha.split('-').reverse().join('/')}</td>
+                    <td>{f.nombre}</td>
+                    <td><button className="small secondary" style={{ padding: '0 6px' }} onClick={() => quitarFeriado(f.id)}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="card">
