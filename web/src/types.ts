@@ -241,6 +241,9 @@ export interface FichadasLegajo extends BaseRecord {
   dias_personalizados?: DiaHorario[] | null;
   horas_extra_fijas?: HoraExtraFija[] | null;
   estado: boolean;
+  fecha_alta?: string; // "YYYY-MM-DD", opcional -- vacío en legajos de antes del sistema
+  fecha_baja?: string; // "YYYY-MM-DD", opcional -- si está cargada, estado = false
+  motivo_baja?: string; // una de MOTIVOS_BAJA (motor.ts), solo si fecha_baja está cargada
   expand?: { empresa?: FichadasEmpresa; horario?: FichadasHorario };
 }
 
