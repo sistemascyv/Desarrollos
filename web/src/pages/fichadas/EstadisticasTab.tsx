@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { isoDate } from '../../lib/format';
@@ -16,6 +17,40 @@ function fmtHs(n: number): string {
 }
 function fmtPct(n: number): string {
   return (n * 100).toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+}
+
+// ---------- Excel: números crudos (no el texto ya formateado de pantalla) ----------
+type FilaExcel = (string | number | null)[];
+function hs2(n: number): number { return Math.round(n * 100) / 100; }
+function pct1(n: number): number { return Math.round(n * 1000) / 10; } // ej. 0.128 -> 12.8
+
+function filaAoaHorasExtras(f: FilaEstadisticaArea): FilaExcel[] {
+  const etiquetas: [string, (m: FilaEstadisticaArea['meses'][number]) => number][] = [
+    ['Dot.', (m) => m.dotacion],
+    ['HS', (m) => hs2(m.hs)],
+    ['HS/To', (m) => pct1(m.hsTotalMes > 0 ? m.hs / m.hsTotalMes : 0)],
+    ['%', (m) => pct1(m.porcentaje)],
+    ['Hs/P.', (m) => hs2(m.hsPorPersona)],
+  ];
+  return etiquetas.map(([etiqueta, valorDe]) => [
+    f.area, etiqueta,
+    ...f.meses.map(valorDe),
+    etiqueta === 'HS' ? hs2(f.promedioHs) : null,
+    etiqueta === 'HS' ? hs2(f.totalHs) : null,
+  ]);
+}
+
+function filaAoaAusentismo(f: FilaEstadisticaCausa): FilaExcel[] {
+  const etiquetas: [string, (m: FilaEstadisticaCausa['meses'][number]) => number][] = [
+    ['Hs', (m) => hs2(m.horas)],
+    ['%', (m) => pct1(m.porcentaje)],
+  ];
+  return etiquetas.map(([etiqueta, valorDe]) => [
+    f.causa, etiqueta,
+    ...f.meses.map(valorDe),
+    etiqueta === 'Hs' ? hs2(f.promedioHoras) : null,
+    etiqueta === 'Hs' ? hs2(f.totalHoras) : null,
+  ]);
 }
 
 export function EstadisticasTab() {
@@ -168,6 +203,39 @@ export function EstadisticasTab() {
     );
   }
 
+  function descargarExcel() {
+    if (!todoCalculado || !filasHorasExtras || !totalHorasExtras || !filasAusentismo || !totalAusentismo || !rotacionMeses) return;
+    const wb = XLSX.utils.book_new();
+
+    const aoaHE: FilaExcel[] = [['Área', '', ...MESES, 'Prom.', 'Total']];
+    filasHorasExtras.forEach((f) => aoaHE.push(...filaAoaHorasExtras(f)));
+    aoaHE.push(...filaAoaHorasExtras(totalHorasExtras));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaHE), 'Horas Extras');
+
+    const aoaAus: FilaExcel[] = [['Causa', '', ...MESES, 'Prom.', 'Total']];
+    filasAusentismo.forEach((f) => aoaAus.push(...filaAoaAusentismo(f)));
+    aoaAus.push(...filaAoaAusentismo(totalAusentismo));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaAus), 'Ausentismo');
+
+    const aoaRot: FilaExcel[] = [['Métrica', ...MESES, 'Prom.', 'Total']];
+    filasRotacion(rotacionMeses, rotacionMesesTranscurridos).forEach((f) => {
+      aoaRot.push([
+        f.etiqueta,
+        ...f.valores.map((v) => (f.esPorcentaje ? pct1(v) : v)),
+        f.prom !== undefined ? (f.esPorcentaje ? pct1(f.prom) : hs2(f.prom)) : null,
+        f.tot !== undefined ? f.tot : null,
+      ]);
+    });
+    aoaRot.push([]);
+    aoaRot.push(['Fecha', 'Nombre', 'Tipo', 'Motivo']);
+    (rotacionMovimientos || []).forEach((mv) => {
+      aoaRot.push([mv.fecha, mv.nombre, mv.tipo === 'ingreso' ? 'Alta' : 'Baja', mv.motivo || '']);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaRot), 'Rotación');
+
+    XLSX.writeFile(wb, `estadisticas_rrhh_${anio}.xlsx`);
+  }
+
   function filasRotacion(meses: RotacionMes[], mesesTranscurridos: number) {
     function prom(valores: number[]) { return valores.slice(0, mesesTranscurridos).reduce((a, b) => a + b, 0) / mesesTranscurridos; }
     function total(valores: number[]) { return valores.reduce((a, b) => a + b, 0); }
@@ -187,6 +255,7 @@ export function EstadisticasTab() {
   const hayDatos = vista === 'horas_extras' ? !!(filasHorasExtras && totalHorasExtras)
     : vista === 'ausentismo' ? !!(filasAusentismo && totalAusentismo)
     : rotacionMeses !== null;
+  const todoCalculado = !!(filasHorasExtras && totalHorasExtras && filasAusentismo && totalAusentismo && rotacionMeses);
 
   return (
     <div className="card">
@@ -212,6 +281,7 @@ export function EstadisticasTab() {
         </div>
         <button className="secondary" onClick={guardarHorasPosibles} disabled={guardandoConfig}>Guardar horas posibles</button>
         <button onClick={calcular} disabled={cargando}>{cargando ? 'Calculando…' : 'Calcular'}</button>
+        <button className="secondary" onClick={descargarExcel} disabled={!todoCalculado}>Descargar Excel</button>
       </div>
 
       {hayDatos && vista === 'ausentismo' && ultimaFechaConDatos && (
