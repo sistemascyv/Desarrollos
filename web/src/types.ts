@@ -242,6 +242,7 @@ export interface FichadasLegajo extends BaseRecord {
   horario?: string;
   dias_personalizados?: DiaHorario[] | null;
   horas_extra_fijas?: HoraExtraFija[] | null;
+  horas_extra_fijas_desde?: string; // "YYYY-MM-DD", opcional -- vacío = sin corte, se aplica siempre (igual que antes de este campo)
   estado: boolean;
   fecha_alta?: string; // "YYYY-MM-DD", opcional -- vacío en legajos de antes del sistema
   fecha_baja?: string; // "YYYY-MM-DD", opcional -- si está cargada, estado = false
