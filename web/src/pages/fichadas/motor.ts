@@ -509,18 +509,47 @@ export interface MovimientoRotacion {
 
 export function calcularEstadisticaRotacion(params: {
   legajos: FichadasLegajo[];
+  historial?: HistorialLegajo[]; // etapas laborales ya cerradas de cualquier legajo (reingresos)
   anio: number;
   mesesTranscurridos?: number; // 1-12, default 12 (año completo)
 }): { meses: RotacionMes[]; movimientos: MovimientoRotacion[] } {
-  const { legajos, anio, mesesTranscurridos = 12 } = params;
+  const { legajos, historial = [], anio, mesesTranscurridos = 12 } = params;
+
+  const historialPorLegajo = new Map<string, HistorialLegajo[]>();
+  historial.forEach((h) => {
+    if (!historialPorLegajo.has(h.legajo)) historialPorLegajo.set(h.legajo, []);
+    historialPorLegajo.get(h.legajo)!.push(h);
+  });
 
   // Un legajo sin fecha_alta se asume "de antes" -- siempre activo desde
   // el inicio de cualquier período que se calcule acá (nunca cuenta como
-  // "ingreso", porque no se sabe cuándo entró realmente).
+  // "ingreso", porque no se sabe cuándo entró realmente). Lo mismo aplica
+  // a una fila de historial sin fecha_alta.
   function activoAl(legajo: FichadasLegajo, fechaIso: string): boolean {
+    const historialDeEste = historialPorLegajo.get(legajo.id) || [];
+    const activoEnAlgunaEtapaVieja = historialDeEste.some((h) => {
+      const alta = h.fecha_alta || '0000-01-01';
+      return alta < fechaIso && h.fecha_baja >= fechaIso;
+    });
+    if (activoEnAlgunaEtapaVieja) return true;
     const alta = legajo.fecha_alta || '0000-01-01';
     return alta < fechaIso && (!legajo.fecha_baja || legajo.fecha_baja >= fechaIso);
   }
+
+  // Eventos de alta/baja a considerar: cada etapa cerrada del historial +
+  // la etapa actual de cada legajo. Un reingreso aporta un ingreso Y un
+  // egreso distintos (el de la etapa vieja y el de la nueva), igual que
+  // en la práctica real de RRHH.
+  interface Evento { legajo: FichadasLegajo; fecha: string; tipo: 'ingreso' | 'egreso'; motivo?: string }
+  const eventos: Evento[] = [];
+  legajos.forEach((l) => {
+    (historialPorLegajo.get(l.id) || []).forEach((h) => {
+      if (h.fecha_alta) eventos.push({ legajo: l, fecha: h.fecha_alta, tipo: 'ingreso' });
+      eventos.push({ legajo: l, fecha: h.fecha_baja, tipo: 'egreso', motivo: h.motivo_baja });
+    });
+    if (l.fecha_alta) eventos.push({ legajo: l, fecha: l.fecha_alta, tipo: 'ingreso' });
+    if (l.fecha_baja) eventos.push({ legajo: l, fecha: l.fecha_baja, tipo: 'egreso', motivo: l.motivo_baja });
+  });
 
   const meses: RotacionMes[] = [];
   const movimientos: MovimientoRotacion[] = [];
@@ -536,20 +565,20 @@ export function calcularEstadisticaRotacion(params: {
     const finMes = `${anio}-${String(m + 1).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
 
     const dotacionInicial = legajos.filter((l) => activoAl(l, inicioMes)).length;
-    const ingresosDelMes = legajos.filter((l) => l.fecha_alta && l.fecha_alta >= inicioMes && l.fecha_alta <= finMes);
-    const egresosDelMes = legajos.filter((l) => l.fecha_baja && l.fecha_baja >= inicioMes && l.fecha_baja <= finMes);
+    const ingresosDelMes = eventos.filter((e) => e.tipo === 'ingreso' && e.fecha >= inicioMes && e.fecha <= finMes);
+    const egresosDelMes = eventos.filter((e) => e.tipo === 'egreso' && e.fecha >= inicioMes && e.fecha <= finMes);
 
-    const despidos = egresosDelMes.filter((l) => l.motivo_baja === 'Despido').length;
-    const renuncias = egresosDelMes.filter((l) => l.motivo_baja === 'Renuncia').length;
-    const acuerdos = egresosDelMes.filter((l) => l.motivo_baja === 'Acuerdo').length;
-    const jubilaciones = egresosDelMes.filter((l) => l.motivo_baja === 'Jubilación').length;
+    const despidos = egresosDelMes.filter((e) => e.motivo === 'Despido').length;
+    const renuncias = egresosDelMes.filter((e) => e.motivo === 'Renuncia').length;
+    const acuerdos = egresosDelMes.filter((e) => e.motivo === 'Acuerdo').length;
+    const jubilaciones = egresosDelMes.filter((e) => e.motivo === 'Jubilación').length;
     const totalEgresos = egresosDelMes.length;
     const ingresos = ingresosDelMes.length;
     const dotacionFinal = dotacionInicial + ingresos - totalEgresos;
     const indiceRotacion = dotacionInicial > 0 ? totalEgresos / dotacionInicial : 0;
 
-    ingresosDelMes.forEach((l) => movimientos.push({ nombre: l.nombre, fecha: l.fecha_alta!, tipo: 'ingreso' }));
-    egresosDelMes.forEach((l) => movimientos.push({ nombre: l.nombre, fecha: l.fecha_baja!, tipo: 'egreso', motivo: l.motivo_baja }));
+    ingresosDelMes.forEach((e) => movimientos.push({ nombre: e.legajo.nombre, fecha: e.fecha, tipo: 'ingreso' }));
+    egresosDelMes.forEach((e) => movimientos.push({ nombre: e.legajo.nombre, fecha: e.fecha, tipo: 'egreso', motivo: e.motivo }));
 
     meses.push({ dotacionInicial, ingresos, despidos, renuncias, acuerdos, jubilaciones, totalEgresos, dotacionFinal, indiceRotacion });
   }
