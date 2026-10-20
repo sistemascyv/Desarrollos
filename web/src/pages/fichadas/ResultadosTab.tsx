@@ -31,13 +31,19 @@ export function ResultadosTab() {
     if (!desde || !hasta) { toast('Elegí el rango de fechas.', 'warn'); return; }
     setCargando(true);
     try {
-      const [legajos, marcas, novedades, feriados, empresas] = await Promise.all([
-        pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ filter: 'estado = true', expand: 'empresa,horario' }),
+      const [legajosTodos, marcas, novedades, feriados, empresas] = await Promise.all([
+        // sin filtro estado: un ex-empleado tiene que poder consultarse en
+        // períodos pasados igual que ya hacen Horas Extras/Ausentismo/Rotación
+        pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ expand: 'empresa,horario' }),
         pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>(),
       ]);
+      // ex-empleados SIN fecha_baja cargada (caso legacy): no inventar horas
+      // extra fijas para todo el período. Con fecha_baja, el recorte de
+      // ventana en procesarPeriodo ya corta sus horas fijas justo después.
+      const legajos = legajosTodos.map((l) => ((l.estado || l.fecha_baja) ? l : { ...l, horas_extra_fijas: null }));
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
       const { resultados: res, tarjetasSinLegajo } = procesarPeriodo({
         legajos, marcas, novedades, feriados, empresaNombrePorId, desde, hasta,

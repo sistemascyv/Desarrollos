@@ -14,6 +14,19 @@
 // se decodifican a mano los bytes de auth.get("modulos") en vez de usar
 // el array ya interpretado.
 
+// Guardia de consistencia: estado se deriva de fecha_baja (activo = sin
+// fecha de baja cargada) -- la pantalla de Configuración ya lo mantiene
+// así (ver ConfiguracionTab.tsx, "Dar de baja"/"Reactivar"), esto es
+// defensa en profundidad por si alguien edita el registro directo por la
+// API o el admin de PocketBase sin pasar por esos botones.
+onRecordBeforeCreateRequest((e) => {
+  e.record.set("estado", !e.record.get("fecha_baja"));
+}, "fichadas_legajos");
+
+onRecordBeforeUpdateRequest((e) => {
+  e.record.set("estado", !e.record.get("fecha_baja"));
+}, "fichadas_legajos");
+
 routerAdd("POST", "/api/fichadas/marcas/importar", (c) => {
   const info = $apis.requestInfo(c);
   const auth = info.authRecord;
