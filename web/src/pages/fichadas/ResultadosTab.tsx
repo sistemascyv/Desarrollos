@@ -4,7 +4,7 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { isoDate } from '../../lib/format';
 import { procesarPeriodo, fmtAbsHora, fmtDur, type ResultadoDia } from './motor';
-import type { FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad } from '../../types';
+import type { FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
 
 type SubTab = 'detalle' | 'ausencias' | 'extra' | 'resumen';
 type Formato = 'entradas_salidas' | 'horas_extra' | 'parte_diario' | 'ausentismo';
@@ -31,7 +31,7 @@ export function ResultadosTab() {
     if (!desde || !hasta) { toast('Elegí el rango de fechas.', 'warn'); return; }
     setCargando(true);
     try {
-      const [legajosTodos, marcas, novedades, feriados, empresas] = await Promise.all([
+      const [legajosTodos, marcas, novedades, feriados, empresas, historial] = await Promise.all([
         // sin filtro estado: un ex-empleado tiene que poder consultarse en
         // períodos pasados igual que ya hacen Horas Extras/Ausentismo/Rotación
         pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ expand: 'empresa,horario' }),
@@ -39,6 +39,9 @@ export function ResultadosTab() {
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>(),
+        // sin filtro de fecha: son pocas filas (reingresos son raros), y hacen
+        // falta etapas de cualquier año para ventanas correctas.
+        pb.collection('fichadas_legajo_historial').getFullList<HistorialLegajo>(),
       ]);
       // ex-empleados SIN fecha_baja cargada (caso legacy): no inventar horas
       // extra fijas para todo el período. Con fecha_baja, el recorte de
@@ -46,7 +49,7 @@ export function ResultadosTab() {
       const legajos = legajosTodos.map((l) => ((l.estado || l.fecha_baja) ? l : { ...l, horas_extra_fijas: null }));
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
       const { resultados: res, tarjetasSinLegajo } = procesarPeriodo({
-        legajos, marcas, novedades, feriados, empresaNombrePorId, desde, hasta,
+        legajos, marcas, novedades, feriados, historial, empresaNombrePorId, desde, hasta,
       });
       setResultados(res);
       setSinLegajo(tarjetasSinLegajo);

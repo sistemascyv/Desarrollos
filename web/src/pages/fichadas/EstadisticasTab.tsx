@@ -7,7 +7,7 @@ import {
   procesarPeriodo, calcularEstadisticaHorasExtras, calcularEstadisticaAusentismo, calcularEstadisticaRotacion,
   type FilaEstadisticaArea, type FilaEstadisticaCausa, type RotacionMes, type MovimientoRotacion,
 } from './motor';
-import type { FichadasConfiguracion, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad } from '../../types';
+import type { FichadasConfiguracion, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 type Vista = 'horas_extras' | 'ausentismo' | 'rotacion';
@@ -109,13 +109,16 @@ export function EstadisticasTab() {
       const finDeAnio = new Date(anio, 11, 31);
       const hasta = isoDate(finDeAnio.getTime() > hoy.getTime() ? hoy : finDeAnio);
       const mesesTranscurridos = anio < anioActual ? 12 : hoy.getMonth() + 1;
-      const [legajosTodos, marcas, novedades, feriados, empresas] = await Promise.all([
+      const [legajosTodos, marcas, novedades, feriados, empresas, historial] = await Promise.all([
         // sin filtro estado: las horas pasadas de ex-empleados tienen que contarse igual
         pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ expand: 'empresa,horario' }),
         pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' }),
+        // sin filtro de fecha: son pocas filas (reingresos son raros), y hacen
+        // falta etapas de cualquier año para dotación/ventanas correctas.
+        pb.collection('fichadas_legajo_historial').getFullList<HistorialLegajo>(),
       ]);
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
       // ex-empleados SIN fecha_baja cargada (caso legacy): no inventar horas extra
@@ -123,7 +126,7 @@ export function EstadisticasTab() {
       // tienen fecha_baja, el recorte de ventana en procesarPeriodo ya corta sus
       // horas fijas justo después de esa fecha -- no hace falta pisarlas acá.
       const legajosParaCalculo = legajosTodos.map((l) => ((l.estado || l.fecha_baja) ? l : { ...l, horas_extra_fijas: null }));
-      const { resultados } = procesarPeriodo({ legajos: legajosParaCalculo, marcas, novedades, feriados, empresaNombrePorId, desde, hasta });
+      const { resultados } = procesarPeriodo({ legajos: legajosParaCalculo, marcas, novedades, feriados, historial, empresaNombrePorId, desde, hasta });
 
       const dotacionPorArea = new Map<string, number>();
       legajosTodos.filter((l) => l.estado).forEach((l) => {
@@ -149,7 +152,7 @@ export function EstadisticasTab() {
       setFilasAusentismo(fAus);
       setTotalAusentismo(tAus);
 
-      const { meses: mesesRot, movimientos: movRot } = calcularEstadisticaRotacion({ legajos: legajosTodos, anio, mesesTranscurridos });
+      const { meses: mesesRot, movimientos: movRot } = calcularEstadisticaRotacion({ legajos: legajosTodos, historial, anio, mesesTranscurridos });
       setRotacionMeses(mesesRot);
       setRotacionMovimientos(movRot);
       setRotacionMesesTranscurridos(mesesTranscurridos);
