@@ -38,7 +38,10 @@ routerAdd("POST", "/api/vales-caja/:id/usar", (c) => {
   } catch (err) {
     throw new NotFoundError("Vale de caja no encontrado.");
   }
+  const body = info.data || {};
   record.set("usado", true);
+  record.set("periodo_desde", body.desde || "");
+  record.set("periodo_hasta", body.hasta || "");
   dao.saveRecord(record);
   return c.json(200, { usado: true });
 });
@@ -64,6 +67,8 @@ routerAdd("POST", "/api/vales-caja/:id/liberar", (c) => {
     throw new NotFoundError("Vale de caja no encontrado.");
   }
   record.set("usado", false);
+  record.set("periodo_desde", "");
+  record.set("periodo_hasta", "");
   dao.saveRecord(record);
   return c.json(200, { usado: false });
 });
