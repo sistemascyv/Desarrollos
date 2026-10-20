@@ -135,6 +135,13 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
     if (!fechaAltaNueva) { toast('Completá la fecha de alta del reingreso.', 'warn'); return; }
     const legajo = legajos.find((l) => l.id === idEnReingreso);
     if (!legajo) return;
+    // la fecha nueva tiene que ser posterior a la baja que se está cerrando --
+    // si no, las dos etapas se superpondrían y el motor contaría esos días
+    // dos veces (una por cada etapa).
+    if (legajo.fecha_baja && fechaAltaNueva <= legajo.fecha_baja) {
+      toast('La fecha de alta del reingreso tiene que ser posterior a la fecha de baja anterior.', 'warn');
+      return;
+    }
     try {
       // guarda la etapa que se cierra (fecha_alta/fecha_baja/motivo_baja
       // actuales) antes de pisarlos con los datos del reingreso -- si no,
