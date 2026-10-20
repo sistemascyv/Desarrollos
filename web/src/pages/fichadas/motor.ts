@@ -154,9 +154,16 @@ export function procesarPeriodo(params: {
       const { trabaja, pares } = horarioEsperado(legajo, dia);
       const anchorAbs = fechaAMinutosAbsolutos(fecha);
       const novedad = novedadManual(idLegajo, fecha);
-      const horaFijaDelDia = (legajo.horas_extra_fijas || []).find((h) => h.dia === dia);
+      // Las horas fijas solo cuentan desde que el acuerdo está vigente --
+      // sin horas_extra_fijas_desde cargado (cualquier legajo configurado
+      // antes de este campo, o sin fecha puesta), se comporta igual que
+      // siempre: se aplican sin ningún corte.
+      const horaFijaBruta = (legajo.horas_extra_fijas || []).find((h) => h.dia === dia);
+      const horaFijaDelDia = horaFijaBruta && (!legajo.horas_extra_fijas_desde || fecha >= legajo.horas_extra_fijas_desde)
+        ? horaFijaBruta
+        : undefined;
 
-      if (!trabaja && !novedad && !horaFijaDelDia) continue; // día libre programado, sin novedad ni horas fijas: no se reporta
+      if (!trabaja && !novedad && !horaFijaDelDia) continue; // día libre programado, sin novedad ni horas fijas vigentes: no se reporta
 
       const paresReales: [number | null, number | null][] = [];
       let worked = 0;
