@@ -287,13 +287,19 @@ export function PlanillaChoferesPage() {
     if (!choferId) { setValesDisponibles([]); setValesTildados(new Set()); return; }
     const mi = ++valesReq.current;
     try {
+      // trae los libres MÁS los que ya están usados en este rango exacto
+      // (periodo_desde/periodo_hasta coinciden) -- así se reconstruye el
+      // tildado aunque se recargue la pantalla.
       const items = await pb.collection('vales_caja').getFullList<ValeCaja>({
-        filter: pb.filter('chofer = {:c} && usado = false && moneda = {:m}', { c: choferId, m: 'ARS' }),
+        filter: pb.filter(
+          'chofer = {:c} && moneda = {:m} && (usado = false || (periodo_desde = {:d} && periodo_hasta = {:h}))',
+          { c: choferId, m: 'ARS', d: desde, h: hasta }
+        ),
         sort: 'fecha',
       });
       if (mi !== valesReq.current) return;
       setValesDisponibles(items);
-      setValesTildados(new Set());
+      setValesTildados(new Set(items.filter((v) => v.usado).map((v) => v.id)));
     } catch (e) {
       if (mi !== valesReq.current) return;
       toast('No se pudieron cargar los vales de caja: ' + mensajeDeError(e), 'err');
@@ -303,7 +309,11 @@ export function PlanillaChoferesPage() {
   async function toggleVale(v: ValeCaja) {
     const marcando = !valesTildados.has(v.id);
     try {
-      await pb.send(`/api/vales-caja/${v.id}/${marcando ? 'usar' : 'liberar'}`, { method: 'POST' });
+      if (marcando) {
+        await pb.send(`/api/vales-caja/${v.id}/usar`, { method: 'POST', body: { desde, hasta } });
+      } else {
+        await pb.send(`/api/vales-caja/${v.id}/liberar`, { method: 'POST' });
+      }
       setValesTildados((cur) => {
         const next = new Set(cur);
         if (marcando) next.add(v.id); else next.delete(v.id);
@@ -493,9 +503,23 @@ export function PlanillaChoferesPage() {
       if (celda && typeof celda.v === 'number' && r !== 10) celda.z = '#,##0.00';
     }
 
+    const valesUsados = valesDisponibles.filter((v) => valesTildados.has(v.id));
+    const aoaVales: (string | number)[][] = [
+      ['N° Vale', 'Fecha', 'Importe', 'Observación'],
+      ...valesUsados.map((v) => [v.numero, fechaCorta(v.fecha), v.importe, v.observacion1 || '']),
+      ['TOTAL', '', valesUsados.reduce((s, v) => s + (Number(v.importe) || 0), 0), ''],
+    ];
+    const wsVales = XLSX.utils.aoa_to_sheet(aoaVales);
+    wsVales['!cols'] = [{ wch: 11 }, { wch: 13 }, { wch: 13 }, { wch: 40 }];
+    for (let r = 1; r <= valesUsados.length + 1; r++) {
+      const celda = wsVales[XLSX.utils.encode_cell({ r, c: 2 })];
+      if (celda && typeof celda.v === 'number') celda.z = '#,##0.00';
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
     XLSX.utils.book_append_sheet(wb, wsTramos, 'Tramos');
+    XLSX.utils.book_append_sheet(wb, wsVales, 'Vales de Caja');
     XLSX.writeFile(wb, `rendicion_${(choferNombre || 'chofer').replace(/[^a-z0-9]+/gi, '_')}_${desde}_a_${hasta}.xlsx`);
   }
 
@@ -522,7 +546,7 @@ export function PlanillaChoferesPage() {
           </div>
           <div className="field"><label htmlFor="pl-desde">Desde</label><input id="pl-desde" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></div>
           <div className="field"><label htmlFor="pl-hasta">Hasta</label><input id="pl-hasta" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
-          <button onClick={loadTramos} disabled={cargando}>{cargando ? 'Buscando…' : 'Buscar'}</button>
+          <button onClick={() => { loadTramos(); loadValesDisponibles(); }} disabled={cargando}>{cargando ? 'Buscando…' : 'Buscar'}</button>
           <button className="secondary" onClick={() => { setEditingTramo(null); setModalOpen(true); }}>+ Nuevo tramo</button>
           <button className="secondary" onClick={exportExcel}>Exportar Excel</button>
           <button className="secondary" onClick={() => window.print()}>Imprimir</button>
