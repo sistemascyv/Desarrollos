@@ -26,10 +26,16 @@ toca el motor de cálculo compartido (`motor.ts`), no solo Rotación.
 
 Nueva colección `fichadas_legajo_historial`: una fila por cada etapa
 laboral **ya cerrada** de un legajo — `legajo` (relación a
-`fichadas_legajos`, requerida), `fecha_alta` (text, requerida),
-`fecha_baja` (text, requerida — toda fila de historial es, por
-definición, una etapa cerrada), `motivo_baja` (select, los mismos 4
-valores ya usados: Despido/Renuncia/Acuerdo/Jubilación, requerida).
+`fichadas_legajos`, requerida), `fecha_alta` (text, **opcional** —
+igual que en el legajo actual, un legajo viejo puede no tener registrada
+su fecha de alta real original; vacío se trata igual que hoy: "de
+antes", nunca cuenta como un ingreso puntual pero sí como actividad ya
+en curso), `fecha_baja` (text, requerida — toda fila de historial es,
+por definición, una etapa cerrada, y "Dar de baja" ya exige esta fecha
+hoy), `motivo_baja` (select, los mismos 4 valores ya usados:
+Despido/Renuncia/Acuerdo/Jubilación, requerida — mismo motivo). Mismas
+reglas de permisos que ya tiene `fichadas_legajos` (lectura/escritura
+para el módulo "fichadas", borrado solo admin).
 
 Los campos actuales en `fichadas_legajos` (`fecha_alta`, `fecha_baja`,
 `motivo_baja`, `estado`) **no cambian de significado** — siguen
@@ -72,6 +78,11 @@ ido y vuelto después; el hueco entre una baja y la reincorporación nunca
 se evalúa (no es parte de ninguna ventana), así que no genera "Sin
 Justificar" donde la persona no trabajaba ahí.
 
+Una fila de historial sin `fecha_alta` (legajo viejo sin esa fecha
+registrada) se trata igual que la etapa actual sin `fecha_alta`: la
+ventana arranca en el `desde` del período pedido (se asume activa desde
+antes), sin inventar un límite inferior artificial.
+
 La función que hoy construye `[ventanaDesde, ventanaHasta]` recibe
 además la lista de filas de historial de ese legajo (ya cargadas por el
 caller, como `marcas`/`novedades`/`feriados`) para armar las ventanas
@@ -80,9 +91,11 @@ extra.
 ## Estadística de Rotación (`calcularEstadisticaRotacion`)
 
 Pasa a recibir también `historial: HistorialLegajo[]`. Cada etapa
-cerrada del historial cuenta como su propio ingreso (`fecha_alta`) y
-egreso (`fecha_baja`, con su `motivo_baja`) en el mes que corresponda —
-además de la etapa actual del legajo, igual que antes. La dotación de
+cerrada del historial cuenta como egreso (`fecha_baja`, con su
+`motivo_baja`) en el mes que corresponda, y como ingreso (`fecha_alta`)
+solo si esa fecha está cargada — igual criterio que la etapa actual, que
+ya no cuenta como ingreso cuando `fecha_alta` está vacía ("de antes").
+Esto además de la etapa actual del legajo, igual que antes. La dotación de
 cada mes (`activoAl`) pasa a considerar **todas** las etapas de un
 legajo (historial + actual), no solo la actual — alguien activo en un
 mes viejo por su primera etapa cuenta igual, aunque después se haya ido
