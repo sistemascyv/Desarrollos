@@ -1,4 +1,4 @@
-import type { DiaHorario, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad } from '../../types';
+import type { DiaHorario, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
 
 // Motor de cálculo de fichadas — portado 1:1 de la lógica ya validada en
 // el prototipo standalone (fichadas_prototipo.html). Misma fórmula de
@@ -69,11 +69,17 @@ export function procesarPeriodo(params: {
   marcas: FichadasMarca[];
   novedades: FichadasNovedad[];
   feriados: FichadasFeriado[];
+  historial?: HistorialLegajo[]; // etapas laborales ya cerradas de cualquier legajo (reingresos)
   empresaNombrePorId: Map<string, string>;
   desde: string; // YYYY-MM-DD
   hasta: string; // YYYY-MM-DD
 }): { resultados: ResultadoDia[]; tarjetasSinLegajo: string[] } {
-  const { legajos, marcas, novedades, feriados, empresaNombrePorId, desde, hasta } = params;
+  const { legajos, marcas, novedades, feriados, historial = [], empresaNombrePorId, desde, hasta } = params;
+  const historialPorLegajo = new Map<string, HistorialLegajo[]>();
+  historial.forEach((h) => {
+    if (!historialPorLegajo.has(h.legajo)) historialPorLegajo.set(h.legajo, []);
+    historialPorLegajo.get(h.legajo)!.push(h);
+  });
 
   const legajoPorTarjeta = new Map<string, FichadasLegajo>();
   legajos.forEach((l) => legajoPorTarjeta.set(l.nro_tarjeta.trim(), l));
@@ -143,9 +149,27 @@ export function procesarPeriodo(params: {
     // fuera de ese rango (ex-empleado ya no cuenta después de su baja,
     // alta reciente no cuenta antes de su ingreso real). Sin esas fechas
     // cargadas, el comportamiento es igual al de siempre (todo el período).
-    const ventanaDesde = legajo.fecha_alta ? Math.max(utcDesde, fechaAUtcMs(legajo.fecha_alta)) : utcDesde;
-    const ventanaHasta = legajo.fecha_baja ? Math.min(utcHasta, fechaAUtcMs(legajo.fecha_baja)) : utcHasta;
+    // Lista de ventanas de actividad real de este legajo dentro del período
+    // pedido -- una por cada etapa laboral ya cerrada
+    // (fichadas_legajo_historial) más la etapa actual (fecha_alta/fecha_baja
+    // del propio legajo). Cada ventana se recorta al período pedido y se
+    // descarta si queda vacía -- así el hueco entre una baja vieja y un
+    // reingreso nunca se evalúa (no genera "Sin Justificar" donde la
+    // persona no trabajaba ahí), y la primera etapa de alguien que se fue y
+    // volvió sigue pudiendo consultarse en períodos pasados.
+    const ventanas: [number, number][] = [];
+    (historialPorLegajo.get(idLegajo) || []).forEach((h) => {
+      const d = h.fecha_alta ? Math.max(utcDesde, fechaAUtcMs(h.fecha_alta)) : utcDesde;
+      const hh = Math.min(utcHasta, fechaAUtcMs(h.fecha_baja));
+      if (d <= hh) ventanas.push([d, hh]);
+    });
+    {
+      const d = legajo.fecha_alta ? Math.max(utcDesde, fechaAUtcMs(legajo.fecha_alta)) : utcDesde;
+      const hh = legajo.fecha_baja ? Math.min(utcHasta, fechaAUtcMs(legajo.fecha_baja)) : utcHasta;
+      if (d <= hh) ventanas.push([d, hh]);
+    }
 
+    for (const [ventanaDesde, ventanaHasta] of ventanas) {
     for (let cur = ventanaDesde; cur <= ventanaHasta; cur += 86400000) {
       const dt = new Date(cur);
       const fecha = dt.toISOString().slice(0, 10);
@@ -262,6 +286,7 @@ export function procesarPeriodo(params: {
         paresEsperados: pares, paresReales,
         hN, hE, ausente, novedad, causa,
       });
+    }
     }
   }
 
