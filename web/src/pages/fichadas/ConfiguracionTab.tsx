@@ -74,6 +74,8 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
   const [idEnBaja, setIdEnBaja] = useState<string | null>(null);
   const [fechaBaja, setFechaBaja] = useState('');
   const [motivoBaja, setMotivoBaja] = useState('');
+  const [idEnReingreso, setIdEnReingreso] = useState<string | null>(null);
+  const [fechaAltaNueva, setFechaAltaNueva] = useState('');
 
   useEffect(() => { if (!empresa && empresas[0]) setEmpresa(empresas[0].id); }, [empresas, empresa]);
   useEffect(() => { if (!horario && horarios[0]) setHorario(horarios[0].id); }, [horarios, horario]);
@@ -123,12 +125,32 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
     }
   }
 
-  async function reactivar(id: string) {
-    if (!(await confirm('¿Reactivar a este empleado? Se borran la fecha y el motivo de baja cargados.', 'Reactivar empleado'))) return;
+  function abrirReingreso(id: string) {
+    setIdEnReingreso(id);
+    setFechaAltaNueva('');
+  }
+
+  async function confirmarReingreso() {
+    if (!idEnReingreso) return;
+    if (!fechaAltaNueva) { toast('Completá la fecha de alta del reingreso.', 'warn'); return; }
+    const legajo = legajos.find((l) => l.id === idEnReingreso);
+    if (!legajo) return;
     try {
-      await pb.collection('fichadas_legajos').update(id, { fecha_baja: null, motivo_baja: null, estado: true });
+      // guarda la etapa que se cierra (fecha_alta/fecha_baja/motivo_baja
+      // actuales) antes de pisarlos con los datos del reingreso -- si no,
+      // se pierde el egreso viejo del historial de Rotación.
+      await pb.collection('fichadas_legajo_historial').create({
+        legajo: idEnReingreso,
+        fecha_alta: legajo.fecha_alta || null,
+        fecha_baja: legajo.fecha_baja,
+        motivo_baja: legajo.motivo_baja,
+      });
+      await pb.collection('fichadas_legajos').update(idEnReingreso, {
+        fecha_alta: fechaAltaNueva, fecha_baja: null, motivo_baja: null, estado: true,
+      });
+      setIdEnReingreso(null);
       onChanged();
-      toast('Reactivado.', 'ok');
+      toast('Reingreso registrado.', 'ok');
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
     }
@@ -146,6 +168,7 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
   }
 
   const legajoEnBaja = legajos.find((l) => l.id === idEnBaja);
+  const legajoEnReingreso = legajos.find((l) => l.id === idEnReingreso);
 
   return (
     <>
@@ -178,6 +201,18 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
         </>
       )}
 
+      {legajoEnReingreso && (
+        <>
+          <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Reincorporar a "{legajoEnReingreso.nombre}"</h3>
+          <div className="hint">Se guarda la etapa anterior (con su fecha de baja y motivo) en el historial de esa persona, y arranca una nueva con la fecha que pongas acá.</div>
+          <div className="row" style={{ marginTop: 6 }}>
+            <div className="field"><label>Fecha de alta (nueva)</label><input type="date" value={fechaAltaNueva} onChange={(e) => setFechaAltaNueva(e.target.value)} /></div>
+            <button onClick={confirmarReingreso}>Confirmar reingreso</button>
+            <button className="secondary" onClick={() => setIdEnReingreso(null)}>Cancelar</button>
+          </div>
+        </>
+      )}
+
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
       <div className="table-wrap" style={{ maxHeight: '50vh' }}>
         <table>
@@ -206,7 +241,7 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
                     ? <button className="small secondary" onClick={() => abrirBaja(l.id)}>Dar de baja</button>
                     : (
                       <span title={l.fecha_baja ? `${l.motivo_baja || ''} — ${l.fecha_baja}` : ''}>
-                        Inactivo <button className="small secondary" onClick={() => reactivar(l.id)}>Reactivar</button>
+                        Inactivo <button className="small secondary" onClick={() => abrirReingreso(l.id)}>Reactivar</button>
                       </span>
                     )}
                 </td>
