@@ -250,6 +250,15 @@ export interface FichadasLegajo extends BaseRecord {
   expand?: { empresa?: FichadasEmpresa; horario?: FichadasHorario };
 }
 
+// Una fila por cada etapa laboral YA CERRADA de un legajo (reingresos) --
+// se crea al "Reactivar" en Configuración, antes de abrir la etapa nueva.
+export interface HistorialLegajo extends BaseRecord {
+  legajo: string;
+  fecha_alta?: string; // "YYYY-MM-DD", opcional -- igual criterio que FichadasLegajo.fecha_alta ("de antes")
+  fecha_baja: string; // "YYYY-MM-DD", siempre cargada -- toda fila de historial es una etapa cerrada
+  motivo_baja: string; // una de MOTIVOS_BAJA (motor.ts)
+}
+
 export interface FichadasMarca extends BaseRecord {
   legajo?: string;
   tarjeta: string;
