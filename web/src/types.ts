@@ -22,6 +22,8 @@ export interface ValeCaja extends BaseRecord {
   observacion1?: string;
   observacion2?: string;
   usado: boolean;
+  periodo_desde?: string; // "YYYY-MM-DD", rango de la rendición que lo usó -- vacío si no está usado
+  periodo_hasta?: string;
   creado_por?: string;
 }
 
