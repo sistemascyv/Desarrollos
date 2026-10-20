@@ -163,6 +163,7 @@ export function procesarPeriodo(params: {
       const hh = legajo.fecha_baja ? Math.min(utcHasta, fechaAUtcMs(legajo.fecha_baja)) : utcHasta;
       if (d <= hh) ventanas.push([d, hh]);
     }
+    ventanas.sort((a, b) => a[0] - b[0]);
 
     for (const [ventanaDesde, ventanaHasta] of ventanas) {
     for (let cur = ventanaDesde; cur <= ventanaHasta; cur += 86400000) {

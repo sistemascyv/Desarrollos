@@ -145,13 +145,31 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
     try {
       // guarda la etapa que se cierra (fecha_alta/fecha_baja/motivo_baja
       // actuales) antes de pisarlos con los datos del reingreso -- si no,
-      // se pierde el egreso viejo del historial de Rotación.
-      await pb.collection('fichadas_legajo_historial').create({
-        legajo: idEnReingreso,
-        fecha_alta: legajo.fecha_alta || null,
-        fecha_baja: legajo.fecha_baja,
-        motivo_baja: legajo.motivo_baja,
-      });
+      // se pierde el egreso viejo del historial de Rotación. Un legajo
+      // legacy sin fecha_baja cargada (de antes de que este campo
+      // existiera) no tiene ningún egreso real que guardar -- se salta el
+      // historial y se abre la etapa nueva directo, igual que hacía el
+      // botón de un clic de antes.
+      if (legajo.fecha_baja && legajo.motivo_baja) {
+        // si ya existe una fila de historial para esta misma baja (ej: un
+        // reintento después de que la escritura de más abajo fallara a
+        // mitad de camino la vez anterior), no la duplicamos.
+        let yaExiste = false;
+        try {
+          await pb.collection('fichadas_legajo_historial').getFirstListItem(
+            pb.filter('legajo = {:l} && fecha_baja = {:b}', { l: idEnReingreso, b: legajo.fecha_baja })
+          );
+          yaExiste = true;
+        } catch { /* no existía */ }
+        if (!yaExiste) {
+          await pb.collection('fichadas_legajo_historial').create({
+            legajo: idEnReingreso,
+            fecha_alta: legajo.fecha_alta || null,
+            fecha_baja: legajo.fecha_baja,
+            motivo_baja: legajo.motivo_baja,
+          });
+        }
+      }
       await pb.collection('fichadas_legajos').update(idEnReingreso, {
         fecha_alta: fechaAltaNueva, fecha_baja: null, motivo_baja: null, estado: true,
       });
