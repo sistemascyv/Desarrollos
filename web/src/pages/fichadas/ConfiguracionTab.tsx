@@ -371,10 +371,13 @@ function HorasFijasSub({ legajos, onChanged }: { legajos: FichadasLegajo[]; onCh
 
   const legajo = legajos.find((l) => l.id === idLegajo);
 
-  async function guardar(horas: HoraExtraFija[]) {
+  async function guardar(horas: HoraExtraFija[], desde: string) {
     setGuardando(true);
     try {
-      await pb.collection('fichadas_legajos').update(idLegajo, { horas_extra_fijas: horas.length ? horas : null });
+      await pb.collection('fichadas_legajos').update(idLegajo, {
+        horas_extra_fijas: horas.length ? horas : null,
+        horas_extra_fijas_desde: desde || null,
+      });
       toast('Horas extra fijas guardadas.', 'ok');
       onChanged();
     } catch (e) {
@@ -397,19 +400,20 @@ function HorasFijasSub({ legajos, onChanged }: { legajos: FichadasLegajo[]; onCh
       </div>
       {legajo && (
         <div style={{ marginTop: 14 }} key={idLegajo}>
-          <EditorHorasFijas horasIniciales={legajo.horas_extra_fijas || []} onGuardar={guardar} guardando={guardando} />
+          <EditorHorasFijas horasIniciales={legajo.horas_extra_fijas || []} desdeInicial={legajo.horas_extra_fijas_desde || ''} onGuardar={guardar} guardando={guardando} />
         </div>
       )}
     </>
   );
 }
 
-function EditorHorasFijas({ horasIniciales, onGuardar, guardando }: { horasIniciales: HoraExtraFija[]; onGuardar: (horas: HoraExtraFija[]) => void; guardando: boolean }) {
+function EditorHorasFijas({ horasIniciales, desdeInicial, onGuardar, guardando }: { horasIniciales: HoraExtraFija[]; desdeInicial: string; onGuardar: (horas: HoraExtraFija[], desde: string) => void; guardando: boolean }) {
   const toast = useToast();
   const [valores, setValores] = useState<string[]>(() => DIAS_SEMANA.map((_, i) => {
     const f = horasIniciales.find((h) => h.dia === i + 1);
     return f ? String(f.horas).replace('.', ',') : '';
   }));
+  const [desde, setDesde] = useState(desdeInicial);
 
   function guardar() {
     const horas: HoraExtraFija[] = [];
@@ -420,11 +424,16 @@ function EditorHorasFijas({ horasIniciales, onGuardar, guardando }: { horasInici
       if (!isFinite(n) || n <= 0 || n > 24) { toast(`Revisá las horas del ${DIAS_SEMANA[i]}.`, 'warn'); return; }
       horas.push({ dia: i + 1, horas: n });
     }
-    onGuardar(horas);
+    onGuardar(horas, desde);
   }
 
   return (
     <>
+      <div className="field" style={{ marginBottom: 10, maxWidth: 200 }}>
+        <label>Vigente desde</label>
+        <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
+      </div>
+      <div className="hint" style={{ marginBottom: 10 }}>Vacío: las horas fijas se aplican siempre, sin fecha de corte (igual que antes de este campo).</div>
       {DIAS_SEMANA.map((nombre, i) => (
         <div key={nombre} className="row" style={{ alignItems: 'center', marginBottom: 6 }}>
           <div style={{ flex: '0 0 90px', fontWeight: 600, fontSize: 12 }}>{nombre}</div>
