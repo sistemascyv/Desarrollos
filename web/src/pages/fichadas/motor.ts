@@ -144,11 +144,6 @@ export function procesarPeriodo(params: {
     const usados = new Array(marcasGlobal.length).fill(false);
     const areaNombre = legajo.empresa ? empresaNombrePorId.get(legajo.empresa) || '—' : '—';
 
-    // Ventana real de actividad de este legajo dentro del período pedido --
-    // si tiene fecha_alta/fecha_baja cargada, no se generan resultados
-    // fuera de ese rango (ex-empleado ya no cuenta después de su baja,
-    // alta reciente no cuenta antes de su ingreso real). Sin esas fechas
-    // cargadas, el comportamiento es igual al de siempre (todo el período).
     // Lista de ventanas de actividad real de este legajo dentro del período
     // pedido -- una por cada etapa laboral ya cerrada
     // (fichadas_legajo_historial) más la etapa actual (fecha_alta/fecha_baja
