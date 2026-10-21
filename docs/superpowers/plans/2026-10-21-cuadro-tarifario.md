@@ -10,7 +10,7 @@ control de "% de actualización" (admin-only) que recalcula todos los valores.
 por rango de peso/categoría), un endpoint custom admin-only que recalcula
 todos los valores por %, y una página nueva de solo-lectura (más el control de
 % para admin) gateada por un módulo de permiso nuevo e independiente
-(`tarifas`).
+(id interno `cuadro_tarifario`, label "Tarifas").
 
 **Tech Stack:** PocketBase (Go hooks JS/goja), React + TypeScript, Vite.
 
@@ -55,8 +55,13 @@ todos los valores por %, y una página nueva de solo-lectura (más el control de
     valor?: number; // solo frio/congelado
   }
   ```
-- Produces: entrada en `MODULES` (`types.ts`): `{ id: 'tarifas', label:
-  'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' }`.
+- Produces: entrada en `MODULES` (`types.ts`): `{ id: 'cuadro_tarifario',
+  label: 'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' }`. El id
+  interno NO es `tarifas` a secas: `"tarifas"` es substring literal de
+  `"bot_tarifas"`, y como `modulos` es un campo `json` sus reglas de permiso
+  usan `~` (substring), así que un id `tarifas` quedaría matcheado también
+  por cualquiera con el módulo `bot_tarifas` (encontrado en la revisión de
+  esta misma Task 1). El label visible sigue siendo "Tarifas".
 - Consumes: ninguna (primer task del plan).
 
 - [ ] **Step 1: Crear la migración con schema + seed completo**
@@ -117,8 +122,8 @@ migrate((db) => {
       },
     ],
     "indexes": [],
-    "listRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"tarifas\")",
-    "viewRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"tarifas\")",
+    "listRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"cuadro_tarifario\")",
+    "viewRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"cuadro_tarifario\")",
     "createRule": null,
     "updateRule": null,
     "deleteRule": "@request.auth.rol = \"admin\"",
@@ -221,7 +226,7 @@ Ubicar el bloque `export const MODULES: ModuleDef[] = [...]` (cerca de la
 línea 296) y agregar una entrada más al final del array, antes del `];`:
 
 ```ts
-  { id: 'tarifas', label: 'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' },
+  { id: 'cuadro_tarifario', label: 'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' },
 ```
 
 Agregar la interfaz nueva en cualquier lugar razonable del archivo (junto a
@@ -428,7 +433,7 @@ git commit -m "Cuadro Tarifario: endpoint admin-only para aplicar % a las 3 cate
   (para `isAdmin`), `useConfirm()` de `web/src/lib/ConfirmContext.tsx`,
   `useToast()` de `web/src/lib/ToastContext.tsx`, `pb` de `web/src/lib/pb.ts`.
 - Produces: ruta `/comercial/tarifas`, gateada con
-  `<RequireModule moduleId="tarifas">`.
+  `<RequireModule moduleId="cuadro_tarifario">`.
 
 - [ ] **Step 1: Escribir la página completa**
 
@@ -600,7 +605,7 @@ Agregar la ruta nueva, justo después del bloque de la ruta
         <Route
           path="/comercial/tarifas"
           element={
-            <RequireModule moduleId="tarifas">
+            <RequireModule moduleId="cuadro_tarifario">
               <CuadroTarifarioPage />
             </RequireModule>
           }

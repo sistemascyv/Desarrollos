@@ -19,12 +19,21 @@ cotizador (sub-proyecto aparte).
 
 ## Módulo de permiso
 
-Módulo nuevo e independiente: `tarifas` (label "Tarifas", grupo COMERCIAL,
-ruta `comercial/tarifas`) — separado de `bot_tarifas` (que sigue existiendo
-tal cual, para correr el bot). El futuro cotizador se cuelga del mismo
-permiso `tarifas` sin cambios acá.
+Módulo nuevo e independiente: id interno `cuadro_tarifario`, label "Tarifas"
+(grupo COMERCIAL, ruta `comercial/tarifas`) — separado de `bot_tarifas` (que
+sigue existiendo tal cual, para correr el bot). El futuro cotizador se cuelga
+del mismo permiso `cuadro_tarifario` sin cambios acá.
 
-- Lectura del cuadro: cualquier usuario con el módulo `tarifas` (o admin).
+El id interno NO puede ser simplemente `tarifas`: el campo `modulos` es un
+campo `json` (no un multi-select real), así que sus reglas de permiso usan el
+operador `~` (substring/LIKE sobre el texto serializado), no `?=` — y
+`"tarifas"` es substring literal de `"bot_tarifas"`. Con id `tarifas`,
+cualquier usuario con el módulo del Bot de Tarifas matchearía también
+`modulos ~ "tarifas"` y vería el Cuadro Tarifario sin que se lo asignaran
+explícitamente (encontrado en la revisión de la Task 1). El label visible
+sigue siendo "Tarifas" — el cambio es solo en el id interno de permiso.
+
+- Lectura del cuadro: cualquier usuario con el módulo `cuadro_tarifario` (o admin).
 - Aplicar el %: solo `rol = "admin"` — verificado en el servidor, no alcanza
   con tener el módulo `tarifas` (que solo da acceso de lectura).
 
@@ -51,8 +60,9 @@ rango — tipado más simple, sin indirección innecesaria para leer un valor
 único. Nueva interfaz TS `CuadroTarifarioFila` en `types.ts`.
 
 Permisos de la colección: `listRule`/`viewRule` = `@request.auth.id != "" &&
-(@request.auth.rol = "admin" || @request.auth.modulos ~ "tarifas")` (mismo
-operador `~` que ya usa `tarifas_bot_ajustes`, la colección hermana). Sin
+(@request.auth.rol = "admin" || @request.auth.modulos ~ "cuadro_tarifario")`
+(mismo operador `~` que ya usa `tarifas_bot_ajustes`, la colección hermana).
+Sin
 `createRule`/`updateRule`/`deleteRule` para usuarios normales — la única
 escritura posible es a través del endpoint de aplicar-%, que corre con
 privilegios de servidor (Dao directo, sin pasar por las reglas de la
@@ -99,12 +109,12 @@ Arriba de todo, visible solo si `auth.rol === "admin"`: campo "% de
 actualización" + botón "Aplicar", con confirmación (`useConfirm`, mismo patrón
 que Bot Tarifas) aclarando que el % se aplica a las 3 categorías juntas. Al
 confirmar, llama al endpoint y refresca las 3 tablas con los valores nuevos.
-Para el resto de los usuarios con el módulo `tarifas`, la pantalla es de solo
-lectura — ven las 3 tablas, sin el control de %.
+Para el resto de los usuarios con el módulo `cuadro_tarifario`, la pantalla es
+de solo lectura — ven las 3 tablas, sin el control de %.
 
-Nueva entrada en `MODULES` (`types.ts`): `{ id: 'tarifas', label: 'Tarifas',
-group: 'COMERCIAL', path: 'comercial/tarifas' }`. Nueva ruta en `App.tsx`
-gateada con `<RequireModule moduleId="tarifas">`.
+Nueva entrada en `MODULES` (`types.ts`): `{ id: 'cuadro_tarifario', label:
+'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' }`. Nueva ruta en
+`App.tsx` gateada con `<RequireModule moduleId="cuadro_tarifario">`.
 
 ## Carga inicial
 
