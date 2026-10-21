@@ -96,6 +96,13 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
   }
 
   async function editar(id: string, campo: string, valor: string | boolean) {
+    if (campo === 'fecha_alta' && typeof valor === 'string' && valor) {
+      const legajo = legajos.find((l) => l.id === id);
+      if (legajo?.fecha_baja && valor > legajo.fecha_baja) {
+        toast('La fecha de alta no puede ser posterior a la fecha de baja de este legajo.', 'warn');
+        return;
+      }
+    }
     try {
       await pb.collection('fichadas_legajos').update(id, { [campo]: valor });
       onChanged();
@@ -115,6 +122,11 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
     if (!fechaBaja || !motivoBaja) { toast('Completá fecha y motivo de la baja.', 'warn'); return; }
     const hoyIso = new Date().toISOString().slice(0, 10);
     if (fechaBaja > hoyIso) { toast('La fecha de baja no puede ser futura — cargala el día que sea efectiva.', 'warn'); return; }
+    const legajo = legajos.find((l) => l.id === idEnBaja);
+    if (legajo?.fecha_alta && fechaBaja <= legajo.fecha_alta) {
+      toast('La fecha de baja tiene que ser posterior a la fecha de alta de este legajo.', 'warn');
+      return;
+    }
     try {
       await pb.collection('fichadas_legajos').update(idEnBaja, { fecha_baja: fechaBaja, motivo_baja: motivoBaja, estado: false });
       setIdEnBaja(null);
