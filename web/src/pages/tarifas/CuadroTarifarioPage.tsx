@@ -84,18 +84,22 @@ export function CuadroTarifarioPage() {
   return (
     <main>
       <div className="card">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="row" style={{ alignItems: 'flex-start' }}>
           <div>
             <h2>Cuadro Tarifario</h2>
             <div className="hint">Valores de referencia propios de Sistema CyV — no modifica el sistema de ventas de terceros.</div>
           </div>
           {minimos && (
-            <div style={{ border: '1px solid var(--brand)', borderRadius: 6, padding: '8px 14px', minWidth: 220 }}>
-              <div className="hint" style={{ marginBottom: 4, fontWeight: 700 }}>Mínimo por sucursal</div>
-              <div>Córdoba: {money(minimos.cordoba)}</div>
-              <div>San Francisco: {money(minimos.san_francisco)}</div>
-              <div>Rosario: {money(minimos.rosario)}</div>
-              <div>Buenos Aires: {money(minimos.buenos_aires)}</div>
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ border: '1px solid var(--brand)', borderRadius: 6, padding: '10px 24px', width: '100%', maxWidth: 560 }}>
+                <div className="hint" style={{ marginBottom: 6, fontWeight: 700, textAlign: 'center' }}>Mínimo por sucursal</div>
+                <div className="row" style={{ justifyContent: 'space-around' }}>
+                  <div>Córdoba: {money(minimos.cordoba)}</div>
+                  <div>San Francisco: {money(minimos.san_francisco)}</div>
+                  <div>Rosario: {money(minimos.rosario)}</div>
+                  <div>Buenos Aires: {money(minimos.buenos_aires)}</div>
+                </div>
+              </div>
             </div>
           )}
         </div>
