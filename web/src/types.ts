@@ -304,6 +304,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'flota_posicion', label: 'Posición de Flota', group: 'MANTENIMIENTO', path: 'flota/posicion' },
   { id: 'fichadas', label: 'Fichadas', group: 'RRHH', path: 'rrhh/fichadas' },
   { id: 'bot_tarifas', label: 'Actualizar Tarifas', group: 'COMERCIAL', path: 'comercial/bot-tarifas' },
+  { id: 'tarifas', label: 'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' },
 ];
 
 // Resultado de una corrida del Bot Act Tarifas (Python + Selenium, corre en
@@ -323,4 +324,14 @@ export interface TarifaBotAjuste extends BaseRecord {
   error?: string;
   ejecutado_por?: string;
   entorno?: 'test' | 'produccion' | '';
+}
+
+export interface CuadroTarifarioFila extends BaseRecord {
+  categoria: 'seco' | 'frio' | 'congelado';
+  rango_kg_desde: number;
+  rango_kg_hasta: number;
+  rango_m3_desde?: number;
+  rango_m3_hasta?: number;
+  valores?: Record<string, number>; // solo seco: CC,CS,CR,CB,RR,RS,RB,SS,SB,BB
+  valor?: number; // solo frio/congelado
 }
