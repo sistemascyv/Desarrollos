@@ -12,6 +12,7 @@ import { PanelCubiertasPage } from './pages/flota/PanelCubiertasPage';
 import { PosicionFlotaPage } from './pages/flota/satelital/PosicionFlotaPage';
 import { FichadasPage } from './pages/fichadas/FichadasPage';
 import { BotTarifasPage } from './pages/tarifas/BotTarifasPage';
+import { CuadroTarifarioPage } from './pages/tarifas/CuadroTarifarioPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth, RequireAdmin, RequireModule } from './components/RequireAuth';
@@ -114,6 +115,14 @@ function App() {
           element={
             <RequireModule moduleId="bot_tarifas">
               <BotTarifasPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/comercial/tarifas"
+          element={
+            <RequireModule moduleId="cuadro_tarifario">
+              <CuadroTarifarioPage />
             </RequireModule>
           }
         />
