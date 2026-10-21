@@ -111,7 +111,7 @@ export function CuadroTarifarioPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Rango (Kg)</th><th>Rango (m³)</th>
+                  <th>Rango (Kg)</th><th>Rango (m³)</th><th>Unidad</th>
                   {COLUMNAS_ZONA.map((c) => <th key={c.key} className="num">{c.label}</th>)}
                 </tr>
               </thead>
@@ -120,6 +120,9 @@ export function CuadroTarifarioPage() {
                   <tr key={f.id}>
                     <td>{f.rango_kg_desde} a {f.rango_kg_hasta} Kg</td>
                     <td>{f.rango_m3_desde} a {f.rango_m3_hasta} Mts³</td>
+                    <td>
+                      {f.por_unidad && <span className="badge" style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }} title="El valor es precio por Kg, no un monto fijo por banda">Por Kg</span>}
+                    </td>
                     {COLUMNAS_ZONA.map((c) => <td key={c.key} className="num">{money(f.valores?.[c.key])}</td>)}
                   </tr>
                 ))}

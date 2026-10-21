@@ -53,6 +53,18 @@ categoría:
   las sucursales; se muestran las siglas tal cual, sin nombre completo).
 - `valor`: number, solo para `frio`/`congelado` — un único precio por rango,
   sin zonas.
+- `por_unidad`: bool, opcional, solo relevante en `seco` — agregado después
+  del deploy inicial (2026-10-21). En Seco, a partir de 1101 Kg el "Valor"
+  deja de ser un monto fijo por banda y pasa a ser un precio **por Kg** (hay
+  que multiplicarlo por el peso real) — confirmado contra el sistema de
+  ventas de terceros, que marca esas filas con su propio tilde ("es por
+  unidad"). Backfill: `true` en las 7 filas de `seco` con
+  `rango_kg_desde >= 1101` (1101-1400 hasta 10001-13000), `false`/vacío en
+  el resto y en `frio`/`congelado`. No afecta el cálculo del %: la fila
+  sigue siendo `valor_actual * factor` igual que cualquier otra, el flag es
+  puramente informativo/de visualización — importante para el futuro
+  cotizador, que si no lo tiene en cuenta va a cotizar carga pesada muy por
+  debajo del precio real.
 
 Se separa `valores` (JSON, multi-zona) de `valor` (número simple) en vez de
 forzar todo a un único JSON, porque Frío/Congelado son un solo número por
@@ -96,12 +108,14 @@ Bot Tarifas — son completamente independientes.
 Sub-tabs internos (mismo patrón que `ConfiguracionTab.tsx`): Seco / Frío /
 Congelado, arranca en Seco.
 
-- **Seco**: tabla con columnas Rango (Kg), Rango (m³) y las 10 combinaciones
-  de zona, en este orden exacto (igual que el sistema de terceros, no es un
-  orden alfabético): `C⇄C, C⇄S, C⇄R, C⇄B, R⇄R, R⇄S, R⇄B, S⇄S, S⇄B, B⇄B`
-  (claves `CC, CS, CR, CB, RR, RS, RB, SS, SB, BB` en `valores`). Ordenada por
-  `rango_kg_desde` ascendente, valores formateados con `money()`
-  (`lib/format.ts`).
+- **Seco**: tabla con columnas Rango (Kg), Rango (m³), **Unidad** y las 10
+  combinaciones de zona, en este orden exacto (igual que el sistema de
+  terceros, no es un orden alfabético): `C⇄C, C⇄S, C⇄R, C⇄B, R⇄R, R⇄S, R⇄B,
+  S⇄S, S⇄B, B⇄B` (claves `CC, CS, CR, CB, RR, RS, RB, SS, SB, BB` en
+  `valores`). La columna "Unidad" muestra una etiqueta "Por Kg" solo en las
+  filas con `por_unidad = true` (resto de las filas, celda vacía — la
+  excepción se marca, no la regla). Ordenada por `rango_kg_desde` ascendente,
+  valores formateados con `money()` (`lib/format.ts`).
 - **Frío** / **Congelado**: tabla simple Desde/Hasta (Kg) + Valor, mismo
   formato.
 

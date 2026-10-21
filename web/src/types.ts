@@ -334,4 +334,5 @@ export interface CuadroTarifarioFila extends BaseRecord {
   rango_m3_hasta?: number;
   valores?: Record<string, number>; // solo seco: CC,CS,CR,CB,RR,RS,RB,SS,SB,BB
   valor?: number; // solo frio/congelado
+  por_unidad?: boolean; // solo seco: true = el valor es precio por Kg, no monto fijo por banda
 }
