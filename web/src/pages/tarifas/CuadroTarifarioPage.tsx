@@ -4,7 +4,7 @@ import { useAuth } from '../../lib/AuthContext';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { money } from '../../lib/format';
-import type { CuadroTarifarioFila } from '../../types';
+import type { CuadroTarifarioFila, CuadroTarifarioMinimos } from '../../types';
 
 // Orden fijo de las 10 combinaciones de zona -- igual que en el sistema de
 // terceros, NO es alfabetico (ver spec). C=Cordoba, S=San Francisco,
@@ -30,6 +30,7 @@ export function CuadroTarifarioPage() {
   const confirm = useConfirm();
 
   const [filas, setFilas] = useState<CuadroTarifarioFila[]>([]);
+  const [minimos, setMinimos] = useState<CuadroTarifarioMinimos | null>(null);
   const [cargando, setCargando] = useState(true);
   const [tab, setTab] = useState<CategoriaId>('seco');
   const [porcentaje, setPorcentaje] = useState('');
@@ -40,8 +41,12 @@ export function CuadroTarifarioPage() {
   async function cargar() {
     setCargando(true);
     try {
-      const items = await pb.collection('cuadro_tarifario').getFullList<CuadroTarifarioFila>({ sort: 'rango_kg_desde' });
+      const [items, minItems] = await Promise.all([
+        pb.collection('cuadro_tarifario').getFullList<CuadroTarifarioFila>({ sort: 'rango_kg_desde' }),
+        pb.collection('cuadro_tarifario_minimos').getFullList<CuadroTarifarioMinimos>(),
+      ]);
       setFilas(items);
+      setMinimos(minItems[0] || null);
     } catch (e) {
       toast('No se pudo cargar el cuadro tarifario: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
@@ -57,7 +62,7 @@ export function CuadroTarifarioPage() {
       return;
     }
     const ok = await confirm(
-      `Se va a aplicar un ajuste de +${limpio}% a TODOS los valores de Seco, Frío y Congelado. ¿Confirmar?`,
+      `Se va a aplicar un ajuste de +${limpio}% a TODOS los valores de Seco, Frío, Congelado y los mínimos por sucursal. ¿Confirmar?`,
       'Aplicar porcentaje',
     );
     if (!ok) return;
@@ -79,8 +84,21 @@ export function CuadroTarifarioPage() {
   return (
     <main>
       <div className="card">
-        <h2>Cuadro Tarifario</h2>
-        <div className="hint">Valores de referencia propios de Sistema CyV — no modifica el sistema de ventas de terceros.</div>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h2>Cuadro Tarifario</h2>
+            <div className="hint">Valores de referencia propios de Sistema CyV — no modifica el sistema de ventas de terceros.</div>
+          </div>
+          {minimos && (
+            <div style={{ border: '1px solid var(--brand)', borderRadius: 6, padding: '8px 14px', minWidth: 220 }}>
+              <div className="hint" style={{ marginBottom: 4, fontWeight: 700 }}>Mínimo por sucursal</div>
+              <div>Córdoba: {money(minimos.cordoba)}</div>
+              <div>San Francisco: {money(minimos.san_francisco)}</div>
+              <div>Rosario: {money(minimos.rosario)}</div>
+              <div>Buenos Aires: {money(minimos.buenos_aires)}</div>
+            </div>
+          )}
+        </div>
 
         {isAdmin && (
           <div className="row" style={{ marginTop: 10 }}>

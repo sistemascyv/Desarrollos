@@ -1,10 +1,13 @@
 /// <reference path="../pb_data/types.d.ts" />
 // Cuadro Tarifario: el unico endpoint que puede escribir en
-// cuadro_tarifario (la coleccion no tiene createRule/updateRule para
-// usuarios normales -- ver pb_migrations/1789230000_created_cuadro_tarifario.js).
-// Recalcula TODAS las filas (seco+frio+congelado juntas) aplicando el
-// mismo % -- no hay un % independiente por categoria. Sin historial de
-// cada aplicacion (decidido explicitamente en el spec).
+// cuadro_tarifario y cuadro_tarifario_minimos (ninguna tiene
+// createRule/updateRule para usuarios normales -- ver
+// pb_migrations/1789230000_created_cuadro_tarifario.js y
+// pb_migrations/1789260000_created_cuadro_tarifario_minimos.js).
+// Recalcula TODAS las filas (seco+frio+congelado juntas) MAS los minimos
+// por sucursal, aplicando el mismo % a todo -- no hay un % independiente
+// por categoria ni para los minimos. Sin historial de cada aplicacion
+// (decidido explicitamente en el spec).
 
 // Los helpers van adentro del handler: PocketBase corre los callbacks en un
 // contexto que no ve funciones declaradas afuera (mismo motivo que en
@@ -60,6 +63,13 @@ routerAdd("POST", "/api/cuadro-tarifario/aplicar-porcentaje", (c) => {
     }
     dao.saveRecord(f);
   });
+
+  // Filtro real, no vacio -- mismo motivo que arriba.
+  const minimos = dao.findFirstRecordByFilter("cuadro_tarifario_minimos", "cordoba >= 0");
+  ["cordoba", "san_francisco", "rosario", "buenos_aires"].forEach((campo) => {
+    minimos.set(campo, redondear2((Number(minimos.get(campo)) || 0) * factor));
+  });
+  dao.saveRecord(minimos);
 
   return c.json(200, { ok: true, filas_actualizadas: filas.length });
 });

@@ -80,6 +80,19 @@ escritura posible es a través del endpoint de aplicar-%, que corre con
 privilegios de servidor (Dao directo, sin pasar por las reglas de la
 colección).
 
+## Mínimo por sucursal
+
+Agregado después del deploy inicial (2026-10-21), a pedido del usuario.
+Colección nueva `cuadro_tarifario_minimos` de **un solo registro** (mismo
+criterio que `fichadas_configuracion`): `cordoba`, `san_francisco`,
+`rosario`, `buenos_aires` (todos number, requeridos). Valores reales de
+carga inicial: San Francisco $25.157,30; Córdoba/Rosario/Buenos Aires
+$33.543,05 cada una. Mismos permisos que `cuadro_tarifario` (lectura con el
+módulo o admin; sin `createRule`/`updateRule`/`deleteRule` para usuarios
+normales — solo el endpoint de aplicar-% escribe acá). Se actualiza
+siempre junto con el resto del cuadro, con el mismo % y en la misma
+llamada — no tiene un % independiente ni pantalla propia.
+
 ## Endpoint: aplicar porcentaje
 
 `POST /api/cuadro-tarifario/aplicar-porcentaje`, body `{ porcentaje: number }`:
@@ -93,17 +106,27 @@ colección).
      redondeada a 2 decimales.
    - `frio`/`congelado`: `valor * (1 + porcentaje/100)`, redondeado a 2
      decimales.
-4. Guarda todas las filas actualizadas (secuencial, sin transacción — mismo
+4. Recalcula también el único registro de `cuadro_tarifario_minimos`
+   (`cordoba`/`san_francisco`/`rosario`/`buenos_aires`), mismo cálculo y
+   redondeo.
+5. Guarda todas las filas actualizadas (secuencial, sin transacción — mismo
    criterio que el resto de este proyecto).
-5. Responde `{ ok: true, filas_actualizadas: N }`.
+6. Responde `{ ok: true, filas_actualizadas: N }`.
 
-El % se aplica siempre a las 3 categorías juntas, en una sola acción — no hay
-un % independiente por categoría. No se guarda historial de cada aplicación
+El % se aplica siempre a las 3 categorías juntas MÁS los mínimos por
+sucursal, en una sola acción — no hay un % independiente por categoría ni
+para los mínimos. No se guarda historial de cada aplicación
 (se evaluó y se descartó a pedido del usuario): el cuadro solo refleja los
 valores vigentes. Esta acción no toca el sistema de ventas de terceros ni al
 Bot Tarifas — son completamente independientes.
 
 ## Pantalla (`CuadroTarifarioPage.tsx`, ruta `/comercial/tarifas`)
+
+Arriba a la derecha del título (mismo `card`, en una fila con
+`justify-content: space-between`): un recuadro con el mínimo de flete de
+las 4 sucursales (nombre completo, no siglas, a diferencia de la matriz de
+zonas — es un cuadro aparte, de solo 4 líneas), tomado de
+`cuadro_tarifario_minimos`.
 
 Sub-tabs internos (mismo patrón que `ConfiguracionTab.tsx`): Seco / Frío /
 Congelado, arranca en Seco.

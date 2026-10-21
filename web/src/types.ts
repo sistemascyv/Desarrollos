@@ -336,3 +336,12 @@ export interface CuadroTarifarioFila extends BaseRecord {
   valor?: number; // solo frio/congelado
   por_unidad?: boolean; // solo seco: true = el valor es precio por Kg, no monto fijo por banda
 }
+
+// Coleccion de un solo registro -- minimo de flete por sucursal, se
+// actualiza junto con el resto del cuadro al aplicar el %.
+export interface CuadroTarifarioMinimos extends BaseRecord {
+  cordoba: number;
+  san_francisco: number;
+  rosario: number;
+  buenos_aires: number;
+}
