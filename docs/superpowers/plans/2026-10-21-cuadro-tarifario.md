@@ -312,22 +312,27 @@ Archivo completo `pb_hooks/cuadro_tarifario.pb.js`:
 // mismo % -- no hay un % independiente por categoria. Sin historial de
 // cada aplicacion (decidido explicitamente en el spec).
 
-function redondear2(n) {
-  return Math.round(n * 100) / 100;
-}
-
-// Un campo "json" leido desde un record puede llegar como objeto ya
-// parseado, como texto, o (mismo problema ya visto con auth.get("modulos")
-// en otras colecciones de este proyecto) como arreglo de bytes -- se
-// normaliza a texto antes de parsear para cubrir los 3 casos.
-function leerJson(raw) {
-  if (raw === null || raw === undefined || raw === '') return null;
-  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
-  const texto = Array.isArray(raw) ? String.fromCharCode.apply(null, raw) : String(raw);
-  return JSON.parse(texto);
-}
-
+// Los helpers van adentro del handler: PocketBase corre los callbacks de
+// routerAdd en un contexto que no ve funciones declaradas afuera del archivo
+// (mismo motivo documentado en pb_hooks/km_real.pb.js y pb_hooks/pressa.pb.js
+// -- con helpers globales falla con "ReferenceError: leerJson is not
+// defined").
 routerAdd("POST", "/api/cuadro-tarifario/aplicar-porcentaje", (c) => {
+  function redondear2(n) {
+    return Math.round(n * 100) / 100;
+  }
+
+  // Un campo "json" leido desde un record puede llegar como objeto ya
+  // parseado, como texto, o (mismo problema ya visto con auth.get("modulos")
+  // en otras colecciones de este proyecto) como arreglo de bytes -- se
+  // normaliza a texto antes de parsear para cubrir los 3 casos.
+  function leerJson(raw) {
+    if (raw === null || raw === undefined || raw === '') return null;
+    if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+    const texto = Array.isArray(raw) ? String.fromCharCode.apply(null, raw) : String(raw);
+    return JSON.parse(texto);
+  }
+
   const info = $apis.requestInfo(c);
   const auth = info.authRecord;
   if (!auth || auth.get("rol") !== "admin") {
