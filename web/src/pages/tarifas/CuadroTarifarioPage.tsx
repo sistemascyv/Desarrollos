@@ -91,7 +91,7 @@ export function CuadroTarifarioPage() {
           </div>
           {minimos && (
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-              <div style={{ border: '1px solid var(--brand)', borderRadius: 6, padding: '16px 24px', width: '100%', maxWidth: 560 }}>
+              <div style={{ border: '1px solid var(--brand)', borderRadius: 6, padding: '16px 24px', width: '100%', maxWidth: 560, marginTop: 12 }}>
                 <div className="hint" style={{ marginBottom: 12, fontWeight: 700, textAlign: 'center' }}>Mínimo por sucursal</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 12, columnGap: 24, justifyItems: 'center' }}>
                   <div>San Francisco: {money(minimos.san_francisco)}</div>
