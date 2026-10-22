@@ -120,6 +120,45 @@ export interface Usuario extends BaseRecord {
   sucursal?: 'cordoba' | 'san_francisco' | 'rosario' | 'buenos_aires';
 }
 
+export type Sucursal = 'cordoba' | 'san_francisco' | 'rosario' | 'buenos_aires';
+
+export interface Cotizacion extends BaseRecord {
+  numero: string;
+  fecha: string;
+  trafico_origen: Sucursal;
+  trafico_destino: Sucursal;
+  paga_en: 'origen' | 'destino';
+  cliente?: string;
+  solicitado_por?: string;
+  telefono?: string;
+  email?: string;
+  lugar_carga?: string;
+  lugar_descarga?: string;
+  tipo_mercaderia?: string;
+  observacion?: string;
+  seguro_activo: boolean;
+  seguro_porcentaje: number;
+  contra_reembolso: number;
+  taxi_flet: number;
+  sub_total: number;
+  recargo: number;
+  seguro: number;
+  neto_gravado: number;
+  iva: number;
+  total: number;
+  creado_por?: string;
+}
+
+export interface CotizacionItem extends BaseRecord {
+  cotizacion: string;
+  kilos: number;
+  m3: number;
+  bultos: number;
+  valor_declarado: number;
+  precio: number;
+  total: number;
+}
+
 export type EstadoCheque = 'pendiente' | 'aceptado' | 'rechazado';
 
 export interface BcraRechazo {
