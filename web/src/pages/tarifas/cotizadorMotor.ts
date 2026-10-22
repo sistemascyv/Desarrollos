@@ -37,9 +37,12 @@ export function calcularItem(filasSeco: CuadroTarifarioFila[], kilos: number, m3
   const filaKg = kilos > 0 ? filasSeco.find((f) => kilos >= f.rango_kg_desde && kilos <= f.rango_kg_hasta) : undefined;
   const filaM3 = m3 > 0 ? filasSeco.find((f) => f.rango_m3_desde != null && f.rango_m3_hasta != null && m3 >= f.rango_m3_desde && m3 <= f.rango_m3_hasta) : undefined;
 
+  // Si la fila matcheo pero le falta justo esa clave de zona (dato
+  // incompleto), no se inventa un precio $0 -- se descarta esa fila como
+  // candidata, igual criterio que "ninguna fila matcheo".
   const candidatos: { fila: CuadroTarifarioFila; precio: number }[] = [];
-  if (filaKg) candidatos.push({ fila: filaKg, precio: filaKg.valores?.[clave] ?? 0 });
-  if (filaM3) candidatos.push({ fila: filaM3, precio: filaM3.valores?.[clave] ?? 0 });
+  if (filaKg?.valores?.[clave] != null) candidatos.push({ fila: filaKg, precio: filaKg.valores[clave] });
+  if (filaM3?.valores?.[clave] != null) candidatos.push({ fila: filaM3, precio: filaM3.valores[clave] });
   if (candidatos.length === 0) return null;
 
   const elegido = candidatos.reduce((a, b) => (b.precio > a.precio ? b : a));
