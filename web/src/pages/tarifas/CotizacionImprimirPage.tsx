@@ -51,9 +51,16 @@ export function CotizacionImprimirPage() {
       <div className="card">
         <button onClick={() => {
           document.body.classList.add('imprimiendo-cotizacion');
+          const estiloPagina = document.createElement('style');
+          estiloPagina.textContent = '@media print { @page { size: A4 portrait; margin: 0; } }';
+          document.head.appendChild(estiloPagina);
           setTimeout(() => {
-            window.print();
-            document.body.classList.remove('imprimiendo-cotizacion');
+            try {
+              window.print();
+            } finally {
+              document.body.classList.remove('imprimiendo-cotizacion');
+              document.head.removeChild(estiloPagina);
+            }
           }, 50);
         }}>Imprimir</button>
       </div>
