@@ -133,7 +133,7 @@ export function CotizadorPage() {
       .map((it, i) => ({ it, calc: itemsCalculados[i] }))
       .filter((x): x is { it: ItemForm; calc: NonNullable<typeof x.calc> } => x.calc !== null);
     if (itemsValidos.length === 0) { toast('Cargá al menos un ítem con Kilos o Mts³.', 'warn'); return; }
-    if (!totales) return;
+    if (!totales) { toast('No se pudieron cargar los mínimos por sucursal -- recargá la página e intentá de nuevo.', 'err'); return; }
 
     setGuardando(true);
     try {
@@ -147,6 +147,16 @@ export function CotizadorPage() {
         sub_total: totales.subTotal, recargo: totales.recargo, seguro: totales.seguro,
         neto_gravado: totales.netoGravado, iva: totales.iva, total: totales.total,
       });
+      // ponytail: si un item falla a mitad de este loop (red, etc.), la
+      // cotizacion ya creada arriba queda "fantasma" (numero real
+      // asignado, sin items) -- no se intenta borrarla aca porque
+      // deleteRule es admin-only (la mayoria de quien carga cotizaciones
+      // es operador), asi que un intento de limpieza fallaria en
+      // silencio igual para el caso mas comun. Riesgo bajo (requiere una
+      // falla justo entre el create del encabezado y el de un item) y
+      // aceptado por ahora -- subir de nivel a un endpoint server-side
+      // que cree todo atomico via Dao si esto llega a pasar en la
+      // practica.
       for (const { it, calc } of itemsValidos) {
         await pb.collection('cotizacion_items').create<CotizacionItem>({
           cotizacion: cot.id,
