@@ -179,9 +179,16 @@ pestaña nueva (para imprimir o guardar como PDF desde el navegador —
   `solicitado_por`.
 - Tabla de ítems (Kilos, Mts³, Bultos, Valor Declarado, Observación,
   Precio, Total).
-- Exactamente 6 líneas de totales, en este orden, **sin** Recargo ni
-  Contra Reembolso (decisión explícita, igual que la captura de
-  referencia): SubTotal, Seguro, Taxi-Flet, Neto, IVA, Total.
+- Líneas de totales, en este orden: SubTotal, **Recargo mínimo** (solo si
+  es mayor a $0), Seguro, Taxi-Flet, **Contra Reembolso** (solo si es
+  mayor a $0), Neto, IVA, Total. Decisión revisada después de la
+  revisión final de rama completa: la primera versión las omitía siempre
+  "igual que la captura de referencia", pero esa captura es del sistema
+  de terceros con el bug que motivó este cotizador (nunca aplicaba el
+  recargo, por eso nunca lo mostraba) — copiar ese layout copiaba la
+  ausencia del dato, no una decisión de diseño real. Mostrarlas solo
+  cuando > 0 evita un salto de monto sin explicar en el papel, sin
+  ensuciar el recibo en el caso común (sin recargo ni contra reembolso).
 - Lugar de Carga, Lugar de Descarga, Tipo de Mercadería, Observación.
 - Leyenda fija: "En caso de que los datos informados por el cliente
   difieran de los datos reales, se procederá a realizar un ajuste en la

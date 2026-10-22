@@ -109,8 +109,10 @@ export function CotizacionImprimirPage() {
         </table>
         <div style={{ marginTop: 16, maxWidth: 320 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>SubTotal:</span><span>{money(cot.sub_total)}</span></div>
+          {cot.recargo > 0 && <div className="row" style={{ justifyContent: 'space-between' }}><span>Recargo mínimo:</span><span>{money(cot.recargo)}</span></div>}
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Seguro:</span><span>{money(cot.seguro)}</span></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Taxi-Flet:</span><span>{money(cot.taxi_flet)}</span></div>
+          {cot.contra_reembolso > 0 && <div className="row" style={{ justifyContent: 'space-between' }}><span>Contra Reembolso:</span><span>{money(cot.contra_reembolso)}</span></div>}
           <hr />
           <div className="row" style={{ justifyContent: 'space-between' }}><span>Neto:</span><span>{money(cot.neto_gravado)}</span></div>
           <div className="row" style={{ justifyContent: 'space-between' }}><span>IVA:</span><span>{money(cot.iva)}</span></div>
