@@ -311,6 +311,10 @@ tbody tr:hover {
   max-height: 60vh;
   overflow-y: auto;
 }
+.items-table th,
+.items-table td {
+  padding: 10px 12px;
+}
 .flota-map {
   height: 460px;
   border-radius: 8px;

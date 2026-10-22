@@ -74,6 +74,8 @@ export function CotizadorPage() {
   const [traficoDestino, setTraficoDestino] = useState<Sucursal>('san_francisco');
   const [pagaEn, setPagaEn] = useState<'origen' | 'destino'>('origen');
   const [cliente, setCliente] = useState('');
+  const [clienteEsNuevo, setClienteEsNuevo] = useState(false);
+  const [clienteNombreNuevo, setClienteNombreNuevo] = useState('');
   const [solicitadoPor, setSolicitadoPor] = useState('');
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
@@ -110,7 +112,7 @@ export function CotizadorPage() {
   function abrirNueva() {
     setFecha(isoDate(new Date()));
     setTraficoOrigen('san_francisco'); setTraficoDestino('san_francisco'); setPagaEn('origen');
-    setCliente(''); setSolicitadoPor(''); setTelefono(''); setEmail('');
+    setCliente(''); setClienteEsNuevo(false); setClienteNombreNuevo(''); setSolicitadoPor(''); setTelefono(''); setEmail('');
     setLugarCarga(''); setLugarDescarga(''); setTipoMercaderia(''); setObservacion('');
     setItems([itemVacio()]);
     setSeguroActivo(true); setSeguroPorcentaje('0.7'); setContraReembolso('0'); setTaxiFlet('0');
@@ -172,6 +174,7 @@ export function CotizadorPage() {
       return;
     }
     if (!clave) { toast('Ese tráfico no tiene una combinación de zona válida.', 'warn'); return; }
+    if (clienteEsNuevo && !clienteNombreNuevo.trim()) { toast('Completá el nombre del cliente nuevo.', 'warn'); return; }
     if (hayItemInvalido) {
       toast('Hay un ítem con un dato inválido: un número mal escrito, un Valor Declarado sin Kilos/Mts³ cargados, o que no cae en ninguna banda del Cuadro Tarifario (si es "Por Kg", le falta el peso real).', 'warn');
       return;
@@ -185,7 +188,9 @@ export function CotizadorPage() {
     try {
       cot = await pb.collection('cotizaciones').create<Cotizacion>({
         fecha, trafico_origen: traficoOrigen, trafico_destino: traficoDestino, paga_en: pagaEn,
-        cliente: cliente || null, solicitado_por: solicitadoPor.trim(), telefono: telefono.trim(), email: email.trim(),
+        cliente: clienteEsNuevo ? null : (cliente || null),
+        cliente_nombre: clienteEsNuevo ? clienteNombreNuevo.trim() : '',
+        solicitado_por: solicitadoPor.trim(), telefono: telefono.trim(), email: email.trim(),
         lugar_carga: lugarCarga.trim(), lugar_descarga: lugarDescarga.trim(),
         tipo_mercaderia: tipoMercaderia.trim(), observacion: observacion.trim(),
         seguro_activo: seguroActivo, seguro_porcentaje: seguroPorcentajeNum,
@@ -289,10 +294,18 @@ export function CotizadorPage() {
         <div className="row" style={{ marginTop: 10 }}>
           <div className="field">
             <label>Cliente</label>
-            <select value={cliente} onChange={(e) => setCliente(e.target.value)}>
-              <option value="">Seleccione…</option>
-              {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
+            {clienteEsNuevo ? (
+              <input value={clienteNombreNuevo} onChange={(e) => setClienteNombreNuevo(e.target.value)} placeholder="Nombre del cliente nuevo" />
+            ) : (
+              <select value={cliente} onChange={(e) => setCliente(e.target.value)}>
+                <option value="">Seleccione…</option>
+                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            )}
+            <label style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 4, fontSize: 11 }}>
+              <input type="checkbox" checked={clienteEsNuevo} onChange={(e) => { setClienteEsNuevo(e.target.checked); setCliente(''); setClienteNombreNuevo(''); }} />
+              {' '}Cliente nuevo (no está en la lista)
+            </label>
           </div>
           <div className="field"><label>Solicitado Por</label><input value={solicitadoPor} onChange={(e) => setSolicitadoPor(e.target.value)} /></div>
           <div className="field"><label>Teléfono</label><input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></div>
@@ -307,33 +320,35 @@ export function CotizadorPage() {
           <div className="field" style={{ flex: 1 }}><label>Observación</label><textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} /></div>
         </div>
 
-        <h3 style={{ marginTop: 18 }}>Items</h3>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>Kilos</th><th>Mts³</th><th>Bultos</th><th>Valor Declarado</th><th className="num">Precio</th><th className="num">Total</th><th></th></tr></thead>
-            <tbody>
-              {items.map((it, i) => {
-                const calc = itemsCalculados[i];
-                const p = itemsParseados[i];
-                const tieneAlgo = p.invalido || p.kilos > 0 || p.m3 > 0;
-                return (
-                  <tr key={i}>
-                    <td><input inputMode="decimal" value={it.kilos} onChange={(e) => actualizarItem(i, 'kilos', e.target.value)} style={{ width: 80 }} /></td>
-                    <td><input inputMode="decimal" value={it.m3} onChange={(e) => actualizarItem(i, 'm3', e.target.value)} style={{ width: 80 }} /></td>
-                    <td><input inputMode="decimal" value={it.bultos} onChange={(e) => actualizarItem(i, 'bultos', e.target.value)} style={{ width: 70 }} /></td>
-                    <td><input inputMode="decimal" value={it.valorDeclarado} onChange={(e) => actualizarItem(i, 'valorDeclarado', e.target.value)} style={{ width: 110 }} /></td>
-                    <td className="num">{calc ? money(calc.precio) : (tieneAlgo ? '—' : '')}</td>
-                    <td className="num">{calc ? money(calc.total) : (tieneAlgo ? '—' : '')}</td>
-                    <td><button className="small danger" onClick={() => quitarItem(i)} disabled={items.length === 1}>Quitar</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <h3 style={{ marginTop: 28, marginBottom: 10 }}>Items</h3>
+        <div style={{ background: 'var(--panel2)', border: '1px solid var(--border)', borderRadius: 8, padding: 14 }}>
+          <div className="table-wrap">
+            <table className="items-table">
+              <thead><tr><th>Kilos</th><th>Mts³</th><th>Bultos</th><th>Valor Declarado</th><th className="num">Precio</th><th className="num">Total</th><th></th></tr></thead>
+              <tbody>
+                {items.map((it, i) => {
+                  const calc = itemsCalculados[i];
+                  const p = itemsParseados[i];
+                  const tieneAlgo = p.invalido || p.kilos > 0 || p.m3 > 0;
+                  return (
+                    <tr key={i}>
+                      <td><input inputMode="decimal" value={it.kilos} onChange={(e) => actualizarItem(i, 'kilos', e.target.value)} style={{ width: 100 }} /></td>
+                      <td><input inputMode="decimal" value={it.m3} onChange={(e) => actualizarItem(i, 'm3', e.target.value)} style={{ width: 90 }} /></td>
+                      <td><input inputMode="decimal" value={it.bultos} onChange={(e) => actualizarItem(i, 'bultos', e.target.value)} style={{ width: 80 }} /></td>
+                      <td><input inputMode="decimal" value={it.valorDeclarado} onChange={(e) => actualizarItem(i, 'valorDeclarado', e.target.value)} style={{ width: 130 }} /></td>
+                      <td className="num">{calc ? money(calc.precio) : (tieneAlgo ? '—' : '')}</td>
+                      <td className="num">{calc ? money(calc.total) : (tieneAlgo ? '—' : '')}</td>
+                      <td><button className="small danger" onClick={() => quitarItem(i)} disabled={items.length === 1}>Quitar</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <button className="small secondary" onClick={agregarItem} style={{ marginTop: 10 }}>+ Agregar ítem</button>
         </div>
-        <button className="small secondary" onClick={agregarItem} style={{ marginTop: 6 }}>+ Agregar ítem</button>
 
-        <div className="row" style={{ marginTop: 16, alignItems: 'flex-start' }}>
+        <div className="row" style={{ marginTop: 20, alignItems: 'flex-start' }}>
           <div>
             <label><input type="checkbox" checked={seguroActivo} onChange={(e) => setSeguroActivo(e.target.checked)} /> Seguro</label>
             {' '}

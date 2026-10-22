@@ -129,6 +129,7 @@ export interface Cotizacion extends BaseRecord {
   trafico_destino: Sucursal;
   paga_en: 'origen' | 'destino';
   cliente?: string;
+  cliente_nombre?: string; // cliente nuevo cargado a mano, cuando `cliente` esta vacio
   solicitado_por?: string;
   telefono?: string;
   email?: string;

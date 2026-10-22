@@ -85,8 +85,8 @@ export function CotizacionImprimirPage() {
         <hr />
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div>
-            <div>Señor(es): {clienteNombre || '—'}</div>
-            <div>Atento: {clienteNombre || '—'}</div>
+            <div>Señor(es): {clienteNombre || cot.cliente_nombre || '—'}</div>
+            <div>Atento: {clienteNombre || cot.cliente_nombre || '—'}</div>
           </div>
           <div>Remitente: {cot.solicitado_por || '—'}</div>
         </div>
