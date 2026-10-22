@@ -9,7 +9,7 @@ const LETRA_SUCURSAL: Record<Sucursal, string> = {
 
 // Las 10 claves no siguen una regla de orden simple (no es alfabetico ni
 // por precedencia fija -- ver Global Constraints del plan), asi que se
-// prue({ba ambos ordenes contra este set en vez de intentar derivarlo.
+// prueba ambos ordenes contra este set en vez de intentar derivarlo.
 const CLAVES_ZONA_VALIDAS = ['CC', 'CS', 'CR', 'CB', 'RR', 'RS', 'RB', 'SS', 'SB', 'BB'];
 
 export function claveZona(origen: Sucursal, destino: Sucursal): string | null {
@@ -30,27 +30,52 @@ export interface ItemCalculado {
   porUnidad: boolean;
 }
 
+// Primera banda (ordenadas de menor a mayor) cuyo limite superior cubre
+// el valor real -- en vez de pedir desde<=valor<=hasta, que deja afuera
+// cualquier valor no entero que caiga justo en el hueco entre el "hasta"
+// de una banda entera y el "desde" de la siguiente (las bandas de la
+// tabla son en kilos/m3 enteros, pero un peso real de bascula no lo es).
+function bandaPorLimiteSuperior(filas: CuadroTarifarioFila[], valor: number, hasta: (f: CuadroTarifarioFila) => number | null | undefined): CuadroTarifarioFila | undefined {
+  return filas.find((f) => {
+    const h = hasta(f);
+    return h != null && valor <= h;
+  });
+}
+
 // null = no se pudo calcular: ni kilos ni m3 cargados, ninguno cae en una
-// banda de la tabla, o la banda que ganó es "por Kg" (>=1101 Kg) sin
-// kilos cargados (no se inventa un peso a partir del volumen).
+// banda de la tabla, o la unica candidata disponible es "por Kg" (>=1101
+// Kg) sin kilos cargados (no se inventa un peso a partir del volumen).
 export function calcularItem(filasSeco: CuadroTarifarioFila[], kilos: number, m3: number, clave: string): ItemCalculado | null {
-  const filaKg = kilos > 0 ? filasSeco.find((f) => kilos >= f.rango_kg_desde && kilos <= f.rango_kg_hasta) : undefined;
-  const filaM3 = m3 > 0 ? filasSeco.find((f) => f.rango_m3_desde != null && f.rango_m3_hasta != null && m3 >= f.rango_m3_desde && m3 <= f.rango_m3_hasta) : undefined;
+  const filaKg = kilos > 0 ? bandaPorLimiteSuperior(filasSeco, kilos, (f) => f.rango_kg_hasta) : undefined;
+  const filaM3 = m3 > 0 ? bandaPorLimiteSuperior(filasSeco, m3, (f) => f.rango_m3_hasta) : undefined;
 
   // Si la fila matcheo pero le falta justo esa clave de zona (dato
   // incompleto), no se inventa un precio $0 -- se descarta esa fila como
-  // candidata, igual criterio que "ninguna fila matcheo".
-  const candidatos: { fila: CuadroTarifarioFila; precio: number }[] = [];
-  if (filaKg?.valores?.[clave] != null) candidatos.push({ fila: filaKg, precio: filaKg.valores[clave] });
-  if (filaM3?.valores?.[clave] != null) candidatos.push({ fila: filaM3, precio: filaM3.valores[clave] });
+  // candidata, igual criterio que "ninguna fila matcheo". Una fila "por
+  // Kg" sin kilos tampoco entra a competir (no hay peso real para
+  // convertir su precio-por-kg en un total) -- se descarta aca, no
+  // despues de elegir, porque "por Kg" solo puede matchear via m3 cuando
+  // kilos<=0 (si kilos>0 esa misma fila hubiera entrado tambien por
+  // filaKg), asi que nunca hay otra candidata valida que se pierda por
+  // filtrar esta antes.
+  const candidatos: ItemCalculado[] = [];
+  for (const fila of [filaKg, filaM3]) {
+    const precio = fila?.valores?.[clave];
+    if (fila == null || precio == null) continue;
+    const porUnidad = !!fila.por_unidad;
+    if (porUnidad && kilos <= 0) continue;
+    const total = porUnidad ? redondear2(precio * kilos) : precio;
+    candidatos.push({ precio, total, porUnidad });
+  }
   if (candidatos.length === 0) return null;
 
-  const elegido = candidatos.reduce((a, b) => (b.precio > a.precio ? b : a));
-  const porUnidad = !!elegido.fila.por_unidad;
-  if (porUnidad && kilos <= 0) return null;
-
-  const total = porUnidad ? redondear2(elegido.precio * kilos) : elegido.precio;
-  return { precio: elegido.precio, total, porUnidad };
+  // Gana el candidato cuyo TOTAL real es mas caro -- nunca el precio de
+  // tabla crudo. Una fila "por Kg" guarda un precio POR KG, no el total
+  // de la banda, asi que comparar precio contra precio de una fila de
+  // monto fijo compara unidades distintas (ej: 103,18 $/Kg contra
+  // $65.790,87 de monto fijo -- el precio crudo es "mas barato" pero el
+  // total real para 1500 Kg es $154.770, muy por encima).
+  return candidatos.reduce((a, b) => (b.total > a.total ? b : a));
 }
 
 export function minimoDeSucursal(minimos: CuadroTarifarioMinimos, sucursal: Sucursal): number {
