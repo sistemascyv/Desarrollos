@@ -312,6 +312,15 @@ Archivo completo `pb_migrations/1789280000_created_cotizaciones.js`:
 // valor 0 por la API REST ("Missing required value") -- y 0 es un valor
 // perfectamente legitimo para varios de estos (recargo=0 cuando el flete
 // ya supera el minimo, seguro=0 sin seguro activo, etc).
+//
+// "numero" tambien es "required: false" a proposito (sigue siendo
+// "unique") -- mismo bug ya encontrado y arreglado antes para vales_caja
+// (ver pb_migrations/1789070000_fix_vales_caja_numero_no_required.js):
+// PocketBase valida los campos required ANTES de correr
+// onRecordBeforeCreateRequest, asi que un numero marcado required
+// rechaza cualquier create que no lo mande -- que es exactamente lo que
+// hace el formulario real (nunca lo manda, lo asigna el hook de
+// pb_hooks/cotizaciones.pb.js, ver Task 3).
 migrate((db) => {
   const dao = new Dao(db);
 
@@ -323,7 +332,7 @@ migrate((db) => {
     "schema": [
       {
         "system": false, "id": "cot0numero0001", "name": "numero", "type": "text",
-        "required": true, "presentable": true, "unique": true,
+        "required": false, "presentable": true, "unique": true,
         "options": { "min": null, "max": null, "pattern": "" },
       },
       {
@@ -610,13 +619,13 @@ onRecordBeforeCreateRequest((e) => {
   const dao = e.dao || $app.dao();
   const auth = $apis.requestInfo(e.httpContext).authRecord;
   if (!auth) {
-    throw new Error("No tenés permiso para esto.");
+    throw new ForbiddenError("No tenés permiso para esto.");
   }
   const sucursal = auth.get("sucursal");
   const PREFIJOS = { cordoba: "COR", san_francisco: "SAN", rosario: "ROS", buenos_aires: "BUE" };
   const prefijo = PREFIJOS[sucursal];
   if (!prefijo) {
-    throw new Error("Tu usuario no tiene sucursal asignada -- pedile a un administrador que te la cargue en Administración → Usuarios.");
+    throw new ForbiddenError("Tu usuario no tiene sucursal asignada -- pedile a un administrador que te la cargue en Administración → Usuarios.");
   }
 
   // Filtro real, no vacío -- un filtro "" rompe findRecordsByFilter en
