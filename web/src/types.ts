@@ -117,6 +117,7 @@ export interface Usuario extends BaseRecord {
   rol: Rol;
   activo: boolean;
   modulos?: string[];
+  sucursal?: 'cordoba' | 'san_francisco' | 'rosario' | 'buenos_aires';
 }
 
 export type EstadoCheque = 'pendiente' | 'aceptado' | 'rechazado';

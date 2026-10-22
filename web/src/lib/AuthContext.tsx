@@ -26,6 +26,7 @@ function recordToUsuario(): Usuario | null {
     rol: model.rol as Rol,
     activo: model.activo,
     modulos: model.modulos || [],
+    sucursal: model.sucursal,
   };
 }
 

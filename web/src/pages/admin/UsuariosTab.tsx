@@ -19,6 +19,7 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
   const [password, setPassword] = useState('');
   const [rol, setRol] = useState<Rol>('operador');
   const [modulos, setModulos] = useState<string[]>([]);
+  const [sucursal, setSucursal] = useState<Usuario['sucursal'] | ''>('');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editModulos, setEditModulos] = useState<string[]>([]);
@@ -48,10 +49,11 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
       const body: Record<string, unknown> = {
         username: username.trim(), password, passwordConfirm: password,
         nombre: nombre.trim(), rol, activo: true, emailVisibility: true, modulos,
+        sucursal: sucursal || null,
       };
       if (email.trim()) body.email = email.trim();
       await pb.collection('usuarios').create(body);
-      setNombre(''); setUsername(''); setEmail(''); setPassword(''); setRol('operador'); setModulos([]);
+      setNombre(''); setUsername(''); setEmail(''); setPassword(''); setRol('operador'); setModulos([]); setSucursal('');
       onChanged();
       toast('Usuario creado.', 'ok');
     } catch (e) {
@@ -74,6 +76,15 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
     if (self?.id === id) { toast('No podés desactivar tu propio usuario.', 'warn'); return; }
     try {
       await pb.collection('usuarios').update(id, { activo: !currentlyActive });
+      await load();
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  async function cambiarSucursal(id: string, nueva: string) {
+    try {
+      await pb.collection('usuarios').update(id, { sucursal: nueva || null });
       await load();
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -130,6 +141,16 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
             <option value="admin">Administrador</option>
           </select>
         </div>
+        <div className="field">
+          <label>Sucursal</label>
+          <select value={sucursal} onChange={(e) => setSucursal(e.target.value as Usuario['sucursal'] | '')}>
+            <option value="">Sin asignar</option>
+            <option value="cordoba">Córdoba</option>
+            <option value="san_francisco">San Francisco</option>
+            <option value="rosario">Rosario</option>
+            <option value="buenos_aires">Buenos Aires</option>
+          </select>
+        </div>
       </div>
       <div className="field" style={{ marginTop: 6 }}>
         <label>Módulos habilitados (solo aplica a operadores; un admin ve todos)</label>
@@ -155,11 +176,11 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
       <div className="table-wrap" style={{ maxHeight: '50vh', marginTop: 10 }}>
         <table>
           <thead>
-            <tr><th>Usuario</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Módulos</th><th>Estado</th><th></th></tr>
+            <tr><th>Usuario</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Sucursal</th><th>Módulos</th><th>Estado</th><th></th></tr>
           </thead>
           <tbody>
-            {items.length === 0 && <tr><td className="empty" colSpan={7}>Sin usuarios todavía.</td></tr>}
-            {items.length > 0 && filtered.length === 0 && <tr><td className="empty" colSpan={7}>No hay resultados para "{search}".</td></tr>}
+            {items.length === 0 && <tr><td className="empty" colSpan={8}>Sin usuarios todavía.</td></tr>}
+            {items.length > 0 && filtered.length === 0 && <tr><td className="empty" colSpan={8}>No hay resultados para "{search}".</td></tr>}
             {filtered.map((u) => {
               const inactivo = u.activo === false;
               const isSelf = self?.id === u.id;
@@ -172,6 +193,15 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
                   <td>{u.nombre || '—'}</td>
                   <td>{u.email || '—'}</td>
                   <td>{u.rol === 'admin' ? 'Administrador' : 'Operador'}</td>
+                  <td>
+                    <select value={u.sucursal || ''} onChange={(e) => cambiarSucursal(u.id, e.target.value)}>
+                      <option value="">Sin asignar</option>
+                      <option value="cordoba">Córdoba</option>
+                      <option value="san_francisco">San Francisco</option>
+                      <option value="rosario">Rosario</option>
+                      <option value="buenos_aires">Buenos Aires</option>
+                    </select>
+                  </td>
                   <td>{modulosTxt}</td>
                   <td>{inactivo ? <span className="badge">Inactivo</span> : <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Activo</span>}</td>
                   <td className="actions-cell">
