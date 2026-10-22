@@ -101,9 +101,14 @@ Por cada ítem:
    10 combinaciones `CC,CS,CR,CB,RR,RS,RB,SS,SB,BB` sin importar el orden
    (San Francisco=S, Córdoba=C, Rosario=R, Buenos Aires=B — mismo mapeo que
    ya usa Cuadro Tarifario).
-4. Si la fila tiene `por_unidad = true` (desde 1101 Kg): `precio = total =
+4. Si la fila tiene `por_unidad = true` (desde 1101 Kg): `item.precio =
    precioFila`; `item.total = precioFila * kilos`. Si no: `item.precio =
    item.total = precioFila` (monto fijo de la banda, sin multiplicar).
+   **Caso borde:** si la fila que ganó (`precioFila`) es `por_unidad` y
+   `kilos = 0` (cargaron solo Mts³, y ese volumen cae en una banda "Por
+   Kg"), no se puede calcular un Total sin un peso real — el ítem queda
+   inválido y el formulario avisa que hace falta cargar los Kilos para ese
+   rango (no se inventa un peso a partir del volumen).
 
 Totales de la cotización (una sola vez, no por ítem):
 
