@@ -214,10 +214,15 @@ de las capturas del usuario:
   $30.440,33. Este es justo el caso que en la captura original salía sin
   recargo (bug del sistema de terceros que motivó este cotizador) — acá
   confirma que el mínimo queda respetado.
-- Valor Declarado=2.000.000, Mts³=2 → Precio $125.423,93, Seguro
-  $14.000,00 (0,7%), Neto $139.423,93, IVA $29.279,02, Total $166.702,95
-  (caso real de la captura de impresión, sin recargo porque el Precio ya
-  supera el mínimo).
+- Mts³=1, Tráfico San Francisco-San Francisco, Valor Declarado=2.000.000 →
+  `precioFila` (banda 251-300 Kg / 0,834-1,000 Mts³, columna SS) =
+  $65.790,87 (mismo valor que ya confirmamos antes en el Cuadro Tarifario
+  para esta banda — la captura de impresión del usuario usa otra fecha con
+  otra tarifa de ese momento, no sirve como caso de test exacto contra los
+  datos actuales). `sub_total` = $65.790,87, sin recargo (ya supera
+  cualquiera de los 2 mínimos). `seguro` = $2.000.000 × 0,7% = $14.000,00.
+  `neto_gravado` = $65.790,87 + $14.000,00 = $79.790,87. `iva` =
+  $79.790,87 × 0,21 = $16.756,08. `total` = $96.546,95.
 
 Migraciones probadas contra una PocketBase local real. Build de `tsc`
 limpio.
