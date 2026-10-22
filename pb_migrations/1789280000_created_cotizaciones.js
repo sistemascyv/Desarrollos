@@ -4,6 +4,14 @@
 // recalculan solos si cambia despues el Cuadro Tarifario. No son
 // editables despues de creadas (updateRule null en las 2) -- ver
 // docs/superpowers/specs/2026-10-22-cotizador-design.md.
+//
+// Todos los campos number calculados (sub_total/recargo/seguro/
+// neto_gravado/iva/total, precio/total de los items) son "required: false"
+// a proposito, aunque la aplicacion siempre los manda: confirmado contra
+// una PocketBase real que un campo number "required: true" RECHAZA el
+// valor 0 por la API REST ("Missing required value") -- y 0 es un valor
+// perfectamente legitimo para varios de estos (recargo=0 cuando el flete
+// ya supera el minimo, seguro=0 sin seguro activo, etc).
 migrate((db) => {
   const dao = new Dao(db);
 
@@ -99,32 +107,32 @@ migrate((db) => {
       },
       {
         "system": false, "id": "cot0subtotal01", "name": "sub_total", "type": "number",
-        "required": true, "presentable": false, "unique": false,
+        "required": false, "presentable": false, "unique": false,
         "options": { "min": 0, "max": null, "noDecimal": false },
       },
       {
         "system": false, "id": "cot0recargo001", "name": "recargo", "type": "number",
-        "required": true, "presentable": false, "unique": false,
+        "required": false, "presentable": false, "unique": false,
         "options": { "min": 0, "max": null, "noDecimal": false },
       },
       {
         "system": false, "id": "cot0seguro0001", "name": "seguro", "type": "number",
-        "required": true, "presentable": false, "unique": false,
+        "required": false, "presentable": false, "unique": false,
         "options": { "min": 0, "max": null, "noDecimal": false },
       },
       {
         "system": false, "id": "cot0netograva1", "name": "neto_gravado", "type": "number",
-        "required": true, "presentable": false, "unique": false,
+        "required": false, "presentable": false, "unique": false,
         "options": { "min": 0, "max": null, "noDecimal": false },
       },
       {
         "system": false, "id": "cot0iva0000001", "name": "iva", "type": "number",
-        "required": true, "presentable": false, "unique": false,
+        "required": false, "presentable": false, "unique": false,
         "options": { "min": 0, "max": null, "noDecimal": false },
       },
       {
         "system": false, "id": "cot0total00001", "name": "total", "type": "number",
-        "required": true, "presentable": true, "unique": false,
+        "required": false, "presentable": true, "unique": false,
         "options": { "min": 0, "max": null, "noDecimal": false },
       },
       {
@@ -176,12 +184,12 @@ migrate((db) => {
       },
       {
         "system": false, "id": "cit0precio0001", "name": "precio", "type": "number",
-        "required": true, "presentable": false, "unique": false,
+        "required": false, "presentable": false, "unique": false,
         "options": { "min": 0, "max": null, "noDecimal": false },
       },
       {
         "system": false, "id": "cit0total00001", "name": "total", "type": "number",
-        "required": true, "presentable": false, "unique": false,
+        "required": false, "presentable": false, "unique": false,
         "options": { "min": 0, "max": null, "noDecimal": false },
       },
     ],
