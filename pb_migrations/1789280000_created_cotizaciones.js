@@ -12,6 +12,15 @@
 // valor 0 por la API REST ("Missing required value") -- y 0 es un valor
 // perfectamente legitimo para varios de estos (recargo=0 cuando el flete
 // ya supera el minimo, seguro=0 sin seguro activo, etc).
+//
+// "numero" tambien es "required: false" a proposito (sigue siendo
+// "unique") -- mismo bug ya encontrado y arreglado antes para vales_caja
+// (ver pb_migrations/1789070000_fix_vales_caja_numero_no_required.js):
+// PocketBase valida los campos required ANTES de correr
+// onRecordBeforeCreateRequest, asi que un numero marcado required
+// rechaza cualquier create que no lo mande -- que es exactamente lo que
+// hace el formulario real (nunca lo manda, lo asigna el hook de
+// pb_hooks/cotizaciones.pb.js).
 migrate((db) => {
   const dao = new Dao(db);
 
@@ -23,7 +32,7 @@ migrate((db) => {
     "schema": [
       {
         "system": false, "id": "cot0numero0001", "name": "numero", "type": "text",
-        "required": true, "presentable": true, "unique": true,
+        "required": false, "presentable": true, "unique": true,
         "options": { "min": null, "max": null, "pattern": "" },
       },
       {
