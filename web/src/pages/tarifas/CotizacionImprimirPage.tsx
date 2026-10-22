@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { money } from '../../lib/format';
+import { money, isoDate } from '../../lib/format';
 import type { Cliente, Cotizacion, CotizacionItem } from '../../types';
 import { fechaVencimiento } from './cotizadorMotor';
 
@@ -25,7 +25,7 @@ export function CotizacionImprimirPage() {
     try {
       const [c, its] = await Promise.all([
         pb.collection('cotizaciones').getOne<Cotizacion>(id),
-        pb.collection('cotizacion_items').getFullList<CotizacionItem>({ filter: `cotizacion = "${id}"` }),
+        pb.collection('cotizacion_items').getFullList<CotizacionItem>({ filter: pb.filter('cotizacion = {:id}', { id }) }),
       ]);
       setCot(c);
       setItems(its);
@@ -43,7 +43,7 @@ export function CotizacionImprimirPage() {
   if (!cot) return <main><div className="card">Cargando…</div></main>;
 
   const vencimiento = fechaVencimiento(cot.fecha);
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = isoDate(new Date());
   const estado = hoy > vencimiento ? 'Vencido' : 'Vigente';
 
   return (

@@ -14,6 +14,10 @@ const SUCURSALES: { id: Sucursal; label: string }[] = [
   { id: 'buenos_aires', label: 'Buenos Aires' },
 ];
 
+function labelSucursal(s: Sucursal): string {
+  return SUCURSALES.find((x) => x.id === s)?.label || s;
+}
+
 interface ItemForm {
   kilos: string;
   m3: string;
@@ -23,6 +27,36 @@ interface ItemForm {
 
 function itemVacio(): ItemForm {
   return { kilos: '', m3: '', bultos: '', valorDeclarado: '' };
+}
+
+// Coma como separador decimal (mismo criterio simple que el resto de
+// esta app -- sin soporte de punto como separador de miles). Vacío =
+// 0 (campo no cargado); no vacío pero no numérico = NaN, para que el
+// llamador lo trate como dato inválido en vez de 0 en silencio (ej:
+// "2.000.000" tipeado por costumbre no debe convertirse en Seguro $0).
+function parseNum(s: string): number {
+  const limpio = s.trim();
+  if (!limpio) return 0;
+  return Number(limpio.replace(',', '.'));
+}
+
+interface ItemParseado {
+  kilos: number;
+  m3: number;
+  bultos: number;
+  valorDeclarado: number;
+  invalido: boolean; // algun campo no vacio no es un numero valido
+  tieneCarga: boolean; // kilos>0 o m3>0 (y todo valido)
+}
+
+function parsearItem(it: ItemForm): ItemParseado {
+  const kilos = parseNum(it.kilos);
+  const m3 = parseNum(it.m3);
+  const bultos = parseNum(it.bultos);
+  const valorDeclarado = parseNum(it.valorDeclarado);
+  const invalido = [kilos, m3, bultos, valorDeclarado].some((n) => Number.isNaN(n));
+  const tieneCarga = !invalido && (kilos > 0 || m3 > 0);
+  return { kilos, m3, bultos, valorDeclarado, invalido, tieneCarga };
 }
 
 export function CotizadorPage() {
@@ -96,29 +130,39 @@ export function CotizadorPage() {
   }
 
   const clave = claveZona(traficoOrigen, traficoDestino);
-  const itemsCalculados = items.map((it) => {
-    const kilos = Number(it.kilos.replace(',', '.')) || 0;
-    const m3 = Number(it.m3.replace(',', '.')) || 0;
-    if (!clave || (kilos <= 0 && m3 <= 0)) return null;
-    return calcularItem(filasSeco, kilos, m3, clave);
+  const itemsParseados = items.map(parsearItem);
+  const itemsCalculados = itemsParseados.map((p) => {
+    if (!clave || p.invalido || !p.tieneCarga) return null;
+    return calcularItem(filasSeco, p.kilos, p.m3, clave);
   });
-  const hayItemInvalido = items.some((it, i) => {
-    const kilos = Number(it.kilos.replace(',', '.')) || 0;
-    const m3 = Number(it.m3.replace(',', '.')) || 0;
-    if (kilos <= 0 && m3 <= 0) return false; // fila vacía, se ignora
+  // Invalido por 3 motivos distintos: un numero mal escrito, un Valor
+  // Declarado cargado sin Kilos/Mts3 (probable error de carga -- no hay
+  // nada que asegurar si no hay carga), o que no matchea ninguna banda
+  // del Cuadro Tarifario (incluye "Por Kg" sin Kilos). Una fila vacia
+  // (sin nada cargado) nunca cuenta como invalida, se ignora.
+  const hayItemInvalido = itemsParseados.some((p, i) => {
+    if (p.invalido) return true;
+    if (!p.tieneCarga) return p.valorDeclarado > 0;
     return itemsCalculados[i] === null;
   });
-  const valorDeclaradoTotal = items.reduce((a, it) => a + (Number(it.valorDeclarado.replace(',', '.')) || 0), 0);
+  const itemsValidos = itemsParseados
+    .map((p, i) => ({ p, calc: itemsCalculados[i] }))
+    .filter((x): x is { p: ItemParseado; calc: NonNullable<typeof x.calc> } => x.calc !== null);
+  const valorDeclaradoTotal = itemsValidos.reduce((a, { p }) => a + p.valorDeclarado, 0);
+  const seguroPorcentajeNum = parseNum(seguroPorcentaje);
+  const contraReembolsoNum = parseNum(contraReembolso);
+  const taxiFletNum = parseNum(taxiFlet);
+  const hayNumeroInvalido = [seguroPorcentajeNum, contraReembolsoNum, taxiFletNum].some((n) => Number.isNaN(n));
   const sucursalQuePaga = pagaEn === 'origen' ? traficoOrigen : traficoDestino;
-  const totales = minimos
+  const totales = minimos && !hayItemInvalido && !hayNumeroInvalido
     ? calcularTotales({
-        totalesItems: itemsCalculados.filter((x): x is NonNullable<typeof x> => x !== null).map((x) => x.total),
+        totalesItems: itemsValidos.map(({ calc }) => calc.total),
         valorDeclaradoTotal,
         minimoAplicable: minimoDeSucursal(minimos, sucursalQuePaga),
         seguroActivo,
-        seguroPorcentaje: Number(seguroPorcentaje.replace(',', '.')) || 0,
-        contraReembolso: Number(contraReembolso.replace(',', '.')) || 0,
-        taxiFlet: Number(taxiFlet.replace(',', '.')) || 0,
+        seguroPorcentaje: seguroPorcentajeNum,
+        contraReembolso: contraReembolsoNum,
+        taxiFlet: taxiFletNum,
       })
     : null;
 
@@ -128,22 +172,24 @@ export function CotizadorPage() {
       return;
     }
     if (!clave) { toast('Ese tráfico no tiene una combinación de zona válida.', 'warn'); return; }
-    if (hayItemInvalido) { toast('Hay un ítem en una banda "Por Kg" sin Kilos cargados -- completá el peso real.', 'warn'); return; }
-    const itemsValidos = items
-      .map((it, i) => ({ it, calc: itemsCalculados[i] }))
-      .filter((x): x is { it: ItemForm; calc: NonNullable<typeof x.calc> } => x.calc !== null);
+    if (hayItemInvalido) {
+      toast('Hay un ítem con un dato inválido: un número mal escrito, un Valor Declarado sin Kilos/Mts³ cargados, o que no cae en ninguna banda del Cuadro Tarifario (si es "Por Kg", le falta el peso real).', 'warn');
+      return;
+    }
+    if (hayNumeroInvalido) { toast('Revisá que el % de Seguro, Contra Reembolso y Taxi-Flet sean números válidos.', 'warn'); return; }
     if (itemsValidos.length === 0) { toast('Cargá al menos un ítem con Kilos o Mts³.', 'warn'); return; }
     if (!totales) { toast('No se pudieron cargar los mínimos por sucursal -- recargá la página e intentá de nuevo.', 'err'); return; }
 
     setGuardando(true);
+    let cot: Cotizacion | null = null;
     try {
-      const cot = await pb.collection('cotizaciones').create<Cotizacion>({
+      cot = await pb.collection('cotizaciones').create<Cotizacion>({
         fecha, trafico_origen: traficoOrigen, trafico_destino: traficoDestino, paga_en: pagaEn,
         cliente: cliente || null, solicitado_por: solicitadoPor.trim(), telefono: telefono.trim(), email: email.trim(),
         lugar_carga: lugarCarga.trim(), lugar_descarga: lugarDescarga.trim(),
         tipo_mercaderia: tipoMercaderia.trim(), observacion: observacion.trim(),
-        seguro_activo: seguroActivo, seguro_porcentaje: Number(seguroPorcentaje.replace(',', '.')) || 0,
-        contra_reembolso: Number(contraReembolso.replace(',', '.')) || 0, taxi_flet: Number(taxiFlet.replace(',', '.')) || 0,
+        seguro_activo: seguroActivo, seguro_porcentaje: seguroPorcentajeNum,
+        contra_reembolso: contraReembolsoNum, taxi_flet: taxiFletNum,
         sub_total: totales.subTotal, recargo: totales.recargo, seguro: totales.seguro,
         neto_gravado: totales.netoGravado, iva: totales.iva, total: totales.total,
       });
@@ -156,14 +202,12 @@ export function CotizadorPage() {
       // falla justo entre el create del encabezado y el de un item) y
       // aceptado por ahora -- subir de nivel a un endpoint server-side
       // que cree todo atomico via Dao si esto llega a pasar en la
-      // practica.
-      for (const { it, calc } of itemsValidos) {
+      // practica. El catch de abajo avisa el numero fantasma para que se
+      // pueda pedir que lo borren, en vez de dejarlo sin rastro.
+      for (const { p, calc } of itemsValidos) {
         await pb.collection('cotizacion_items').create<CotizacionItem>({
           cotizacion: cot.id,
-          kilos: Number(it.kilos.replace(',', '.')) || 0,
-          m3: Number(it.m3.replace(',', '.')) || 0,
-          bultos: Number(it.bultos.replace(',', '.')) || 0,
-          valor_declarado: Number(it.valorDeclarado.replace(',', '.')) || 0,
+          kilos: p.kilos, m3: p.m3, bultos: p.bultos, valor_declarado: p.valorDeclarado,
           precio: calc.precio, total: calc.total,
         });
       }
@@ -171,7 +215,13 @@ export function CotizadorPage() {
       setVista('lista');
       cargarListaYDatos();
     } catch (e) {
-      toast('Error al guardar: ' + (e instanceof Error ? e.message : ''), 'err');
+      const mensaje = e instanceof Error ? e.message : '';
+      toast(
+        cot
+          ? `La cotización ${cot.numero} quedó incompleta (error al guardar un ítem: ${mensaje}) -- pedile a un administrador que la borre y volvé a cargarla entera.`
+          : 'Error al guardar: ' + mensaje,
+        'err',
+      );
     } finally {
       setGuardando(false);
     }
@@ -196,7 +246,7 @@ export function CotizadorPage() {
                   <tr key={c.id}>
                     <td>{c.numero}</td>
                     <td>{c.fecha}</td>
-                    <td>{c.trafico_origen} → {c.trafico_destino}</td>
+                    <td>{labelSucursal(c.trafico_origen)} → {labelSucursal(c.trafico_destino)}</td>
                     <td className="num">{money(c.total)}</td>
                     <td><Link to={`/comercial/cotizador/${c.id}/imprimir`} target="_blank">Imprimir</Link></td>
                   </tr>
@@ -264,17 +314,16 @@ export function CotizadorPage() {
             <tbody>
               {items.map((it, i) => {
                 const calc = itemsCalculados[i];
-                const kilos = Number(it.kilos.replace(',', '.')) || 0;
-                const m3 = Number(it.m3.replace(',', '.')) || 0;
-                const tieneCarga = kilos > 0 || m3 > 0;
+                const p = itemsParseados[i];
+                const tieneAlgo = p.invalido || p.kilos > 0 || p.m3 > 0;
                 return (
                   <tr key={i}>
                     <td><input inputMode="decimal" value={it.kilos} onChange={(e) => actualizarItem(i, 'kilos', e.target.value)} style={{ width: 80 }} /></td>
                     <td><input inputMode="decimal" value={it.m3} onChange={(e) => actualizarItem(i, 'm3', e.target.value)} style={{ width: 80 }} /></td>
                     <td><input inputMode="decimal" value={it.bultos} onChange={(e) => actualizarItem(i, 'bultos', e.target.value)} style={{ width: 70 }} /></td>
                     <td><input inputMode="decimal" value={it.valorDeclarado} onChange={(e) => actualizarItem(i, 'valorDeclarado', e.target.value)} style={{ width: 110 }} /></td>
-                    <td className="num">{calc ? money(calc.precio) : (tieneCarga ? '—' : '')}</td>
-                    <td className="num">{calc ? money(calc.total) : (tieneCarga ? '—' : '')}</td>
+                    <td className="num">{calc ? money(calc.precio) : (tieneAlgo ? '—' : '')}</td>
+                    <td className="num">{calc ? money(calc.total) : (tieneAlgo ? '—' : '')}</td>
                     <td><button className="small danger" onClick={() => quitarItem(i)} disabled={items.length === 1}>Quitar</button></td>
                   </tr>
                 );
