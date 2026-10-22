@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { pb } from '../../lib/pb';
 import { useAuth } from '../../lib/AuthContext';
 import { useToast } from '../../lib/ToastContext';
@@ -87,7 +88,7 @@ export function CuadroTarifarioPage() {
         <div className="row" style={{ alignItems: 'flex-start' }}>
           <div>
             <h2>Cuadro Tarifario</h2>
-            <div className="hint">Valores de referencia propios de Sistema CyV — no modifica el sistema de ventas de terceros.</div>
+            <div className="hint">Valores de referencia propios de Sistema CyV — no modifica el sistema de ventas de terceros. <Link to="/comercial/cotizador">Ir al Cotizador →</Link></div>
           </div>
           {minimos && (
             <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
