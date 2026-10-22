@@ -1058,3 +1058,47 @@ body.imprimiendo-recibo #recibo-imprimible {
   page-break-after: always;
   break-after: page;
 }
+
+#cotizacion-imprimible {
+  display: none;
+}
+
+body.imprimiendo-cotizacion * {
+  visibility: hidden;
+}
+body.imprimiendo-cotizacion #cotizacion-imprimible,
+body.imprimiendo-cotizacion #cotizacion-imprimible * {
+  visibility: visible;
+}
+body.imprimiendo-cotizacion #cotizacion-imprimible {
+  display: block !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+#cotizacion-imprimible {
+  position: relative;
+}
+#cotizacion-imprimible::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url('/cotizador-logo.jpg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 60% auto;
+  opacity: 0.08;
+  z-index: 0;
+}
+#cotizacion-imprimible > * {
+  position: relative;
+  z-index: 1;
+}

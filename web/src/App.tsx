@@ -14,6 +14,7 @@ import { FichadasPage } from './pages/fichadas/FichadasPage';
 import { BotTarifasPage } from './pages/tarifas/BotTarifasPage';
 import { CuadroTarifarioPage } from './pages/tarifas/CuadroTarifarioPage';
 import { CotizadorPage } from './pages/tarifas/CotizadorPage';
+import { CotizacionImprimirPage } from './pages/tarifas/CotizacionImprimirPage';
 import { AdminPage } from './pages/admin/AdminPage';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth, RequireAdmin, RequireModule } from './components/RequireAuth';
@@ -132,6 +133,14 @@ function App() {
           element={
             <RequireModule moduleId="cuadro_tarifario">
               <CotizadorPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/comercial/cotizador/:id/imprimir"
+          element={
+            <RequireModule moduleId="cuadro_tarifario">
+              <CotizacionImprimirPage />
             </RequireModule>
           }
         />
