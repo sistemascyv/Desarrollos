@@ -59,6 +59,31 @@ function parsearItem(it: ItemForm): ItemParseado {
   return { kilos, m3, bultos, valorDeclarado, invalido, tieneCarga };
 }
 
+// Fila de un total calculado (solo lectura) -- mismo estilo "casillero
+// gris" que el sistema de ventas de terceros usa para sus campos
+// calculados, para que FilaTotal/FilaTotalEditable se distingan a
+// simple vista (gris = calculado, blanco = lo cargás vos).
+function FilaTotal({ label, valor, info, grande }: { label: string; valor: string; info?: string; grande?: boolean }) {
+  return (
+    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+      <span style={{ fontWeight: grande ? 700 : 400, fontSize: grande ? 15 : 13 }}>
+        {label}
+        {info && <span title={info} style={{ marginLeft: 4, cursor: 'help', color: 'var(--muted)' }}>ⓘ</span>}
+      </span>
+      <span className="readonly-box" style={{ fontWeight: grande ? 700 : 400 }}>{valor}</span>
+    </div>
+  );
+}
+
+function FilaTotalEditable({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+      <span>{label}</span>
+      <input inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 130, textAlign: 'right' }} />
+    </div>
+  );
+}
+
 export function CotizadorPage() {
   const { usuario } = useAuth();
   const toast = useToast();
@@ -320,54 +345,56 @@ export function CotizadorPage() {
           <div className="field" style={{ flex: 1 }}><label>Observación</label><textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} /></div>
         </div>
 
-        <h3 style={{ marginTop: 28, marginBottom: 10 }}>Items</h3>
-        <div style={{ background: 'var(--panel2)', border: '1px solid var(--border)', borderRadius: 8, padding: 14 }}>
-          <div className="table-wrap">
-            <table className="items-table">
-              <thead><tr><th>Kilos</th><th>Mts³</th><th>Bultos</th><th>Valor Declarado</th><th className="num">Precio</th><th className="num">Total</th><th></th></tr></thead>
-              <tbody>
-                {items.map((it, i) => {
-                  const calc = itemsCalculados[i];
-                  const p = itemsParseados[i];
-                  const tieneAlgo = p.invalido || p.kilos > 0 || p.m3 > 0;
-                  return (
-                    <tr key={i}>
-                      <td><input inputMode="decimal" value={it.kilos} onChange={(e) => actualizarItem(i, 'kilos', e.target.value)} style={{ width: 100 }} /></td>
-                      <td><input inputMode="decimal" value={it.m3} onChange={(e) => actualizarItem(i, 'm3', e.target.value)} style={{ width: 90 }} /></td>
-                      <td><input inputMode="decimal" value={it.bultos} onChange={(e) => actualizarItem(i, 'bultos', e.target.value)} style={{ width: 80 }} /></td>
-                      <td><input inputMode="decimal" value={it.valorDeclarado} onChange={(e) => actualizarItem(i, 'valorDeclarado', e.target.value)} style={{ width: 130 }} /></td>
-                      <td className="num">{calc ? money(calc.precio) : (tieneAlgo ? '—' : '')}</td>
-                      <td className="num">{calc ? money(calc.total) : (tieneAlgo ? '—' : '')}</td>
-                      <td><button className="small danger" onClick={() => quitarItem(i)} disabled={items.length === 1}>Quitar</button></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <button className="small secondary" onClick={agregarItem} style={{ marginTop: 10 }}>+ Agregar ítem</button>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 28, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+          <h3 style={{ margin: 0 }}>Items</h3>
+          <button className="small secondary" onClick={agregarItem} title="Agregar ítem" style={{ fontSize: 16, lineHeight: 1, padding: '2px 11px' }}>+</button>
+        </div>
+        <div className="table-wrap" style={{ marginTop: 10 }}>
+          <table className="items-table">
+            <thead><tr><th>Kilos</th><th>Mts³</th><th>Bultos</th><th>Valor Declarado</th><th className="num">Precio</th><th className="num">Total</th><th>Opciones</th></tr></thead>
+            <tbody>
+              {items.map((it, i) => {
+                const calc = itemsCalculados[i];
+                const p = itemsParseados[i];
+                const tieneAlgo = p.invalido || p.kilos > 0 || p.m3 > 0;
+                return (
+                  <tr key={i}>
+                    <td><input inputMode="decimal" value={it.kilos} onChange={(e) => actualizarItem(i, 'kilos', e.target.value)} style={{ width: 100 }} /></td>
+                    <td><input inputMode="decimal" value={it.m3} onChange={(e) => actualizarItem(i, 'm3', e.target.value)} style={{ width: 90 }} /></td>
+                    <td><input inputMode="decimal" value={it.bultos} onChange={(e) => actualizarItem(i, 'bultos', e.target.value)} style={{ width: 80 }} /></td>
+                    <td><input inputMode="decimal" value={it.valorDeclarado} onChange={(e) => actualizarItem(i, 'valorDeclarado', e.target.value)} style={{ width: 130 }} /></td>
+                    <td className="num">{calc ? money(calc.precio) : (tieneAlgo ? '—' : '')}</td>
+                    <td className="num">{calc ? money(calc.total) : (tieneAlgo ? '—' : '')}</td>
+                    <td><button className="small danger" onClick={() => quitarItem(i)} disabled={items.length === 1}>Quitar</button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
-        <div className="row" style={{ marginTop: 20, alignItems: 'flex-start' }}>
+        <div className="row" style={{ marginTop: 20, alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
             <label><input type="checkbox" checked={seguroActivo} onChange={(e) => setSeguroActivo(e.target.checked)} /> Seguro</label>
             {' '}
             <input inputMode="decimal" value={seguroPorcentaje} onChange={(e) => setSeguroPorcentaje(e.target.value)} style={{ width: 70 }} disabled={!seguroActivo} /> %
           </div>
-          <div className="field"><label>Contra Reembolso</label><input inputMode="decimal" value={contraReembolso} onChange={(e) => setContraReembolso(e.target.value)} style={{ width: 110 }} /></div>
-          <div className="field"><label>Taxi-Flet</label><input inputMode="decimal" value={taxiFlet} onChange={(e) => setTaxiFlet(e.target.value)} style={{ width: 110 }} /></div>
-        </div>
 
-        {totales && (
-          <div style={{ marginTop: 16, maxWidth: 320 }}>
-            <div className="row" style={{ justifyContent: 'space-between' }}><span>Sub-Total</span><span>{money(totales.subTotal)}</span></div>
-            <div className="row" style={{ justifyContent: 'space-between' }}><span>Recargo</span><span>{money(totales.recargo)}</span></div>
-            <div className="row" style={{ justifyContent: 'space-between' }}><span>Seguro</span><span>{money(totales.seguro)}</span></div>
-            <div className="row" style={{ justifyContent: 'space-between' }}><span>Neto Gravado</span><span>{money(totales.netoGravado)}</span></div>
-            <div className="row" style={{ justifyContent: 'space-between' }}><span>IVA 21%</span><span>{money(totales.iva)}</span></div>
-            <div className="row" style={{ justifyContent: 'space-between', fontWeight: 700 }}><span>Total</span><span>{money(totales.total)}</span></div>
-          </div>
-        )}
+          {totales && (
+            <div style={{ minWidth: 320 }}>
+              <FilaTotal label="Sub-Total" valor={money(totales.subTotal)} />
+              <FilaTotal label="Seguro" valor={money(totales.seguro)} />
+              <FilaTotalEditable label="Contra Reembolso" value={contraReembolso} onChange={setContraReembolso} />
+              <FilaTotalEditable label="Taxi-Flet" value={taxiFlet} onChange={setTaxiFlet} />
+              <FilaTotal label="Recargo" valor={money(totales.recargo)} info="Se suma cuando el flete queda por debajo del mínimo de la sucursal que paga." />
+              <hr style={{ margin: '8px 0', border: 0, borderTop: '1px solid var(--border)' }} />
+              <FilaTotal label="Neto Gravado" valor={money(totales.netoGravado)} />
+              <FilaTotal label="IVA 21%" valor={money(totales.iva)} />
+              <hr style={{ margin: '8px 0', border: 0, borderTop: '1px solid var(--border)' }} />
+              <FilaTotal label="Total" valor={money(totales.total)} grande />
+            </div>
+          )}
+        </div>
 
         <div className="row" style={{ marginTop: 16 }}>
           <button onClick={guardar} disabled={guardando}>{guardando ? 'Guardando…' : 'Guardar'}</button>

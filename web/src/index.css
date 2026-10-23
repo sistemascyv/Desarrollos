@@ -315,6 +315,16 @@ tbody tr:hover {
 .items-table td {
   padding: 10px 12px;
 }
+.readonly-box {
+  display: inline-block;
+  min-width: 130px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  text-align: right;
+  color: var(--text);
+}
 .flota-map {
   height: 460px;
   border-radius: 8px;
