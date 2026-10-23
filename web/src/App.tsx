@@ -131,7 +131,7 @@ function App() {
         <Route
           path="/comercial/cotizador"
           element={
-            <RequireModule moduleId="cuadro_tarifario">
+            <RequireModule moduleId="cotizador">
               <CotizadorPage />
             </RequireModule>
           }
@@ -139,7 +139,7 @@ function App() {
         <Route
           path="/comercial/cotizador/:id/imprimir"
           element={
-            <RequireModule moduleId="cuadro_tarifario">
+            <RequireModule moduleId="cotizador">
               <CotizacionImprimirPage />
             </RequireModule>
           }

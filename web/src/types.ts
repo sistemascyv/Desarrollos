@@ -346,6 +346,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'fichadas', label: 'Fichadas', group: 'RRHH', path: 'rrhh/fichadas' },
   { id: 'bot_tarifas', label: 'Actualizar Tarifas', group: 'COMERCIAL', path: 'comercial/bot-tarifas' },
   { id: 'cuadro_tarifario', label: 'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' },
+  { id: 'cotizador', label: 'Cotizador', group: 'COMERCIAL', path: 'comercial/cotizador' },
 ];
 
 // Resultado de una corrida del Bot Act Tarifas (Python + Selenium, corre en

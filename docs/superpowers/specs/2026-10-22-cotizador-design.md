@@ -21,8 +21,11 @@ quedan para un sub-proyecto aparte). Tarifas por Cliente y Acuerdos
 Especiales quedan completamente fuera: no hay ningún dato para construirlos
 todavía.
 
-Reusa el módulo de permiso `cuadro_tarifario` (ya existe, pensado desde el
-principio para esto — ver spec de Cuadro Tarifario).
+Módulo de permiso propio: `cotizador` (label "Cotizador", grupo COMERCIAL,
+ruta `comercial/cotizador`) — separado de `cuadro_tarifario` (decisión
+posterior al deploy inicial: al principio compartían el mismo módulo, se
+separaron para poder dar acceso al Cotizador sin dar acceso también al
+Cuadro Tarifario, o viceversa).
 
 ## Sucursal del usuario
 
@@ -68,10 +71,11 @@ recalculan solos si después cambia el Cuadro Tarifario):
 - `creado_por`: text, seteado server-side desde el usuario autenticado
   (mismo patrón que el resto del proyecto).
 
-Permisos: lectura/escritura (list/view/create/update) para
-`@request.auth.rol = "admin" || @request.auth.modulos ~ "cuadro_tarifario"`
+Permisos: lectura/escritura (list/view/create) para
+`@request.auth.rol = "admin" || @request.auth.modulos ~ "cotizador"`
 — todos los usuarios del módulo ven y cargan cotizaciones de todos (mismo
-criterio que el historial de Bot Tarifas). `deleteRule`: solo admin.
+criterio que el historial de Bot Tarifas). `updateRule`: null (no son
+editables). `deleteRule`: solo admin.
 
 ### `cotizacion_items`
 
@@ -143,9 +147,9 @@ prefijo en vez de global.
 
 ## Pantalla (`CotizadorPage.tsx`, ruta `/comercial/cotizador`)
 
-Mismo módulo (`cuadro_tarifario`) que Cuadro Tarifario — un link cruzado
-entre ambas páginas para llegar de una a la otra, sin agregar una entrada
-nueva al menú.
+Módulo propio (`cotizador`), con su propia entrada en el menú — y un link
+cruzado entre esta página y Cuadro Tarifario para llegar de una a la otra
+igual que antes.
 
 - **Vista Lista** (default al entrar): tabla de cotizaciones guardadas
   (número, fecha, tráfico, cliente, total, estado), botón "Nueva
