@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ClientResponseError } from 'pocketbase';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { isoDate, fechaSola } from '../../lib/format';
@@ -178,10 +179,26 @@ export function ValeCajaPage() {
 
     setGuardando(true);
     try {
-      const creado = await pb.collection('vales_caja').create<ValeCaja>({
-        fecha, chofer: choferId, importe: valor, moneda: 'ARS',
-        observacion1: concepto.trim() || undefined,
-      });
+      // Numero correlativo asignado por el servidor -- si dos vales de la
+      // misma sucursal se guardan en el mismo instante, el segundo puede
+      // chocar con "validation_not_unique" (indice unico de la base, ver
+      // pb_migrations/1789310000_numeros_correlativos_indice_unico.js).
+      // Se reintenta solo, igual que en Cotizador (CotizadorPage.tsx).
+      let creado!: ValeCaja;
+      for (let intento = 1; ; intento++) {
+        try {
+          creado = await pb.collection('vales_caja').create<ValeCaja>({
+            fecha, chofer: choferId, importe: valor, moneda: 'ARS',
+            observacion1: concepto.trim() || undefined,
+          });
+          break;
+        } catch (e) {
+          const esColisionDeNumero =
+            e instanceof ClientResponseError &&
+            (e.response?.data as Record<string, { code?: string }> | undefined)?.numero?.code === 'validation_not_unique';
+          if (!esColisionDeNumero || intento >= 5) throw e;
+        }
+      }
       const choferElegido = choferes.find((c) => c.id === choferId);
       const creadoConChofer = { ...creado, expand: { chofer: choferElegido } };
       setUltimoCreado(creadoConChofer);

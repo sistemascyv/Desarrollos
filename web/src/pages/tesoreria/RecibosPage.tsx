@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ClientResponseError } from 'pocketbase';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { isoDate, fechaSola } from '../../lib/format';
@@ -160,10 +161,24 @@ export function RecibosPage() {
 
     setGuardando(true);
     try {
-      const creado = await pb.collection('recibos').create<Recibo>({
-        fecha, recibido_de: recibidoDe.trim(), importe: valor, moneda,
-        concepto: concepto.trim() || undefined,
-      });
+      // Numero correlativo asignado por el servidor -- mismo reintento ante
+      // colision que en Cotizador/Vale de Caja (ver
+      // pb_migrations/1789310000_numeros_correlativos_indice_unico.js).
+      let creado!: Recibo;
+      for (let intento = 1; ; intento++) {
+        try {
+          creado = await pb.collection('recibos').create<Recibo>({
+            fecha, recibido_de: recibidoDe.trim(), importe: valor, moneda,
+            concepto: concepto.trim() || undefined,
+          });
+          break;
+        } catch (e) {
+          const esColisionDeNumero =
+            e instanceof ClientResponseError &&
+            (e.response?.data as Record<string, { code?: string }> | undefined)?.numero?.code === 'validation_not_unique';
+          if (!esColisionDeNumero || intento >= 5) throw e;
+        }
+      }
       setUltimoCreado(creado);
       toast(`Recibo N° ${creado.numero} guardado.`, 'ok');
       cargarHistorial();
