@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ClientResponseError } from 'pocketbase';
 import { pb } from '../../lib/pb';
 import { useAuth } from '../../lib/AuthContext';
 import { useToast } from '../../lib/ToastContext';
@@ -211,18 +212,35 @@ export function CotizadorPage() {
     setGuardando(true);
     let cot: Cotizacion | null = null;
     try {
-      cot = await pb.collection('cotizaciones').create<Cotizacion>({
-        fecha, trafico_origen: traficoOrigen, trafico_destino: traficoDestino, paga_en: pagaEn,
-        cliente: clienteEsNuevo ? null : (cliente || null),
-        cliente_nombre: clienteEsNuevo ? clienteNombreNuevo.trim() : '',
-        solicitado_por: solicitadoPor.trim(), telefono: telefono.trim(), email: email.trim(),
-        lugar_carga: lugarCarga.trim(), lugar_descarga: lugarDescarga.trim(),
-        tipo_mercaderia: tipoMercaderia.trim(), observacion: observacion.trim(),
-        seguro_activo: seguroActivo, seguro_porcentaje: seguroPorcentajeNum,
-        contra_reembolso: contraReembolsoNum, taxi_flet: taxiFletNum,
-        sub_total: totales.subTotal, recargo: totales.recargo, seguro: totales.seguro,
-        neto_gravado: totales.netoGravado, iva: totales.iva, total: totales.total,
-      });
+      // El numero correlativo lo asigna el hook del servidor leyendo "el
+      // ultimo + 1" -- si dos personas de la misma sucursal guardan en el
+      // mismo instante, las dos pueden calcular el mismo numero. El indice
+      // unico de la base (pb_migrations/1789310000_...) rechaza al segundo
+      // con "validation_not_unique" en vez de dejar un numero duplicado;
+      // ese caso puntual se reintenta solo (el hook recalcula un numero
+      // nuevo en cada intento), nunca se le muestra al usuario.
+      for (let intento = 1; ; intento++) {
+        try {
+          cot = await pb.collection('cotizaciones').create<Cotizacion>({
+            fecha, trafico_origen: traficoOrigen, trafico_destino: traficoDestino, paga_en: pagaEn,
+            cliente: clienteEsNuevo ? null : (cliente || null),
+            cliente_nombre: clienteEsNuevo ? clienteNombreNuevo.trim() : '',
+            solicitado_por: solicitadoPor.trim(), telefono: telefono.trim(), email: email.trim(),
+            lugar_carga: lugarCarga.trim(), lugar_descarga: lugarDescarga.trim(),
+            tipo_mercaderia: tipoMercaderia.trim(), observacion: observacion.trim(),
+            seguro_activo: seguroActivo, seguro_porcentaje: seguroPorcentajeNum,
+            contra_reembolso: contraReembolsoNum, taxi_flet: taxiFletNum,
+            sub_total: totales.subTotal, recargo: totales.recargo, seguro: totales.seguro,
+            neto_gravado: totales.netoGravado, iva: totales.iva, total: totales.total,
+          });
+          break;
+        } catch (e) {
+          const esColisionDeNumero =
+            e instanceof ClientResponseError &&
+            (e.response?.data as Record<string, { code?: string }> | undefined)?.numero?.code === 'validation_not_unique';
+          if (!esColisionDeNumero || intento >= 5) throw e;
+        }
+      }
       // ponytail: si un item falla a mitad de este loop (red, etc.), la
       // cotizacion ya creada arriba queda "fantasma" (numero real
       // asignado, sin items) -- no se intenta borrarla aca porque
