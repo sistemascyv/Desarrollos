@@ -5,6 +5,7 @@ import { useToast } from '../../lib/ToastContext';
 import { money, isoDate } from '../../lib/format';
 import type { Cliente, Cotizacion, CotizacionItem } from '../../types';
 import { fechaVencimiento } from './cotizadorMotor';
+import { CATEGORIAS } from '../../lib/categoriasTarifario';
 
 // Precarga el logo apenas carga el módulo -- mismo motivo que
 // RecibosPage.tsx: window.print() puede dispararse antes de que el
@@ -45,6 +46,7 @@ export function CotizacionImprimirPage() {
   const vencimiento = fechaVencimiento(cot.fecha);
   const hoy = isoDate(new Date());
   const estado = hoy > vencimiento ? 'Vencido' : 'Vigente';
+  const categoriaLabel = CATEGORIAS.find((c) => c.id === cot.categoria)?.label || 'Seco';
 
   return (
     <main>
@@ -76,6 +78,7 @@ export function CotizacionImprimirPage() {
           <div>
             <div>Cotización: <strong>{cot.numero}</strong></div>
             <div>Fecha: {cot.fecha}</div>
+            <div>Categoría: {categoriaLabel}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div>Estado: {estado}</div>
