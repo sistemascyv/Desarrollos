@@ -1,0 +1,48 @@
+import { money, isoDate, fechaSola } from '../../lib/format';
+import { MembreteImpreso } from '../../components/MembreteImpreso';
+import { TablaCuadro } from './TablaCuadro';
+import type { CuadroTarifarioFila, CuadroTarifarioMinimos } from '../../types';
+
+const CATEGORIA_LABEL: Record<CuadroTarifarioFila['categoria'], string> = {
+  seco: 'Seco', frio: 'Frío', congelado: 'Congelado',
+};
+
+// Bloque usado SOLO para generar la imagen descargable (CuadroTarifarioPage.tsx
+// lo monta siempre fuera de pantalla) -- no es parte de la vista normal en
+// pantalla, por eso no tiene el scroll/maxHeight de "table-wrap" ni el
+// mensaje de "sin datos": si no hay filas para la categoria, la tabla sale
+// vacia en la imagen, que es una situacion que no deberia darse (el boton
+// de descarga esta en la misma pantalla que ya muestra esas filas).
+export function CuadroTarifarioExport({ categoria, filas, minimos }: {
+  categoria: CuadroTarifarioFila['categoria'];
+  filas: CuadroTarifarioFila[];
+  minimos: CuadroTarifarioMinimos | null;
+}) {
+  return (
+    <div style={{ background: '#fff', padding: 24, fontFamily: 'Arial, sans-serif', fontSize: 12, color: '#000' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
+        <MembreteImpreso />
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>Tarifario — {CATEGORIA_LABEL[categoria]}</div>
+          <div style={{ fontSize: 10, color: '#333' }}>Generado el {fechaSola(isoDate(new Date()))}</div>
+        </div>
+      </div>
+
+      {minimos && (
+        <div style={{ border: '1px solid #999', borderRadius: 6, padding: '12px 20px', marginTop: 16 }}>
+          <div style={{ marginBottom: 8, fontWeight: 700, textAlign: 'center' }}>Mínimo por sucursal</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 8, columnGap: 24, justifyItems: 'center' }}>
+            <div>San Francisco: {money(minimos.san_francisco)}</div>
+            <div>Córdoba: {money(minimos.cordoba)}</div>
+            <div>Buenos Aires: {money(minimos.buenos_aires)}</div>
+            <div>Rosario: {money(minimos.rosario)}</div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: 16 }}>
+        <TablaCuadro categoria={categoria} filas={filas} />
+      </div>
+    </div>
+  );
+}

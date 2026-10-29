@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toPng } from 'html-to-image';
 import { Link } from 'react-router-dom';
 import { pb } from '../../lib/pb';
 import { useAuth } from '../../lib/AuthContext';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import { money } from '../../lib/format';
+import { money, isoDate } from '../../lib/format';
 import type { CuadroTarifarioFila, CuadroTarifarioMinimos } from '../../types';
 import { TablaCuadro } from './TablaCuadro';
+import { CuadroTarifarioExport } from './CuadroTarifarioExport';
 
 const CATEGORIAS = [
   { id: 'seco', label: 'Seco' },
@@ -26,6 +28,8 @@ export function CuadroTarifarioPage() {
   const [tab, setTab] = useState<CategoriaId>('seco');
   const [porcentaje, setPorcentaje] = useState('');
   const [aplicando, setAplicando] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [generando, setGenerando] = useState(false);
 
   useEffect(() => { cargar(); }, []);
 
@@ -67,6 +71,22 @@ export function CuadroTarifarioPage() {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
       setAplicando(false);
+    }
+  }
+
+  async function descargarImagen() {
+    if (!exportRef.current) return;
+    setGenerando(true);
+    try {
+      const dataUrl = await toPng(exportRef.current, { pixelRatio: 2 });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `Tarifario-${CATEGORIAS.find((c) => c.id === tab)!.label}-${isoDate(new Date())}.png`;
+      a.click();
+    } catch (e) {
+      toast('No se pudo generar la imagen: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setGenerando(false);
     }
   }
 
@@ -117,12 +137,18 @@ export function CuadroTarifarioPage() {
           {CATEGORIAS.map((c) => (
             <button key={c.id} className={tab === c.id ? 'small' : 'small secondary'} onClick={() => setTab(c.id)}>{c.label}</button>
           ))}
+          <button className="small secondary" onClick={descargarImagen} disabled={generando || cargando}>
+            {generando ? 'Generando…' : 'Descargar imagen'}
+          </button>
         </div>
 
         <div className="table-wrap" style={{ marginTop: 10, maxHeight: '70vh' }}>
           <TablaCuadro categoria={tab} filas={filasTab} />
           {!cargando && filasTab.length === 0 && <div className="empty">Sin datos para esta categoría.</div>}
         </div>
+      </div>
+      <div ref={exportRef} style={{ position: 'absolute', left: -9999, top: 0 }}>
+        <CuadroTarifarioExport categoria={tab} filas={filasTab} minimos={minimos} />
       </div>
     </main>
   );
