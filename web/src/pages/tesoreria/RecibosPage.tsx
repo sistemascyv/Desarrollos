@@ -6,14 +6,9 @@ import { isoDate, fechaSola } from '../../lib/format';
 import { useAuth } from '../../lib/AuthContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import type { Recibo } from '../../types';
+import { MembreteImpreso } from '../../components/MembreteImpreso';
 
 const RECIBIDO_DE_DEFAULT = 'Carossio Vairolatti y Cía SRL';
-
-// Precarga el logo del membrete apenas carga el módulo: window.print() dispara
-// 50ms después de montar el div de impresión, y Chrome no espera de forma
-// confiable una imagen recién pedida en ese momento -- el primer impreso de
-// la sesión podía salir sin logo.
-new Image().src = '/vale-logo.jpg';
 
 function CasillasFecha({ fecha }: { fecha: string }) {
   const [anio, mes, dia] = (fecha || '').slice(0, 10).split('-');
@@ -30,17 +25,6 @@ function CasillasFecha({ fecha }: { fecha: string }) {
           <div style={{ border: '1px solid #000', width: 28, height: 22, lineHeight: '22px' }}>{c.valor}</div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function MembreteImpreso() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <img src="/vale-logo.jpg" alt="" style={{ height: 120 }} />
-      <div>
-        <div style={{ fontSize: 10, color: '#333' }}>SAN LORENZO 31<br />2400 SAN FRANCISCO (Cba.)</div>
-      </div>
     </div>
   );
 }
