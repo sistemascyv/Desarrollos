@@ -342,7 +342,11 @@ export function CotizadorPage() {
           </div>
           <div className="field">
             <label>Categoría</label>
-            <select value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaId)}>
+            <select value={categoria} onChange={(e) => {
+              const c = e.target.value as CategoriaId;
+              setCategoria(c);
+              if (c !== 'seco') setItems((cur) => cur.map((it) => ({ ...it, m3: '' })));
+            }}>
               {CATEGORIAS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
           </div>

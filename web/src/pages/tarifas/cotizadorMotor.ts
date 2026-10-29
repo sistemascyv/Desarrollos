@@ -84,7 +84,7 @@ export function calcularItem(filasSeco: CuadroTarifarioFila[], kilos: number, m3
 export function calcularItemFrioCongelado(filas: CuadroTarifarioFila[], kilos: number): ItemCalculado | null {
   if (kilos <= 0) return null;
   const fila = bandaPorLimiteSuperior(filas, kilos, (f) => f.rango_kg_hasta);
-  if (!fila || fila.valor == null) return null;
+  if (!fila || !fila.valor) return null;
   return { precio: fila.valor, total: fila.valor, porUnidad: false };
 }
 
