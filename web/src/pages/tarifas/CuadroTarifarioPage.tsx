@@ -9,13 +9,7 @@ import { money, isoDate } from '../../lib/format';
 import type { CuadroTarifarioFila, CuadroTarifarioMinimos } from '../../types';
 import { TablaCuadro } from './TablaCuadro';
 import { CuadroTarifarioExport } from './CuadroTarifarioExport';
-
-const CATEGORIAS = [
-  { id: 'seco', label: 'Seco' },
-  { id: 'frio', label: 'Frío' },
-  { id: 'congelado', label: 'Congelado' },
-] as const;
-type CategoriaId = typeof CATEGORIAS[number]['id'];
+import { CATEGORIAS, type CategoriaId } from '../../lib/categoriasTarifario';
 
 export function CuadroTarifarioPage() {
   const { isAdmin } = useAuth();

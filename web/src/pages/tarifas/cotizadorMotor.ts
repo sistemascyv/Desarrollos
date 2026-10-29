@@ -78,6 +78,16 @@ export function calcularItem(filasSeco: CuadroTarifarioFila[], kilos: number, m3
   return candidatos.reduce((a, b) => (b.total > a.total ? b : a));
 }
 
+// Frio/Congelado: a diferencia de Seco, esas tablas no tienen columna de
+// zona ni de m3 -- el precio es un valor fijo por banda de Kg, sin
+// comparar candidatos ni zona de trafico.
+export function calcularItemFrioCongelado(filas: CuadroTarifarioFila[], kilos: number): ItemCalculado | null {
+  if (kilos <= 0) return null;
+  const fila = bandaPorLimiteSuperior(filas, kilos, (f) => f.rango_kg_hasta);
+  if (!fila || fila.valor == null) return null;
+  return { precio: fila.valor, total: fila.valor, porUnidad: false };
+}
+
 export function minimoDeSucursal(minimos: CuadroTarifarioMinimos, sucursal: Sucursal): number {
   return minimos[sucursal];
 }
