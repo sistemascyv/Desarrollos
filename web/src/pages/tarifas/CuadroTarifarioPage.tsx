@@ -147,8 +147,10 @@ export function CuadroTarifarioPage() {
           {!cargando && filasTab.length === 0 && <div className="empty">Sin datos para esta categoría.</div>}
         </div>
       </div>
-      <div ref={exportRef} style={{ position: 'absolute', left: -9999, top: 0 }}>
-        <CuadroTarifarioExport categoria={tab} filas={filasTab} minimos={minimos} />
+      <div style={{ position: 'absolute', left: -9999, top: 0 }}>
+        <div ref={exportRef}>
+          <CuadroTarifarioExport categoria={tab} filas={filasTab} minimos={minimos} />
+        </div>
       </div>
     </main>
   );

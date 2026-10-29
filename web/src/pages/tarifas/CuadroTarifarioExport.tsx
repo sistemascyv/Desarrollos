@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { money, isoDate, fechaSola } from '../../lib/format';
 import { MembreteImpreso } from '../../components/MembreteImpreso';
 import { TablaCuadro } from './TablaCuadro';
@@ -19,7 +20,11 @@ export function CuadroTarifarioExport({ categoria, filas, minimos }: {
   minimos: CuadroTarifarioMinimos | null;
 }) {
   return (
-    <div style={{ background: '#fff', padding: 24, fontFamily: 'Arial, sans-serif', fontSize: 12, color: '#000' }}>
+    <div style={{
+      background: '#fff', padding: 24, fontFamily: 'Arial, sans-serif', fontSize: 12, color: '#000',
+      '--panel2': '#f1e9dc', '--border': '#e3d7c4', '--brand-dark': '#623c2e', '--accent': '#623c2e',
+      '--muted': '#8a7a68', '--warn': '#b8860b',
+    } as CSSProperties}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
         <MembreteImpreso />
         <div style={{ textAlign: 'right' }}>
