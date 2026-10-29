@@ -1022,6 +1022,14 @@ body.imprimiendo-vale #vale-imprimible {
   font-size: 17px;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+  background: #fff;
+  color: #000;
+  --panel2: #f1e9dc;
+  --border: #e3d7c4;
+  --brand-dark: #623c2e;
+  --accent: #623c2e;
+  --muted: #8a7a68;
+  --warn: #b8860b;
 }
 /* Dos copias (ORIGINAL y DUPLICADO), cada una en su propia hoja de
    210mm x 148mm -- acá se imprime en medias hojas de A4, no en una A4
@@ -1058,6 +1066,14 @@ body.imprimiendo-recibo #recibo-imprimible {
   font-size: 17px;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+  background: #fff;
+  color: #000;
+  --panel2: #f1e9dc;
+  --border: #e3d7c4;
+  --brand-dark: #623c2e;
+  --accent: #623c2e;
+  --muted: #8a7a68;
+  --warn: #b8860b;
 }
 /* Dos copias (ORIGINAL y DUPLICADO), cada una en su propia hoja de
    210mm x 148mm -- acá se imprime en medias hojas de A4, no en una A4
@@ -1097,6 +1113,14 @@ body.imprimiendo-cotizacion #cotizacion-imprimible {
   font-size: 12px;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+  background: #fff;
+  color: #000;
+  --panel2: #f1e9dc;
+  --border: #e3d7c4;
+  --brand-dark: #623c2e;
+  --accent: #623c2e;
+  --muted: #8a7a68;
+  --warn: #b8860b;
 }
 #cotizacion-imprimible {
   position: relative;
