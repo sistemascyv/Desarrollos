@@ -6,7 +6,8 @@ import { useAuth } from '../../lib/AuthContext';
 import { useToast } from '../../lib/ToastContext';
 import { money, isoDate } from '../../lib/format';
 import type { Cliente, Cotizacion, CotizacionItem, CuadroTarifarioFila, CuadroTarifarioMinimos, Sucursal } from '../../types';
-import { claveZona, calcularItem, calcularTotales, minimoDeSucursal } from './cotizadorMotor';
+import { claveZona, calcularItem, calcularItemFrioCongelado, calcularTotales, minimoDeSucursal } from './cotizadorMotor';
+import { CATEGORIAS, type CategoriaId } from '../../lib/categoriasTarifario';
 
 const SUCURSALES: { id: Sucursal; label: string }[] = [
   { id: 'cordoba', label: 'Córdoba' },
@@ -92,7 +93,8 @@ export function CotizadorPage() {
   const [vista, setVista] = useState<'lista' | 'form'>('lista');
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [filasSeco, setFilasSeco] = useState<CuadroTarifarioFila[]>([]);
+  const [filas, setFilas] = useState<CuadroTarifarioFila[]>([]);
+  const [categoria, setCategoria] = useState<CategoriaId>('seco');
   const [minimos, setMinimos] = useState<CuadroTarifarioMinimos | null>(null);
 
   const [fecha, setFecha] = useState(() => isoDate(new Date()));
@@ -123,12 +125,12 @@ export function CotizadorPage() {
       const [cots, clis, cuadro, mins] = await Promise.all([
         pb.collection('cotizaciones').getFullList<Cotizacion>({ sort: '-created' }),
         pb.collection('clientes').getFullList<Cliente>({ filter: 'activo = true', sort: 'nombre' }),
-        pb.collection('cuadro_tarifario').getFullList<CuadroTarifarioFila>({ filter: "categoria = 'seco'", sort: 'rango_kg_desde' }),
+        pb.collection('cuadro_tarifario').getFullList<CuadroTarifarioFila>({ sort: 'rango_kg_desde' }),
         pb.collection('cuadro_tarifario_minimos').getFullList<CuadroTarifarioMinimos>(),
       ]);
       setCotizaciones(cots);
       setClientes(clis);
-      setFilasSeco(cuadro);
+      setFilas(cuadro);
       setMinimos(mins[0] || null);
     } catch (e) {
       toast('No se pudo cargar: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -137,7 +139,7 @@ export function CotizadorPage() {
 
   function abrirNueva() {
     setFecha(isoDate(new Date()));
-    setTraficoOrigen('san_francisco'); setTraficoDestino('san_francisco'); setPagaEn('origen');
+    setTraficoOrigen('san_francisco'); setTraficoDestino('san_francisco'); setPagaEn('origen'); setCategoria('seco');
     setCliente(''); setClienteEsNuevo(false); setClienteNombreNuevo(''); setSolicitadoPor(''); setTelefono(''); setEmail('');
     setLugarCarga(''); setLugarDescarga(''); setTipoMercaderia(''); setObservacion('');
     setItems([itemVacio()]);
@@ -158,10 +160,15 @@ export function CotizadorPage() {
   }
 
   const clave = claveZona(traficoOrigen, traficoDestino);
+  const filasCategoria = filas.filter((f) => f.categoria === categoria);
   const itemsParseados = items.map(parsearItem);
   const itemsCalculados = itemsParseados.map((p) => {
-    if (!clave || p.invalido || !p.tieneCarga) return null;
-    return calcularItem(filasSeco, p.kilos, p.m3, clave);
+    if (p.invalido || !p.tieneCarga) return null;
+    if (categoria === 'seco') {
+      if (!clave) return null;
+      return calcularItem(filasCategoria, p.kilos, p.m3, clave);
+    }
+    return calcularItemFrioCongelado(filasCategoria, p.kilos);
   });
   // Invalido por 3 motivos distintos: un numero mal escrito, un Valor
   // Declarado cargado sin Kilos/Mts3 (probable error de carga -- no hay
@@ -222,7 +229,7 @@ export function CotizadorPage() {
       for (let intento = 1; ; intento++) {
         try {
           cot = await pb.collection('cotizaciones').create<Cotizacion>({
-            fecha, trafico_origen: traficoOrigen, trafico_destino: traficoDestino, paga_en: pagaEn,
+            fecha, categoria, trafico_origen: traficoOrigen, trafico_destino: traficoDestino, paga_en: pagaEn,
             cliente: clienteEsNuevo ? null : (cliente || null),
             cliente_nombre: clienteEsNuevo ? clienteNombreNuevo.trim() : '',
             solicitado_por: solicitadoPor.trim(), telefono: telefono.trim(), email: email.trim(),
@@ -282,7 +289,7 @@ export function CotizadorPage() {
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <div>
               <h2>Cotizador</h2>
-              <div className="hint">Cotizaciones de carga Seca — <Link to="/comercial/tarifas">ver Cuadro Tarifario</Link>.</div>
+              <div className="hint">Cotizaciones de carga — <Link to="/comercial/tarifas">ver Cuadro Tarifario</Link>.</div>
             </div>
             <button onClick={abrirNueva}>+ Nueva Cotización</button>
           </div>
@@ -333,6 +340,12 @@ export function CotizadorPage() {
               <option value="destino">Destino</option>
             </select>
           </div>
+          <div className="field">
+            <label>Categoría</label>
+            <select value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaId)}>
+              {CATEGORIAS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+          </div>
         </div>
         <div className="row" style={{ marginTop: 10 }}>
           <div className="field">
@@ -369,7 +382,7 @@ export function CotizadorPage() {
         </div>
         <div className="table-wrap" style={{ marginTop: 10 }}>
           <table className="items-table">
-            <thead><tr><th>Kilos</th><th>Mts³</th><th>Bultos</th><th>Valor Declarado</th><th className="num">Precio</th><th className="num">Total</th><th>Opciones</th></tr></thead>
+            <thead><tr><th>Kilos</th>{categoria === 'seco' && <th>Mts³</th>}<th>Bultos</th><th>Valor Declarado</th><th className="num">Precio</th><th className="num">Total</th><th>Opciones</th></tr></thead>
             <tbody>
               {items.map((it, i) => {
                 const calc = itemsCalculados[i];
@@ -378,7 +391,7 @@ export function CotizadorPage() {
                 return (
                   <tr key={i}>
                     <td><input inputMode="decimal" value={it.kilos} onChange={(e) => actualizarItem(i, 'kilos', e.target.value)} style={{ width: 100 }} /></td>
-                    <td><input inputMode="decimal" value={it.m3} onChange={(e) => actualizarItem(i, 'm3', e.target.value)} style={{ width: 90 }} /></td>
+                    {categoria === 'seco' && <td><input inputMode="decimal" value={it.m3} onChange={(e) => actualizarItem(i, 'm3', e.target.value)} style={{ width: 90 }} /></td>}
                     <td><input inputMode="decimal" value={it.bultos} onChange={(e) => actualizarItem(i, 'bultos', e.target.value)} style={{ width: 80 }} /></td>
                     <td><input inputMode="decimal" value={it.valorDeclarado} onChange={(e) => actualizarItem(i, 'valorDeclarado', e.target.value)} style={{ width: 130 }} /></td>
                     <td className="num">{calc ? money(calc.precio) : (tieneAlgo ? '—' : '')}</td>
