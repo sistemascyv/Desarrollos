@@ -11,6 +11,18 @@ import { TablaCuadro } from './TablaCuadro';
 import { CuadroTarifarioExport } from './CuadroTarifarioExport';
 import { CATEGORIAS, type CategoriaId } from '../../lib/categoriasTarifario';
 
+// Pestañas de la pantalla -- distintas de las categorías reales de datos
+// (CATEGORIAS/CategoriaId, que siguen siendo 3: seco/frio/congelado, y
+// no cambian en ningún otro lado del sistema). Frío y Congelado se
+// muestran juntas bajo una sola pestaña "Refrigerado" porque cada una
+// por separado es una tabla de solo 3 columnas que quedaba perdida en
+// todo el ancho de la pantalla.
+const TABS: { id: 'seco' | 'refrigerado'; label: string }[] = [
+  { id: 'seco', label: 'Seco' },
+  { id: 'refrigerado', label: 'Refrigerado' },
+];
+type TabId = typeof TABS[number]['id'];
+
 export function CuadroTarifarioPage() {
   const { isAdmin, usuario } = useAuth();
   const toast = useToast();
@@ -19,10 +31,12 @@ export function CuadroTarifarioPage() {
   const [filas, setFilas] = useState<CuadroTarifarioFila[]>([]);
   const [minimos, setMinimos] = useState<CuadroTarifarioMinimos | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [tab, setTab] = useState<CategoriaId>('seco');
+  const [tab, setTab] = useState<TabId>('seco');
   const [porcentaje, setPorcentaje] = useState('');
   const [aplicando, setAplicando] = useState(false);
-  const exportRef = useRef<HTMLDivElement>(null);
+  const exportSecoRef = useRef<HTMLDivElement>(null);
+  const exportFrioRef = useRef<HTMLDivElement>(null);
+  const exportCongeladoRef = useRef<HTMLDivElement>(null);
   const [generando, setGenerando] = useState(false);
 
   useEffect(() => { cargar(); }, []);
@@ -68,15 +82,24 @@ export function CuadroTarifarioPage() {
     }
   }
 
+  async function descargarUna(ref: { current: HTMLDivElement | null }, categoriaId: CategoriaId) {
+    if (!ref.current) return;
+    const dataUrl = await toPng(ref.current, { pixelRatio: 2 });
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `Tarifario-${CATEGORIAS.find((c) => c.id === categoriaId)!.label}-${isoDate(new Date())}.png`;
+    a.click();
+  }
+
   async function descargarImagen() {
-    if (!exportRef.current) return;
     setGenerando(true);
     try {
-      const dataUrl = await toPng(exportRef.current, { pixelRatio: 2 });
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `Tarifario-${CATEGORIAS.find((c) => c.id === tab)!.label}-${isoDate(new Date())}.png`;
-      a.click();
+      if (tab === 'seco') {
+        await descargarUna(exportSecoRef, 'seco');
+      } else {
+        await descargarUna(exportFrioRef, 'frio');
+        await descargarUna(exportCongeladoRef, 'congelado');
+      }
     } catch (e) {
       toast('No se pudo generar la imagen: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
@@ -84,7 +107,9 @@ export function CuadroTarifarioPage() {
     }
   }
 
-  const filasTab = filas.filter((f) => f.categoria === tab);
+  const filasSeco = filas.filter((f) => f.categoria === 'seco');
+  const filasFrio = filas.filter((f) => f.categoria === 'frio');
+  const filasCongelado = filas.filter((f) => f.categoria === 'congelado');
 
   return (
     <main>
@@ -128,8 +153,8 @@ export function CuadroTarifarioPage() {
         )}
 
         <div className="row" style={{ marginTop: 12 }}>
-          {CATEGORIAS.map((c) => (
-            <button key={c.id} className={tab === c.id ? 'small' : 'small secondary'} onClick={() => setTab(c.id)}>{c.label}</button>
+          {TABS.map((t) => (
+            <button key={t.id} className={tab === t.id ? 'small' : 'small secondary'} onClick={() => setTab(t.id)}>{t.label}</button>
           ))}
           <button className="small secondary" onClick={descargarImagen} disabled={generando || cargando}>
             {generando ? 'Generando…' : 'Descargar imagen'}
@@ -137,13 +162,36 @@ export function CuadroTarifarioPage() {
         </div>
 
         <div className="table-wrap" style={{ marginTop: 10, maxHeight: '70vh' }}>
-          <TablaCuadro categoria={tab} filas={filasTab} />
-          {!cargando && filasTab.length === 0 && <div className="empty">Sin datos para esta categoría.</div>}
+          {tab === 'seco' ? (
+            <>
+              <TablaCuadro categoria="seco" filas={filasSeco} />
+              {!cargando && filasSeco.length === 0 && <div className="empty">Sin datos para esta categoría.</div>}
+            </>
+          ) : (
+            <div className="row" style={{ alignItems: 'flex-start', gap: 32 }}>
+              <div>
+                <h3 style={{ marginTop: 0 }}>Frío</h3>
+                <TablaCuadro categoria="frio" filas={filasFrio} />
+                {!cargando && filasFrio.length === 0 && <div className="empty">Sin datos para Frío.</div>}
+              </div>
+              <div>
+                <h3 style={{ marginTop: 0 }}>Congelado</h3>
+                <TablaCuadro categoria="congelado" filas={filasCongelado} />
+                {!cargando && filasCongelado.length === 0 && <div className="empty">Sin datos para Congelado.</div>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div style={{ position: 'absolute', left: -9999, top: 0 }}>
-        <div ref={exportRef}>
-          <CuadroTarifarioExport categoria={tab} filas={filasTab} minimos={minimos} sucursal={usuario?.sucursal} />
+        <div ref={exportSecoRef}>
+          <CuadroTarifarioExport categoria="seco" filas={filasSeco} minimos={minimos} sucursal={usuario?.sucursal} />
+        </div>
+        <div ref={exportFrioRef}>
+          <CuadroTarifarioExport categoria="frio" filas={filasFrio} minimos={minimos} sucursal={usuario?.sucursal} />
+        </div>
+        <div ref={exportCongeladoRef}>
+          <CuadroTarifarioExport categoria="congelado" filas={filasCongelado} minimos={minimos} sucursal={usuario?.sucursal} />
         </div>
       </div>
     </main>
