@@ -70,7 +70,7 @@ export function CotizacionImprimirPage() {
       </div>
       <div id="cotizacion-imprimible">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <img src="/vale-logo.jpg" alt="" style={{ height: 120 }} />
+          <img src="/vale-logo.jpg" alt="" style={{ height: 70 }} />
           <div style={{ textAlign: 'right', fontSize: 11 }}>
             <div>Carossio, Vairolatti &amp; Cía S.R.L.</div>
             <div>{direccion.calle}</div>
