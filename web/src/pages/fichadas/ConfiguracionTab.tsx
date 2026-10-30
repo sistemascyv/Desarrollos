@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
+import { fechaSola } from '../../lib/format';
 import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from './motor';
 import type { DiaHorario, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
 
@@ -277,7 +278,7 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
                   {l.estado
                     ? <button className="small secondary" onClick={() => abrirBaja(l.id)}>Dar de baja</button>
                     : (
-                      <span title={l.fecha_baja ? `${l.motivo_baja || ''} — ${l.fecha_baja}` : ''}>
+                      <span title={l.fecha_baja ? `${l.motivo_baja || ''} — ${fechaSola(l.fecha_baja)}` : ''}>
                         Inactivo <button className="small secondary" onClick={() => abrirReingreso(l.id)}>Reactivar</button>
                       </span>
                     )}

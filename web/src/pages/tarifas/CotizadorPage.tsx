@@ -4,7 +4,7 @@ import { ClientResponseError } from 'pocketbase';
 import { pb } from '../../lib/pb';
 import { useAuth } from '../../lib/AuthContext';
 import { useToast } from '../../lib/ToastContext';
-import { money, isoDate } from '../../lib/format';
+import { money, isoDate, fechaSola } from '../../lib/format';
 import type { Cliente, Cotizacion, CotizacionItem, CuadroTarifarioFila, CuadroTarifarioMinimos, Sucursal } from '../../types';
 import { claveZona, calcularItem, calcularItemFrioCongelado, calcularTotales, minimoDeSucursal } from './cotizadorMotor';
 import { CATEGORIAS, type CategoriaId } from '../../lib/categoriasTarifario';
@@ -294,13 +294,15 @@ export function CotizadorPage() {
           </div>
           <div className="table-wrap" style={{ marginTop: 10 }}>
             <table>
-              <thead><tr><th>Número</th><th>Fecha</th><th>Tráfico</th><th className="num">Total</th><th></th></tr></thead>
+              <thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th>Tráfico</th><th>Tipo de carga</th><th className="num">Total</th><th></th></tr></thead>
               <tbody>
                 {cotizaciones.map((c) => (
                   <tr key={c.id}>
                     <td>{c.numero}</td>
-                    <td>{c.fecha}</td>
+                    <td>{fechaSola(c.fecha)}</td>
+                    <td>{clientes.find((cl) => cl.id === c.cliente)?.nombre || c.cliente_nombre || '—'}</td>
                     <td>{labelSucursal(c.trafico_origen)} → {labelSucursal(c.trafico_destino)}</td>
+                    <td>{CATEGORIAS.find((cat) => cat.id === c.categoria)?.label || 'Seco'}</td>
                     <td className="num">{money(c.total)}</td>
                     <td><Link className="boton small secondary" to={`/comercial/cotizador/${c.id}/imprimir`}>Imprimir</Link></td>
                   </tr>

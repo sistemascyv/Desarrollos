@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { esCuitValido, situacionADias, tipoPersonaPorCuit, tipoSociedadDeDenominacion } from '../../lib/cuit';
-import { money } from '../../lib/format';
+import { money, fechaSola } from '../../lib/format';
 import { SITUACION_BCRA, type DeudorReporte } from '../../types';
 
 // "YYYYMM" o "YYYY-MM" -> "MM/YY" para las etiquetas del gráfico y las
@@ -212,10 +212,10 @@ export function CentralDeudoresPage() {
                       <tr key={i}>
                         <td>{r.entidad ?? '—'}</td>
                         <td>{r.nroCheque}</td>
-                        <td>{r.fechaRechazo}</td>
+                        <td>{fechaSola(r.fechaRechazo)}</td>
                         <td className="num">{money(r.monto)}</td>
                         <td>{r.causal || '—'}</td>
-                        <td>{r.fechaPago ? r.fechaPago : 'No'}</td>
+                        <td>{r.fechaPago ? fechaSola(r.fechaPago) : 'No'}</td>
                         <td>{r.procesoJud ? 'Sí' : 'No'}</td>
                       </tr>
                     ))}

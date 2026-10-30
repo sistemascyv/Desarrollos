@@ -337,7 +337,7 @@ export function PlanillaChoferesPage() {
     // reasignarlo a otro si la lista en pantalla estaba desactualizada.
     const chofer = editingTramo?.chofer ?? choferId;
     const full = { ...data, chofer };
-    const label = `tramo del ${data.dia_salida || '?'}${data.origen || data.destino ? ` (${data.origen || '?'} → ${data.destino || '?'})` : ''}`;
+    const label = `tramo del ${data.dia_salida ? fechaSola(data.dia_salida) : '?'}${data.origen || data.destino ? ` (${data.origen || '?'} → ${data.destino || '?'})` : ''}`;
 
     // tramo cargado sin conexión que todavía no se sincronizó: se corrige el "alta" pendiente
     if (editingTramo && editingTramo.id.startsWith('tmp_')) {
@@ -398,7 +398,7 @@ export function PlanillaChoferesPage() {
     } catch (e) {
       if (!esErrorDeRed(e)) { toast('No se pudo borrar el tramo: ' + mensajeDeError(e), 'err'); return; }
       const t = tramos.find((x) => x.id === id);
-      queueOp({ type: 'delete', collection: 'tramos', id, label: `tramo del ${t?.dia_salida || '?'}` });
+      queueOp({ type: 'delete', collection: 'tramos', id, label: `tramo del ${t?.dia_salida ? fechaSola(t.dia_salida) : '?'}` });
       setTramos((cur) => cur.filter((x) => x.id !== id));
       toast('Sin conexión: el borrado se hace al reconectar.', 'warn');
     }
@@ -660,8 +660,8 @@ export function PlanillaChoferesPage() {
                         {pending ? <span className="badge pending">pend.</span> : bloqueado ? <span className="badge" title="Mes cerrado: no se puede modificar">cerrado</span> : ''}
                       </td>
                       <td>{t.tractor || ''}</td>
-                      <td>{t.dia_salida || ''} {t.hora_salida || ''}</td>
-                      <td>{t.dia_llegada || ''} {t.hora_llegada || ''}</td>
+                      <td>{fechaSola(t.dia_salida)} {t.hora_salida || ''}</td>
+                      <td>{fechaSola(t.dia_llegada)} {t.hora_llegada || ''}</td>
                       <td>{t.origen || ''} → {t.destino || ''}</td>
                       <td>{t.cliente || ''}{t.es_posicionamiento ? <span className="badge"> POS</span> : ''}</td>
                       <td className="num">{t.km_alargue || 0}</td>

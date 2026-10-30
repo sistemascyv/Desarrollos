@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { isoDate } from '../../lib/format';
+import { isoDate, fechaSola } from '../../lib/format';
 import { procesarPeriodo, fmtAbsHora, fmtDur, type ResultadoDia } from './motor';
 import type { FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
 
@@ -191,7 +191,7 @@ function TablaDetalle({ filas }: { filas: ResultadoDia[] }) {
               <td>{r.identificador}</td>
               <td>{r.nombre}</td>
               <td>{r.deposito}</td>
-              <td>{r.fecha}</td>
+              <td>{fechaSola(r.fecha)}</td>
               <td>{r.dia}</td>
               <td>{fmtDur(r.hN)}</td>
               <td>{r.hE > 0 ? <span className="tag tag-extra">{fmtDur(r.hE)}</span> : '—'}</td>

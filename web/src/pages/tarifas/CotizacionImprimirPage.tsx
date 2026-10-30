@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { money, isoDate } from '../../lib/format';
+import { money, isoDate, fechaSola } from '../../lib/format';
 import type { Cliente, Cotizacion, CotizacionItem } from '../../types';
 import { fechaVencimiento } from './cotizadorMotor';
 import { CATEGORIAS } from '../../lib/categoriasTarifario';
@@ -90,12 +90,12 @@ export function CotizacionImprimirPage() {
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div>
             <div>Cotización: <strong>{cot.numero}</strong></div>
-            <div>Fecha: {cot.fecha}</div>
+            <div>Fecha: {fechaSola(cot.fecha)}</div>
             <div>Categoría: {categoriaLabel}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div>Estado: {estado}</div>
-            <div>Vencimiento: {vencimiento} (salvo incremento tarifario)</div>
+            <div>Vencimiento: {fechaSola(vencimiento)} (salvo incremento tarifario)</div>
           </div>
         </div>
         <hr />

@@ -3,7 +3,7 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import type { BcraResultado, Cheque } from '../../types';
-import { money, fechaHora } from '../../lib/format';
+import { money, fechaHora, fechaSola } from '../../lib/format';
 import { leerChequesDeImagen } from '../../lib/ocr';
 import { esCuitValido } from '../../lib/cuit';
 
@@ -529,10 +529,10 @@ export function ControlChequesPage() {
                           <tr key={i}>
                             <td>{r.entidad ?? '—'}</td>
                             <td>{r.nroCheque}</td>
-                            <td>{r.fechaRechazo}</td>
+                            <td>{fechaSola(r.fechaRechazo)}</td>
                             <td className="num">{money(r.monto)}</td>
                             <td>{r.causal || '—'}</td>
-                            <td>{r.fechaPago ? r.fechaPago : 'No'}</td>
+                            <td>{r.fechaPago ? fechaSola(r.fechaPago) : 'No'}</td>
                             <td>{r.procesoJud ? 'Sí' : 'No'}</td>
                           </tr>
                         ))}
