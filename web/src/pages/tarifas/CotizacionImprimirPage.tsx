@@ -11,7 +11,7 @@ import { DIRECCION_SUCURSAL } from '../../lib/direccionesSucursal';
 // Precarga el logo apenas carga el módulo -- mismo motivo que
 // RecibosPage.tsx: window.print() puede dispararse antes de que el
 // navegador termine de pedir una imagen recién referenciada.
-new Image().src = '/cotizador-logo.jpg';
+new Image().src = '/vale-logo.jpg';
 
 export function CotizacionImprimirPage() {
   const { id } = useParams<{ id: string }>();
@@ -70,7 +70,7 @@ export function CotizacionImprimirPage() {
       </div>
       <div id="cotizacion-imprimible">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <img src="/cotizador-logo.jpg" alt="" style={{ height: 120 }} />
+          <img src="/vale-logo.jpg" alt="" style={{ height: 120 }} />
           <div style={{ textAlign: 'right', fontSize: 11 }}>
             <div>Carossio, Vairolatti &amp; Cía S.R.L.</div>
             <div>{direccion.calle}</div>
