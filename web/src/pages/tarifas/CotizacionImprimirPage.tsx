@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
@@ -19,8 +19,30 @@ export function CotizacionImprimirPage() {
   const [cot, setCot] = useState<Cotizacion | null>(null);
   const [items, setItems] = useState<CotizacionItem[]>([]);
   const [clienteNombre, setClienteNombre] = useState('');
+  const yaImprimio = useRef(false);
 
   useEffect(() => { cargar(); }, [id]);
+
+  // Imprime sola apenas termina de cargar la cotización -- sin botón
+  // intermedio, directo al diálogo nativo de impresión (a pedido del
+  // usuario). El ref evita que se dispare dos veces si el componente
+  // se re-renderiza con la misma cotización ya cargada.
+  useEffect(() => {
+    if (!cot || yaImprimio.current) return;
+    yaImprimio.current = true;
+    document.body.classList.add('imprimiendo-cotizacion');
+    const estiloPagina = document.createElement('style');
+    estiloPagina.textContent = '@media print { @page { size: A4 portrait; margin: 0; } }';
+    document.head.appendChild(estiloPagina);
+    setTimeout(() => {
+      try {
+        window.print();
+      } finally {
+        document.body.classList.remove('imprimiendo-cotizacion');
+        document.head.removeChild(estiloPagina);
+      }
+    }, 50);
+  }, [cot]);
 
   async function cargar() {
     if (!id) return;
@@ -52,22 +74,6 @@ export function CotizacionImprimirPage() {
 
   return (
     <main>
-      <div className="card">
-        <button onClick={() => {
-          document.body.classList.add('imprimiendo-cotizacion');
-          const estiloPagina = document.createElement('style');
-          estiloPagina.textContent = '@media print { @page { size: A4 portrait; margin: 0; } }';
-          document.head.appendChild(estiloPagina);
-          setTimeout(() => {
-            try {
-              window.print();
-            } finally {
-              document.body.classList.remove('imprimiendo-cotizacion');
-              document.head.removeChild(estiloPagina);
-            }
-          }, 50);
-        }}>Imprimir</button>
-      </div>
       <div id="cotizacion-imprimible">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <img src="/vale-logo.jpg" alt="" style={{ height: 70 }} />
