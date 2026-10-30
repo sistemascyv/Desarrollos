@@ -28,5 +28,6 @@ onRecordBeforeCreateRequest((e) => {
     siguiente = parseInt(partes[partes.length - 1], 10) + 1;
   }
   e.record.set("numero", prefijo + "-" + String(siguiente).padStart(8, "0"));
+  e.record.set("sucursal", sucursal);
   e.record.set("creado_por", auth.get("nombre") || auth.get("username") || auth.id);
 }, "cotizaciones");
