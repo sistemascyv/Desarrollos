@@ -35,7 +35,7 @@ export function CuadroTarifarioExport({ categoria, filas, minimos, sucursal }: {
       </div>
 
       {minimos && (
-        <div style={{ border: '1px solid #999', borderRadius: 6, padding: '12px 20px', marginTop: 16 }}>
+        <div style={{ border: '1px solid #999', borderRadius: 6, padding: '12px 20px', marginTop: 16, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto' }}>
           <div style={{ marginBottom: 8, fontWeight: 700, textAlign: 'center' }}>Mínimo por sucursal</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 8, columnGap: 24, justifyItems: 'center' }}>
             <div>San Francisco: {money(minimos.san_francisco)}</div>
