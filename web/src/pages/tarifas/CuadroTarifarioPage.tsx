@@ -183,13 +183,21 @@ export function CuadroTarifarioPage() {
           )}
         </div>
       </div>
+      {/* Un contenedor por categoria, no uno compartido: si comparten
+          contenedor, el ancho natural de Seco (13 columnas) termina
+          estirando el div de Frio/Congelado aunque su contenido sea
+          angosto -- cada bloque tiene que medir solo lo propio. */}
       <div style={{ position: 'absolute', left: -9999, top: 0, height: 0, overflow: 'hidden' }}>
         <div ref={exportSecoRef}>
           <CuadroTarifarioExport categoria="seco" filas={filasSeco} minimos={minimos} sucursal={usuario?.sucursal} />
         </div>
+      </div>
+      <div style={{ position: 'absolute', left: -9999, top: 0, height: 0, overflow: 'hidden' }}>
         <div ref={exportFrioRef}>
           <CuadroTarifarioExport categoria="frio" filas={filasFrio} minimos={minimos} sucursal={usuario?.sucursal} />
         </div>
+      </div>
+      <div style={{ position: 'absolute', left: -9999, top: 0, height: 0, overflow: 'hidden' }}>
         <div ref={exportCongeladoRef}>
           <CuadroTarifarioExport categoria="congelado" filas={filasCongelado} minimos={minimos} sucursal={usuario?.sucursal} />
         </div>
