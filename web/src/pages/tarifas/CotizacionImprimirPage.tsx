@@ -6,6 +6,7 @@ import { money, isoDate } from '../../lib/format';
 import type { Cliente, Cotizacion, CotizacionItem } from '../../types';
 import { fechaVencimiento } from './cotizadorMotor';
 import { CATEGORIAS } from '../../lib/categoriasTarifario';
+import { DIRECCION_SUCURSAL } from '../../lib/direccionesSucursal';
 
 // Precarga el logo apenas carga el módulo -- mismo motivo que
 // RecibosPage.tsx: window.print() puede dispararse antes de que el
@@ -47,6 +48,7 @@ export function CotizacionImprimirPage() {
   const hoy = isoDate(new Date());
   const estado = hoy > vencimiento ? 'Vencido' : 'Vigente';
   const categoriaLabel = CATEGORIAS.find((c) => c.id === cot.categoria)?.label || 'Seco';
+  const direccion = DIRECCION_SUCURSAL[cot.sucursal || 'san_francisco'];
 
   return (
     <main>
@@ -69,8 +71,8 @@ export function CotizacionImprimirPage() {
       <div id="cotizacion-imprimible">
         <div style={{ textAlign: 'right', fontSize: 11 }}>
           <div>Carossio, Vairolatti &amp; Cía S.R.L.</div>
-          <div>San Lorenzo 31</div>
-          <div>San Francisco</div>
+          <div>{direccion.calle}</div>
+          <div>{direccion.localidad}</div>
           <div>CUIT: 30-54057342-1 - Ing. Brutos: 904-249209-7</div>
         </div>
         <hr />
