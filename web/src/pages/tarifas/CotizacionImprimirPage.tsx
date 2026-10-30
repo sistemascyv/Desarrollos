@@ -69,11 +69,14 @@ export function CotizacionImprimirPage() {
         }}>Imprimir</button>
       </div>
       <div id="cotizacion-imprimible">
-        <div style={{ textAlign: 'right', fontSize: 11 }}>
-          <div>Carossio, Vairolatti &amp; Cía S.R.L.</div>
-          <div>{direccion.calle}</div>
-          <div>{direccion.localidad}</div>
-          <div>CUIT: 30-54057342-1 - Ing. Brutos: 904-249209-7</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <img src="/cotizador-logo.jpg" alt="" style={{ height: 120 }} />
+          <div style={{ textAlign: 'right', fontSize: 11 }}>
+            <div>Carossio, Vairolatti &amp; Cía S.R.L.</div>
+            <div>{direccion.calle}</div>
+            <div>{direccion.localidad}</div>
+            <div>CUIT: 30-54057342-1 - Ing. Brutos: 904-249209-7</div>
+          </div>
         </div>
         <hr />
         <div className="row" style={{ justifyContent: 'space-between' }}>
