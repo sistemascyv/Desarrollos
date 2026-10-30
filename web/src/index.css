@@ -1005,31 +1005,40 @@ a.link {
   display: none;
 }
 
-body.imprimiendo-vale * {
-  visibility: hidden;
-}
-body.imprimiendo-vale #vale-imprimible,
-body.imprimiendo-vale #vale-imprimible * {
-  visibility: visible;
-}
-body.imprimiendo-vale #vale-imprimible {
-  display: block !important;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 210mm;
-  font-family: Arial, sans-serif;
-  font-size: 17px;
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
-  background: #fff;
-  color: #000;
-  --panel2: #f1e9dc;
-  --border: #e3d7c4;
-  --brand-dark: #623c2e;
-  --accent: #623c2e;
-  --muted: #8a7a68;
-  --warn: #b8860b;
+/* Todo lo que activa la vista imprimible vive solo dentro de @media print
+   -- así el contenido nunca se hace visible en la pestaña real (ni antes
+   de que se abra el diálogo de impresión, ni detrás de él mientras está
+   abierto), solo cuando el navegador efectivamente renderiza para
+   imprimir/previsualizar. El toggle de la clase en JS sigue haciendo
+   falta para que el print sepa CUÁL bloque imprimible mostrar, pero ya
+   no tiene ningún efecto visual en pantalla. */
+@media print {
+  body.imprimiendo-vale * {
+    visibility: hidden;
+  }
+  body.imprimiendo-vale #vale-imprimible,
+  body.imprimiendo-vale #vale-imprimible * {
+    visibility: visible;
+  }
+  body.imprimiendo-vale #vale-imprimible {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    font-family: Arial, sans-serif;
+    font-size: 17px;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    background: #fff;
+    color: #000;
+    --panel2: #f1e9dc;
+    --border: #e3d7c4;
+    --brand-dark: #623c2e;
+    --accent: #623c2e;
+    --muted: #8a7a68;
+    --warn: #b8860b;
+  }
 }
 /* Dos copias (ORIGINAL y DUPLICADO), cada una en su propia hoja de
    210mm x 148mm -- acá se imprime en medias hojas de A4, no en una A4
@@ -1049,31 +1058,34 @@ body.imprimiendo-vale #vale-imprimible {
   display: none;
 }
 
-body.imprimiendo-recibo * {
-  visibility: hidden;
-}
-body.imprimiendo-recibo #recibo-imprimible,
-body.imprimiendo-recibo #recibo-imprimible * {
-  visibility: visible;
-}
-body.imprimiendo-recibo #recibo-imprimible {
-  display: block !important;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 210mm;
-  font-family: Arial, sans-serif;
-  font-size: 17px;
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
-  background: #fff;
-  color: #000;
-  --panel2: #f1e9dc;
-  --border: #e3d7c4;
-  --brand-dark: #623c2e;
-  --accent: #623c2e;
-  --muted: #8a7a68;
-  --warn: #b8860b;
+/* Ver el comentario del mismo patrón en #vale-imprimible más arriba. */
+@media print {
+  body.imprimiendo-recibo * {
+    visibility: hidden;
+  }
+  body.imprimiendo-recibo #recibo-imprimible,
+  body.imprimiendo-recibo #recibo-imprimible * {
+    visibility: visible;
+  }
+  body.imprimiendo-recibo #recibo-imprimible {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    font-family: Arial, sans-serif;
+    font-size: 17px;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    background: #fff;
+    color: #000;
+    --panel2: #f1e9dc;
+    --border: #e3d7c4;
+    --brand-dark: #623c2e;
+    --accent: #623c2e;
+    --muted: #8a7a68;
+    --warn: #b8860b;
+  }
 }
 /* Dos copias (ORIGINAL y DUPLICADO), cada una en su propia hoja de
    210mm x 148mm -- acá se imprime en medias hojas de A4, no en una A4
@@ -1093,34 +1105,37 @@ body.imprimiendo-recibo #recibo-imprimible {
   display: none;
 }
 
-body.imprimiendo-cotizacion * {
-  visibility: hidden;
-}
-body.imprimiendo-cotizacion #cotizacion-imprimible,
-body.imprimiendo-cotizacion #cotizacion-imprimible * {
-  visibility: visible;
-}
-body.imprimiendo-cotizacion #cotizacion-imprimible {
-  display: block !important;
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 210mm;
-  min-height: 297mm;
-  padding: 14mm;
-  box-sizing: border-box;
-  font-family: Arial, sans-serif;
-  font-size: 12px;
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
-  background: #fff;
-  color: #000;
-  --panel2: #f1e9dc;
-  --border: #e3d7c4;
-  --brand-dark: #623c2e;
-  --accent: #623c2e;
-  --muted: #8a7a68;
-  --warn: #b8860b;
+/* Ver el comentario del mismo patrón en #vale-imprimible más arriba. */
+@media print {
+  body.imprimiendo-cotizacion * {
+    visibility: hidden;
+  }
+  body.imprimiendo-cotizacion #cotizacion-imprimible,
+  body.imprimiendo-cotizacion #cotizacion-imprimible * {
+    visibility: visible;
+  }
+  body.imprimiendo-cotizacion #cotizacion-imprimible {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 14mm;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    background: #fff;
+    color: #000;
+    --panel2: #f1e9dc;
+    --border: #e3d7c4;
+    --brand-dark: #623c2e;
+    --accent: #623c2e;
+    --muted: #8a7a68;
+    --warn: #b8860b;
+  }
 }
 #cotizacion-imprimible {
   position: relative;
