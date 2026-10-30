@@ -66,7 +66,8 @@ body {
   min-height: 100vh;
 }
 
-button {
+button,
+a.boton {
   font-family: inherit;
   background: var(--accent2);
   color: #fff;
@@ -76,24 +77,30 @@ button {
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
+  display: inline-block;
+  text-decoration: none;
 }
-button:hover {
+button:hover,
+a.boton:hover {
   filter: brightness(0.92);
 }
-button.secondary {
+button.secondary,
+a.boton.secondary {
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
   filter: none;
 }
-button.secondary:hover {
+button.secondary:hover,
+a.boton.secondary:hover {
   background: var(--panel2);
   filter: none;
 }
 button.danger {
   background: var(--err);
 }
-button.small {
+button.small,
+a.boton.small {
   padding: 5px 9px;
   font-size: 12px;
 }

@@ -289,7 +289,6 @@ export function CotizadorPage() {
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <div>
               <h2>Cotizador</h2>
-              <div className="hint">Cotizaciones de carga — <Link to="/comercial/tarifas">ver Cuadro Tarifario</Link>.</div>
             </div>
             <button onClick={abrirNueva}>+ Nueva Cotización</button>
           </div>
@@ -303,7 +302,7 @@ export function CotizadorPage() {
                     <td>{c.fecha}</td>
                     <td>{labelSucursal(c.trafico_origen)} → {labelSucursal(c.trafico_destino)}</td>
                     <td className="num">{money(c.total)}</td>
-                    <td><Link to={`/comercial/cotizador/${c.id}/imprimir`}>Imprimir</Link></td>
+                    <td><Link className="boton small secondary" to={`/comercial/cotizador/${c.id}/imprimir`}>Imprimir</Link></td>
                   </tr>
                 ))}
               </tbody>
