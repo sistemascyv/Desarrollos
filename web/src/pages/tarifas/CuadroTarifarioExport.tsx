@@ -47,7 +47,7 @@ export function CuadroTarifarioExport({ categoria, filas, minimos, sucursal }: {
       )}
 
       <div style={{ marginTop: 16 }}>
-        <TablaCuadro categoria={categoria} filas={filas} />
+        <TablaCuadro categoria={categoria} filas={filas} ancho="completo" />
       </div>
     </div>
   );
