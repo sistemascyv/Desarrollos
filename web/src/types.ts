@@ -25,6 +25,7 @@ export interface ValeCaja extends BaseRecord {
   periodo_desde?: string; // "YYYY-MM-DD", rango de la rendición que lo usó -- vacío si no está usado
   periodo_hasta?: string;
   creado_por?: string;
+  sucursal?: Sucursal;
 }
 
 export interface Recibo extends BaseRecord {
@@ -35,6 +36,7 @@ export interface Recibo extends BaseRecord {
   moneda: 'ARS' | 'USD';
   concepto?: string;
   creado_por?: string;
+  sucursal?: Sucursal;
 }
 
 export interface Vehiculo extends BaseRecord {
