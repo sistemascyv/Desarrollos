@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { money, isoDate } from '../../lib/format';
@@ -15,6 +15,7 @@ new Image().src = '/vale-logo.jpg';
 
 export function CotizacionImprimirPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const toast = useToast();
   const [cot, setCot] = useState<Cotizacion | null>(null);
   const [items, setItems] = useState<CotizacionItem[]>([]);
@@ -40,6 +41,7 @@ export function CotizacionImprimirPage() {
       } finally {
         document.body.classList.remove('imprimiendo-cotizacion');
         document.head.removeChild(estiloPagina);
+        navigate('/comercial/cotizador');
       }
     }, 50);
   }, [cot]);
