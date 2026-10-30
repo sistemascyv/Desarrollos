@@ -38,7 +38,7 @@ export function TablaCuadro({ categoria, filas }: { categoria: CuadroTarifarioFi
     );
   }
   return (
-    <table>
+    <table style={{ width: 'auto' }}>
       <thead><tr><th>Desde (Kg)</th><th>Hasta (Kg)</th><th className="num">Valor</th></tr></thead>
       <tbody>
         {filas.map((f) => (
