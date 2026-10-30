@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import { money, isoDate, fechaSola } from '../../lib/format';
 import { MembreteImpreso } from '../../components/MembreteImpreso';
 import { TablaCuadro } from './TablaCuadro';
-import type { CuadroTarifarioFila, CuadroTarifarioMinimos } from '../../types';
+import type { CuadroTarifarioFila, CuadroTarifarioMinimos, Sucursal } from '../../types';
 
 const CATEGORIA_LABEL: Record<CuadroTarifarioFila['categoria'], string> = {
   seco: 'Seco', frio: 'Frío', congelado: 'Congelado',
@@ -14,10 +14,11 @@ const CATEGORIA_LABEL: Record<CuadroTarifarioFila['categoria'], string> = {
 // mensaje de "sin datos": si no hay filas para la categoria, la tabla sale
 // vacia en la imagen, que es una situacion que no deberia darse (el boton
 // de descarga esta en la misma pantalla que ya muestra esas filas).
-export function CuadroTarifarioExport({ categoria, filas, minimos }: {
+export function CuadroTarifarioExport({ categoria, filas, minimos, sucursal }: {
   categoria: CuadroTarifarioFila['categoria'];
   filas: CuadroTarifarioFila[];
   minimos: CuadroTarifarioMinimos | null;
+  sucursal?: Sucursal;
 }) {
   return (
     <div style={{
@@ -26,7 +27,7 @@ export function CuadroTarifarioExport({ categoria, filas, minimos }: {
       '--muted': '#8a7a68', '--warn': '#b8860b',
     } as CSSProperties}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
-        <MembreteImpreso />
+        <MembreteImpreso sucursal={sucursal} />
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: 700, fontSize: 18 }}>Tarifario — {CATEGORIA_LABEL[categoria]}</div>
           <div style={{ fontSize: 10, color: '#333' }}>Generado el {fechaSola(isoDate(new Date()))}</div>

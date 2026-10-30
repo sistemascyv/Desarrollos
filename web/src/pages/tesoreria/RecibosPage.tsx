@@ -34,7 +34,7 @@ function CopiaRecibo({ r, etiqueta }: { r: Recibo; etiqueta: string }) {
     <div className="copia-imprimible">
       <div style={{ textAlign: 'right', fontSize: 10, letterSpacing: 2, marginBottom: 4 }}>{etiqueta}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <MembreteImpreso />
+        <MembreteImpreso sucursal={r.sucursal} />
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>N° {String(r.numero).padStart(4, '0')}</div>
           <CasillasFecha fecha={r.fecha} />

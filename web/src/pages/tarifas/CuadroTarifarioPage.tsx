@@ -12,7 +12,7 @@ import { CuadroTarifarioExport } from './CuadroTarifarioExport';
 import { CATEGORIAS, type CategoriaId } from '../../lib/categoriasTarifario';
 
 export function CuadroTarifarioPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, usuario } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -143,7 +143,7 @@ export function CuadroTarifarioPage() {
       </div>
       <div style={{ position: 'absolute', left: -9999, top: 0 }}>
         <div ref={exportRef}>
-          <CuadroTarifarioExport categoria={tab} filas={filasTab} minimos={minimos} />
+          <CuadroTarifarioExport categoria={tab} filas={filasTab} minimos={minimos} sucursal={usuario?.sucursal} />
         </div>
       </div>
     </main>
