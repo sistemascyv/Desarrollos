@@ -183,7 +183,7 @@ export function CuadroTarifarioPage() {
           )}
         </div>
       </div>
-      <div style={{ position: 'absolute', left: -9999, top: 0 }}>
+      <div style={{ position: 'absolute', left: -9999, top: 0, height: 0, overflow: 'hidden' }}>
         <div ref={exportSecoRef}>
           <CuadroTarifarioExport categoria="seco" filas={filasSeco} minimos={minimos} sucursal={usuario?.sucursal} />
         </div>
