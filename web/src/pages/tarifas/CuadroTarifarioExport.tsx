@@ -21,8 +21,8 @@ export function CuadroTarifarioExport({ categoria, filas, minimos, sucursal }: {
   sucursal?: Sucursal;
 }) {
   return (
-    <div style={{
-      background: '#fff', padding: 24, fontFamily: 'Arial, sans-serif', fontSize: 12, color: '#000',
+    <div className="cuadro-tarifario-export" style={{
+      background: '#fff', padding: 24, fontFamily: 'Arial, sans-serif', fontSize: 16, color: '#000',
       '--panel2': '#f1e9dc', '--border': '#e3d7c4', '--brand-dark': '#623c2e', '--accent': '#623c2e',
       '--muted': '#8a7a68', '--warn': '#b8860b',
     } as CSSProperties}>

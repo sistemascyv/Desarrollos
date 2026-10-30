@@ -286,6 +286,17 @@ table {
   border-collapse: collapse;
   font-size: 12.5px;
 }
+/* Imagen descargable del Cuadro Tarifario (CuadroTarifarioExport.tsx):
+   texto mas grande que la tabla en pantalla -- se comparte como foto
+   (WhatsApp, etc.) y a ese tamaño de letra quedaba ilegible una vez
+   achicada la imagen en el chat. */
+.cuadro-tarifario-export table {
+  font-size: 20px;
+}
+.cuadro-tarifario-export th,
+.cuadro-tarifario-export td {
+  padding: 10px 12px;
+}
 th,
 td {
   padding: 6px 7px;
