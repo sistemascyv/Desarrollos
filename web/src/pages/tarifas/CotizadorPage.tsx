@@ -303,7 +303,7 @@ export function CotizadorPage() {
                     <td>{c.fecha}</td>
                     <td>{labelSucursal(c.trafico_origen)} → {labelSucursal(c.trafico_destino)}</td>
                     <td className="num">{money(c.total)}</td>
-                    <td><Link to={`/comercial/cotizador/${c.id}/imprimir`} target="_blank">Imprimir</Link></td>
+                    <td><Link to={`/comercial/cotizador/${c.id}/imprimir`}>Imprimir</Link></td>
                   </tr>
                 ))}
               </tbody>
