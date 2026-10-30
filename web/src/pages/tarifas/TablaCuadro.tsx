@@ -12,7 +12,7 @@ const COLUMNAS_ZONA: { key: string; label: string }[] = [
   { key: 'SB', label: 'S⇄B' }, { key: 'BB', label: 'B⇄B' },
 ];
 
-export function TablaCuadro({ categoria, filas }: { categoria: CuadroTarifarioFila['categoria']; filas: CuadroTarifarioFila[] }) {
+export function TablaCuadro({ categoria, filas, ancho = 'auto' }: { categoria: CuadroTarifarioFila['categoria']; filas: CuadroTarifarioFila[]; ancho?: 'auto' | 'completo' }) {
   if (categoria === 'seco') {
     return (
       <table>
@@ -38,7 +38,7 @@ export function TablaCuadro({ categoria, filas }: { categoria: CuadroTarifarioFi
     );
   }
   return (
-    <table style={{ width: 'auto' }}>
+    <table style={{ width: ancho === 'completo' ? '100%' : 'auto' }}>
       <thead><tr><th>Desde (Kg)</th><th>Hasta (Kg)</th><th className="num">Valor</th></tr></thead>
       <tbody>
         {filas.map((f) => (

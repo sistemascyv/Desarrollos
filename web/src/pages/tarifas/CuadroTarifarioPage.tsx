@@ -169,14 +169,14 @@ export function CuadroTarifarioPage() {
             </>
           ) : (
             <div className="row" style={{ alignItems: 'flex-start', gap: 32 }}>
-              <div>
+              <div style={{ flex: 1 }}>
                 <h3 style={{ marginTop: 0 }}>Frío</h3>
-                <TablaCuadro categoria="frio" filas={filasFrio} />
+                <TablaCuadro categoria="frio" filas={filasFrio} ancho="completo" />
                 {!cargando && filasFrio.length === 0 && <div className="empty">Sin datos para Frío.</div>}
               </div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <h3 style={{ marginTop: 0 }}>Congelado</h3>
-                <TablaCuadro categoria="congelado" filas={filasCongelado} />
+                <TablaCuadro categoria="congelado" filas={filasCongelado} ancho="completo" />
                 {!cargando && filasCongelado.length === 0 && <div className="empty">Sin datos para Congelado.</div>}
               </div>
             </div>
