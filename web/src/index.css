@@ -70,7 +70,7 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: rgba(252, 179, 22, 0.45) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
@@ -80,11 +80,11 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(252, 179, 22, 0.45);
   border-radius: 6px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  background: var(--brand);
 }
 
 #root {
