@@ -70,7 +70,7 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(252, 179, 22, 0.45) transparent;
+  scrollbar-color: color-mix(in srgb, var(--accent) 40%, transparent) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
@@ -80,11 +80,11 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: rgba(252, 179, 22, 0.45);
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
   border-radius: 6px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--brand);
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
 #root {
