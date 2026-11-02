@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
@@ -39,14 +40,16 @@ jobs:
 
       - name: Publicar migraciones de PocketBase nuevas
         run: |
-          rsync -avz \
+          # --delete: si una migracion se revierte en git, tiene que desaparecer
+          # tambien del servidor (si no, PocketBase la sigue reintentando en cada boot).
+          rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key" \
             pb_migrations/ \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/ubuntu/pocketbase/pb_migrations/"
 
       - name: Publicar hooks de PocketBase (pb_hooks/)
         run: |
-          rsync -avz \
+          rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key" \
             pb_hooks/ \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/home/ubuntu/pocketbase/pb_hooks/"
