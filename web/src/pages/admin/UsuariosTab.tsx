@@ -224,7 +224,7 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
                       <option value="buenos_aires">Buenos Aires</option>
                     </select>
                   </td>
-                  <td>{modulosTxt}</td>
+                  <td style={{ whiteSpace: 'normal', maxWidth: 260 }}>{modulosTxt}</td>
                   <td>{inactivo ? <span className="badge">Inactivo</span> : <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Activo</span>}</td>
                   <td className="actions-cell">
                     <button className="small secondary" disabled={u.rol === 'admin'} onClick={() => openModulesModal(u)}>Módulos</button>
