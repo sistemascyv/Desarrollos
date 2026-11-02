@@ -23,6 +23,8 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editModulos, setEditModulos] = useState<string[]>([]);
+  const [passwordEditId, setPasswordEditId] = useState<string | null>(null);
+  const [nuevaPassword, setNuevaPassword] = useState('');
 
   useEffect(() => {
     load();
@@ -120,11 +122,25 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
     }
   }
 
+  async function guardarPassword() {
+    if (!passwordEditId) return;
+    if (nuevaPassword.length < 8) { toast('La contraseña debe tener al menos 8 caracteres.', 'warn'); return; }
+    try {
+      await pb.send(`/api/usuarios/${passwordEditId}/cambiar-password`, { method: 'POST', body: { password: nuevaPassword } });
+      setPasswordEditId(null);
+      setNuevaPassword('');
+      toast('Contraseña actualizada.', 'ok');
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
   const q = search.trim().toLowerCase();
   const filtered = q
     ? items.filter((u) => [u.username, u.nombre, u.email].some((v) => String(v || '').toLowerCase().includes(q)))
     : items;
   const editingUser = items.find((u) => u.id === editingId) || null;
+  const passwordEditUser = items.find((u) => u.id === passwordEditId) || null;
 
   return (
     <div className="card">
@@ -206,6 +222,7 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
                   <td>{inactivo ? <span className="badge">Inactivo</span> : <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Activo</span>}</td>
                   <td className="actions-cell">
                     <button className="small secondary" disabled={u.rol === 'admin'} onClick={() => openModulesModal(u)}>Módulos</button>
+                    <button className="small secondary" onClick={() => { setPasswordEditId(u.id); setNuevaPassword(''); }}>Contraseña</button>
                     <button className="small secondary" onClick={() => toggleRol(u.id, u.rol)}>{u.rol === 'admin' ? 'Hacer operador' : 'Hacer admin'}</button>
                     <button className="small secondary" disabled={isSelf} onClick={() => toggleActivo(u.id, !inactivo)}>{inactivo ? 'Reactivar' : 'Desactivar'}</button>
                     <button className="small danger" disabled={isSelf} onClick={() => remove(u.id)}>Borrar</button>
@@ -237,6 +254,23 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
             <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
               <button className="secondary" onClick={() => setEditingId(null)}>Cancelar</button>
               <button onClick={saveUserModules}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {passwordEditUser && (
+        <div className="modal-bg open">
+          <div className="modal" style={{ maxWidth: 380 }}>
+            <span className="close-x" onClick={() => setPasswordEditId(null)}>✕</span>
+            <h3>Cambiar contraseña de {passwordEditUser.nombre || passwordEditUser.username}</h3>
+            <div className="field">
+              <label>Contraseña nueva</label>
+              <input type="password" value={nuevaPassword} onChange={(e) => setNuevaPassword(e.target.value)} placeholder="mín. 8 caracteres" />
+            </div>
+            <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+              <button className="secondary" onClick={() => setPasswordEditId(null)}>Cancelar</button>
+              <button onClick={guardarPassword}>Guardar</button>
             </div>
           </div>
         </div>
