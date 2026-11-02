@@ -189,7 +189,7 @@ input[type='checkbox'] {
 .stat {
   background: var(--panel2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 10px 12px;
 }
 .stat .lbl {
@@ -349,7 +349,7 @@ tbody tr:hover {
   min-width: 130px;
   background: var(--panel2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 7px 10px;
   text-align: right;
   color: var(--text);
@@ -503,7 +503,7 @@ tfoot td {
   background: var(--panel2);
   border: 1px solid var(--border);
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
   max-width: 340px;
@@ -535,10 +535,11 @@ tfoot td {
 .modal {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 20px;
   width: 100%;
   max-width: 640px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
 }
 .modal h3 {
   margin-top: 0;
@@ -611,16 +612,20 @@ a.link {
 .login-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-top: 4px solid var(--brand);
-  border-radius: 8px;
+  border-top: 3px solid var(--brand);
+  border-radius: 10px;
   padding: 36px 32px;
   width: 100%;
   max-width: 380px;
+  box-shadow: 0 8px 28px rgba(98, 60, 46, 0.1), 0 2px 8px rgba(98, 60, 46, 0.06);
+}
+:root[data-theme='dark'] .login-card {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 .login-card h1 {
   font-family: var(--font-display);
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--brand-dark);
   margin: 0 0 6px;
