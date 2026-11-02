@@ -6,7 +6,7 @@ import { useConfirm } from '../../lib/ConfirmContext';
 import { MODULES, type Rol, type Usuario } from '../../types';
 
 export function UsuariosTab({ version, onChanged }: { version: number; onChanged: () => void }) {
-  const { usuario: self } = useAuth();
+  const { usuario: self, logout } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -126,10 +126,16 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
     if (!passwordEditId) return;
     if (nuevaPassword.length < 8) { toast('La contraseña debe tener al menos 8 caracteres.', 'warn'); return; }
     try {
+      const esUnoMismo = passwordEditId === self?.id;
       await pb.send(`/api/usuarios/${passwordEditId}/cambiar-password`, { method: 'POST', body: { password: nuevaPassword } });
       setPasswordEditId(null);
       setNuevaPassword('');
-      toast('Contraseña actualizada.', 'ok');
+      if (esUnoMismo) {
+        toast('Contraseña actualizada. Por seguridad, ingresá de nuevo con la contraseña nueva.', 'ok');
+        logout();
+      } else {
+        toast('Contraseña actualizada.', 'ok');
+      }
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
     }
