@@ -206,9 +206,13 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
             {filtered.map((u) => {
               const inactivo = u.activo === false;
               const isSelf = self?.id === u.id;
+              const modulosCount = (u.modulos || []).length;
+              const modulosFull = u.rol === 'admin'
+                ? 'Todos'
+                : (modulosCount ? (u.modulos || []).map((id) => MODULES.find((m) => m.id === id)?.label || id).join(', ') : '—');
               const modulosTxt = u.rol === 'admin'
                 ? 'Todos'
-                : ((u.modulos || []).length ? (u.modulos || []).map((id) => MODULES.find((m) => m.id === id)?.label || id).join(', ') : '—');
+                : (modulosCount ? `${modulosCount} módulo${modulosCount === 1 ? '' : 's'}` : '—');
               return (
                 <tr key={u.id} className={inactivo ? 'inactivo' : ''}>
                   <td className="admin-name">{u.username}{isSelf ? <span className="badge"> vos</span> : ''}</td>
@@ -224,7 +228,7 @@ export function UsuariosTab({ version, onChanged }: { version: number; onChanged
                       <option value="buenos_aires">Buenos Aires</option>
                     </select>
                   </td>
-                  <td style={{ whiteSpace: 'normal', maxWidth: 260 }}>{modulosTxt}</td>
+                  <td title={modulosFull}>{modulosTxt}</td>
                   <td>{inactivo ? <span className="badge">Inactivo</span> : <span className="badge" style={{ color: 'var(--ok)', borderColor: 'var(--ok)' }}>Activo</span>}</td>
                   <td className="actions-cell">
                     <button className="small secondary" disabled={u.rol === 'admin'} onClick={() => openModulesModal(u)}>Módulos</button>
