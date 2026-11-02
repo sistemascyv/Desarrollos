@@ -659,6 +659,7 @@ a.link {
   height: 100vh;
   overflow-y: auto;
   z-index: 30;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.12);
 }
 #sidebar .brand {
   padding: 20px 18px 16px;
@@ -667,7 +668,7 @@ a.link {
 #sidebar .brand .name {
   font-family: var(--font-display);
   font-size: 21px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1.1;
   color: var(--sidebar-text);
@@ -697,7 +698,7 @@ a.link {
   align-items: center;
   gap: 9px;
   padding: 9px 10px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   color: var(--sidebar-text);
   font-size: 13px;
@@ -705,6 +706,7 @@ a.link {
   margin-bottom: 2px;
   background: none;
   border: none;
+  border-left: 3px solid transparent;
   width: 100%;
   text-align: left;
 }
@@ -713,8 +715,9 @@ a.link {
   filter: none;
 }
 .nav-item.active {
-  background: var(--sidebar-active-bg);
-  color: var(--sidebar-active-text);
+  background: rgba(252, 179, 22, 0.14);
+  border-left: 3px solid var(--brand);
+  color: var(--sidebar-text);
   font-weight: 600;
 }
 .nav-sep {
