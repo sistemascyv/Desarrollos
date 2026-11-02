@@ -16,11 +16,17 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Instalar dependencias y compilar el frontend
+      - name: Instalar dependencias
         working-directory: web
-        run: |
-          npm ci
-          npm run build
+        run: npm ci
+
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
+      - name: Compilar el frontend
+        working-directory: web
+        run: npm run build
 
       - name: Configurar clave SSH
         run: |
