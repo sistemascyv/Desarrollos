@@ -20,9 +20,9 @@ function tipoIconoDeAlias(alias: string): TipoIconoVehiculo {
 function iconoCamion(color: string): L.DivIcon {
   return L.divIcon({
     className: 'flota-icon',
-    html: `<svg viewBox="0 0 64 64" width="28" height="28"><rect x="4" y="18" width="20" height="22" rx="2" fill="${color}"/><path d="M24 24h8l6 8v8h-14z" fill="${color}"/><circle cx="12" cy="42" r="5" fill="#111822" stroke="${color}" stroke-width="2"/><circle cx="32" cy="42" r="5" fill="#111822" stroke="${color}" stroke-width="2"/></svg>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<svg viewBox="0 0 64 64" width="44" height="44"><rect x="4" y="18" width="20" height="22" rx="2" fill="${color}" stroke="#ffffff" stroke-width="3"/><path d="M24 24h8l6 8v8h-14z" fill="${color}" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/><circle cx="12" cy="42" r="5" fill="#111822" stroke="#ffffff" stroke-width="2.5"/><circle cx="32" cy="42" r="5" fill="#111822" stroke="#ffffff" stroke-width="2.5"/></svg>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 }
 
@@ -30,9 +30,9 @@ function iconoAcoplado(color: string): L.DivIcon {
   const franja = `color-mix(in srgb, ${color} 65%, black)`;
   return L.divIcon({
     className: 'flota-icon',
-    html: `<svg viewBox="0 0 64 64" width="28" height="28"><rect x="8" y="20" width="44" height="18" rx="2" fill="${color}"/><rect x="8" y="20" width="44" height="5" fill="${franja}"/><circle cx="18" cy="42" r="5" fill="#111822" stroke="${color}" stroke-width="2"/><circle cx="44" cy="42" r="5" fill="#111822" stroke="${color}" stroke-width="2"/></svg>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<svg viewBox="0 0 64 64" width="44" height="44"><rect x="8" y="20" width="44" height="18" rx="2" fill="${color}" stroke="#ffffff" stroke-width="3"/><rect x="8" y="20" width="44" height="5" fill="${franja}"/><circle cx="18" cy="42" r="5" fill="#111822" stroke="#ffffff" stroke-width="2.5"/><circle cx="44" cy="42" r="5" fill="#111822" stroke="#ffffff" stroke-width="2.5"/></svg>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 }
 
