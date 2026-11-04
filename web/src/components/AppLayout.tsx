@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { MODULES } from '../types';
 import { ThemeToggle } from './ThemeToggle';
 import { StatusBanner } from './StatusBanner';
+import { PageLoading } from './PageLoading';
+import { ChunkErrorBoundary } from './ChunkErrorBoundary';
 
 export function AppLayout() {
   const { usuario, isAdmin, canAccessModule, logout } = useAuth();
@@ -74,7 +76,11 @@ export function AppLayout() {
 
         <div id="content-area">
           <StatusBanner />
-          <Outlet />
+          <ChunkErrorBoundary>
+            <Suspense fallback={<PageLoading />}>
+              <Outlet />
+            </Suspense>
+          </ChunkErrorBoundary>
         </div>
       </div>
     </div>
