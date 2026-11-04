@@ -5,6 +5,50 @@ import { pb } from '../../../lib/pb';
 import { useToast } from '../../../lib/ToastContext';
 import { type VehiculoPressa, type PuntoRuta, num, formatoFecha } from './types';
 
+type TipoIconoVehiculo = 'camion' | 'acoplado' | null;
+
+function tipoIconoDeAlias(alias: string): TipoIconoVehiculo {
+  const primera = alias.trim().charAt(0).toUpperCase();
+  if (primera === 'T') return 'camion';
+  if (primera === 'S') return 'acoplado';
+  return null;
+}
+
+function iconoCamion(color: string): L.DivIcon {
+  return L.divIcon({
+    className: 'flota-icon',
+    html: `<svg viewBox="0 0 64 64" width="28" height="28"><rect x="4" y="18" width="20" height="22" rx="2" fill="${color}"/><path d="M24 24h8l6 8v8h-14z" fill="${color}"/><circle cx="12" cy="42" r="5" fill="#111822" stroke="${color}" stroke-width="2"/><circle cx="32" cy="42" r="5" fill="#111822" stroke="${color}" stroke-width="2"/></svg>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+function iconoAcoplado(color: string): L.DivIcon {
+  const franja = `color-mix(in srgb, ${color} 65%, black)`;
+  return L.divIcon({
+    className: 'flota-icon',
+    html: `<svg viewBox="0 0 64 64" width="28" height="28"><rect x="8" y="20" width="44" height="18" rx="2" fill="${color}"/><rect x="8" y="20" width="44" height="5" fill="${franja}"/><circle cx="18" cy="42" r="5" fill="#111822" stroke="${color}" stroke-width="2"/><circle cx="44" cy="42" r="5" fill="#111822" stroke="${color}" stroke-width="2"/></svg>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+function iconoCirculo(color: string): L.DivIcon {
+  return L.divIcon({
+    className: 'flota-icon',
+    html: `<svg viewBox="0 0 20 20" width="20" height="20"><circle cx="10" cy="10" r="8" fill="${color}" fill-opacity="0.85" stroke="${color}" stroke-width="2"/></svg>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+}
+
+function iconoParaVehiculo(v: VehiculoPressa): L.DivIcon {
+  const tipo = tipoIconoDeAlias(v.alias);
+  if (tipo === 'camion') return iconoCamion(v.velocidad > 0 ? 'var(--ok)' : 'var(--err)');
+  if (tipo === 'acoplado') return iconoAcoplado(v.temperaturas.length > 0 ? 'var(--frio)' : 'var(--err)');
+  return iconoCirculo(v.estadoColor ? '#' + v.estadoColor : '#185FA5');
+}
+
 // Mapa en vivo con Leaflet + OpenStreetMap (sin API key). El mapa se crea
 // una sola vez; en cada actualización se mueven/crean/borran los
 // marcadores en vez de recrear todo, para que no "parpadee" cada minuto.
@@ -14,7 +58,7 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
   const toast = useToast();
   const contenedorRef = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<L.Map | null>(null);
-  const marcadoresRef = useRef<Map<string, L.CircleMarker>>(new Map());
+  const marcadoresRef = useRef<Map<string, L.Marker>>(new Map());
   const primerFitRef = useRef(false);
   const polylineRef = useRef<L.Polyline | null>(null);
   const [ruta, setRuta] = useState<{ alias: string; distanciaKm: number } | null>(null);
@@ -74,15 +118,14 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
     vehiculos.forEach((v) => {
       if (v.lat === null || v.lng === null) return;
       vivos.add(v.id);
-      const color = v.estadoColor ? '#' + v.estadoColor : '#185FA5';
       const popup = `<strong>${v.alias}</strong> (${v.patente})<br>${v.estado || '—'}<br>${num(v.velocidad)} km/h · ${v.direccion || ''}<br><span style="color:#888">${formatoFecha(v.actualizado)}</span>`;
       let marcador = marcadoresRef.current.get(v.id);
       if (marcador) {
         marcador.setLatLng([v.lat, v.lng]);
-        marcador.setStyle({ color, fillColor: color });
+        marcador.setIcon(iconoParaVehiculo(v));
         marcador.setPopupContent(popup);
       } else {
-        marcador = L.circleMarker([v.lat, v.lng], { radius: 8, color, fillColor: color, fillOpacity: 0.85, weight: 2 }).addTo(mapa);
+        marcador = L.marker([v.lat, v.lng], { icon: iconoParaVehiculo(v) }).addTo(mapa);
         marcador.bindPopup(popup);
         marcador.bindTooltip(v.alias);
         marcador.on('click', () => mostrarRecorrido(v));
