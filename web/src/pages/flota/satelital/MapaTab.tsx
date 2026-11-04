@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { pb } from '../../../lib/pb';
 import { useToast } from '../../../lib/ToastContext';
 import { type VehiculoPressa, type PuntoRuta, num, formatoFecha } from './types';
@@ -59,6 +62,7 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
   const contenedorRef = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<L.Map | null>(null);
   const marcadoresRef = useRef<Map<string, L.Marker>>(new Map());
+  const grupoRef = useRef<L.MarkerClusterGroup | null>(null);
   const primerFitRef = useRef(false);
   const polylineRef = useRef<L.Polyline | null>(null);
   const [ruta, setRuta] = useState<{ alias: string; distanciaKm: number } | null>(null);
@@ -71,8 +75,11 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
     }).addTo(mapa);
+    const grupo = L.markerClusterGroup();
+    grupo.addTo(mapa);
+    grupoRef.current = grupo;
     mapaRef.current = mapa;
-    return () => { mapa.remove(); mapaRef.current = null; };
+    return () => { mapa.remove(); mapaRef.current = null; grupoRef.current = null; };
   }, []);
 
   function cerrarRecorrido() {
@@ -113,7 +120,8 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
 
   useEffect(() => {
     const mapa = mapaRef.current;
-    if (!mapa) return;
+    const grupo = grupoRef.current;
+    if (!mapa || !grupo) return;
     const vivos = new Set<string>();
     vehiculos.forEach((v) => {
       if (v.lat === null || v.lng === null) return;
@@ -125,16 +133,19 @@ function FlotaMapa({ vehiculos }: { vehiculos: VehiculoPressa[] }) {
         marcador.setIcon(iconoParaVehiculo(v));
         marcador.setPopupContent(popup);
       } else {
-        marcador = L.marker([v.lat, v.lng], { icon: iconoParaVehiculo(v) }).addTo(mapa);
+        marcador = L.marker([v.lat, v.lng], { icon: iconoParaVehiculo(v) }).addTo(grupo);
         marcador.bindPopup(popup);
         marcador.bindTooltip(v.alias);
         marcador.on('click', () => mostrarRecorrido(v));
         marcadoresRef.current.set(v.id, marcador);
       }
     });
-    // Sacar del mapa unidades que ya no vinieron en esta respuesta.
+    // Sacar del grupo (no del mapa directo) las unidades que ya no vinieron
+    // en esta respuesta -- un marcador agrupado hay que sacarlo con el
+    // método del grupo, si no la librería lo sigue contando en la burbuja
+    // aunque el marcador haya desaparecido.
     for (const [id, marcador] of marcadoresRef.current) {
-      if (!vivos.has(id)) { marcador.remove(); marcadoresRef.current.delete(id); }
+      if (!vivos.has(id)) { grupo.removeLayer(marcador); marcadoresRef.current.delete(id); }
     }
     // Solo la primera vez centramos/encuadramos en todas las unidades —
     // después el usuario puede haber movido el mapa a mano, no se lo pisamos.
