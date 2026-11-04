@@ -1,23 +1,51 @@
+import { lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './lib/AuthContext';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
-import { PlanillaChoferesPage } from './pages/planilla/PlanillaChoferesPage';
-import { ControlChequesPage } from './pages/cheques/ControlChequesPage';
-import { CentralDeudoresPage } from './pages/deudores/CentralDeudoresPage';
-import { ValeCajaPage } from './pages/tesoreria/ValeCajaPage';
-import { RecibosPage } from './pages/tesoreria/RecibosPage';
-import { ReporteCombustiblePage } from './pages/flota/ReporteCombustiblePage';
-import { PanelCubiertasPage } from './pages/flota/PanelCubiertasPage';
-import { PosicionFlotaPage } from './pages/flota/satelital/PosicionFlotaPage';
-import { FichadasPage } from './pages/fichadas/FichadasPage';
-import { BotTarifasPage } from './pages/tarifas/BotTarifasPage';
-import { CuadroTarifarioPage } from './pages/tarifas/CuadroTarifarioPage';
-import { CotizadorPage } from './pages/tarifas/CotizadorPage';
-import { CotizacionImprimirPage } from './pages/tarifas/CotizacionImprimirPage';
-import { AdminPage } from './pages/admin/AdminPage';
 import { AppLayout } from './components/AppLayout';
 import { RequireAuth, RequireAdmin, RequireModule } from './components/RequireAuth';
+
+const PlanillaChoferesPage = lazy(() =>
+  import('./pages/planilla/PlanillaChoferesPage').then((m) => ({ default: m.PlanillaChoferesPage }))
+);
+const ControlChequesPage = lazy(() =>
+  import('./pages/cheques/ControlChequesPage').then((m) => ({ default: m.ControlChequesPage }))
+);
+const CentralDeudoresPage = lazy(() =>
+  import('./pages/deudores/CentralDeudoresPage').then((m) => ({ default: m.CentralDeudoresPage }))
+);
+const ValeCajaPage = lazy(() =>
+  import('./pages/tesoreria/ValeCajaPage').then((m) => ({ default: m.ValeCajaPage }))
+);
+const RecibosPage = lazy(() =>
+  import('./pages/tesoreria/RecibosPage').then((m) => ({ default: m.RecibosPage }))
+);
+const ReporteCombustiblePage = lazy(() =>
+  import('./pages/flota/ReporteCombustiblePage').then((m) => ({ default: m.ReporteCombustiblePage }))
+);
+const PanelCubiertasPage = lazy(() =>
+  import('./pages/flota/PanelCubiertasPage').then((m) => ({ default: m.PanelCubiertasPage }))
+);
+const PosicionFlotaPage = lazy(() =>
+  import('./pages/flota/satelital/PosicionFlotaPage').then((m) => ({ default: m.PosicionFlotaPage }))
+);
+const FichadasPage = lazy(() =>
+  import('./pages/fichadas/FichadasPage').then((m) => ({ default: m.FichadasPage }))
+);
+const BotTarifasPage = lazy(() =>
+  import('./pages/tarifas/BotTarifasPage').then((m) => ({ default: m.BotTarifasPage }))
+);
+const CuadroTarifarioPage = lazy(() =>
+  import('./pages/tarifas/CuadroTarifarioPage').then((m) => ({ default: m.CuadroTarifarioPage }))
+);
+const CotizadorPage = lazy(() =>
+  import('./pages/tarifas/CotizadorPage').then((m) => ({ default: m.CotizadorPage }))
+);
+const CotizacionImprimirPage = lazy(() =>
+  import('./pages/tarifas/CotizacionImprimirPage').then((m) => ({ default: m.CotizacionImprimirPage }))
+);
+const AdminPage = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 function LoginOrRedirect() {
   const { isAuthed } = useAuth();
