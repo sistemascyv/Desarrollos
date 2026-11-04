@@ -17,6 +17,7 @@
   --ok: #3f8f5f;
   --warn: #b8860b;
   --err: #b3382c;
+  --frio: #4cc9f0;
 
   --sidebar-bg: #623c2e;
   --sidebar-text: #f5ead9;
@@ -50,6 +51,7 @@
   --ok: #4caf7d;
   --warn: #e0a92e;
   --err: #e5645a;
+  --frio: #4cc9f0;
   --th-bg: #1b2634;
 }
 
@@ -1227,4 +1229,13 @@ a.link {
   padding: 60px 20px;
   text-align: center;
   color: var(--muted);
+}
+
+/* ---------- íconos de vehículo en el mapa en vivo de flota ---------- */
+.flota-icon {
+  background: transparent;
+  border: none;
+}
+.flota-icon svg {
+  display: block;
 }
