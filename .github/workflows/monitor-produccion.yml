@@ -1,0 +1,94 @@
+name: Monitoreo de producción (auto-reinicio)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: monitor-produccion
+  cancel-in-progress: false
+
+permissions:
+  issues: write
+
+jobs:
+  monitorear:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirmar que gh y aws estan disponibles en el runner
+        run: |
+          gh --version
+          aws --version
+
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Chequear salud del servidor y actuar si hace falta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -u
+          URL="https://app.carossiovairolatti.com.ar/api/health"
+          LABEL="incidente-servidor"
+          INSTANCIA="sistemascyv-produccion"
+
+          gh label create "$LABEL" --color "d73a4a" --description "Incidente de caida del servidor de produccion" --force
+
+          chequear_salud() {
+            curl -fsS --max-time 10 "$URL" > /dev/null 2>&1
+          }
+
+          SANO=false
+          if chequear_salud; then
+            SANO=true
+          else
+            echo "Intento 1 fallo, esperando 3 minutos..."
+            sleep 180
+            if chequear_salud; then
+              SANO=true
+            else
+              echo "Intento 2 fallo, esperando 3 minutos..."
+              sleep 180
+              if chequear_salud; then
+                SANO=true
+              else
+                echo "Intento 3 fallo. Se considera caida real."
+                SANO=false
+              fi
+            fi
+          fi
+
+          if [ "$SANO" = true ]; then
+            echo "Servidor sano."
+            ISSUE_ABIERTO=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number // empty')
+            if [ -n "$ISSUE_ABIERTO" ]; then
+              echo "Cerrando issue #$ISSUE_ABIERTO (el servidor se recupero)."
+              gh issue comment "$ISSUE_ABIERTO" --body "El servidor volvio a responder a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Cerrando este incidente."
+              gh issue close "$ISSUE_ABIERTO"
+            fi
+            exit 0
+          fi
+
+          echo "Servidor caido tras 3 intentos. Revisando si ya hay un incidente reciente..."
+          CUTOFF=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)
+          ISSUES_JSON=$(gh issue list --label "$LABEL" --state open --json number,createdAt)
+          RECIENTE=$(echo "$ISSUES_JSON" | jq -r --arg cutoff "$CUTOFF" 'map(select(.createdAt > $cutoff)) | .[0].number // empty')
+
+          if [ -n "$RECIENTE" ]; then
+            echo "Ya hay un incidente reciente (#$RECIENTE), no reinicio de nuevo (cooldown de 1 hora)."
+            gh issue comment "$RECIENTE" --body "El servidor sigue sin responder a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. No se dispara un nuevo reinicio automatico porque ya hay un incidente abierto de la ultima hora."
+            exit 0
+          fi
+
+          echo "No hay incidente reciente. Reiniciando la instancia..."
+          aws lightsail reboot-instance --instance-name "$INSTANCIA"
+
+          gh issue create \
+            --title "Servidor de produccion caido - reinicio automatico disparado ($(date -u +%Y-%m-%d\ %H:%M) UTC)" \
+            --label "$LABEL" \
+            --body "El chequeo automatico de salud fallo 3 veces seguidas (unos 10 minutos) contra $URL. Se disparo un reinicio automatico de la instancia $INSTANCIA via la API de AWS Lightsail a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Este issue se va a cerrar solo cuando el servidor vuelva a responder."
