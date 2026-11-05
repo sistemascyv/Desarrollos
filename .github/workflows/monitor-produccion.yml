@@ -66,10 +66,11 @@ jobs:
                 --arg subject "$asunto" \
                 --arg text "$mensaje" \
                 '{from: $from, to: ["sistemas@carossiovairolatti.com.ar", "tobiactis@gmail.com"], subject: $subject, text: $text}')
-              curl -s -X POST "https://api.resend.com/emails" \
+              echo "[DEBUG] Payload: $payload"
+              curl -s -w "\n[DEBUG] HTTP status: %{http_code}\n" -X POST "https://api.resend.com/emails" \
                 -H "Authorization: Bearer $RESEND_API_KEY" \
                 -H "Content-Type: application/json" \
-                -d "$payload" > /dev/null 2>&1 || true
+                -d "$payload" || echo "[DEBUG] curl fallo"
             fi
           }
 
