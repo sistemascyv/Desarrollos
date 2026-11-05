@@ -48,11 +48,14 @@ jobs:
 
           avisar_whatsapp() {
             local mensaje="$1"
+            echo "[DEBUG] CALLMEBOT_PHONE esta seteado: $([ -n "${CALLMEBOT_PHONE:-}" ] && echo si || echo NO)"
+            echo "[DEBUG] CALLMEBOT_APIKEY esta seteado: $([ -n "${CALLMEBOT_APIKEY:-}" ] && echo si || echo NO)"
             if [ -n "${CALLMEBOT_PHONE:-}" ] && [ -n "${CALLMEBOT_APIKEY:-}" ]; then
-              curl -s -G "https://api.callmebot.com/whatsapp.php" \
+              echo "[DEBUG] Llamando a CallMeBot..."
+              curl -s -w "\n[DEBUG] HTTP status: %{http_code}\n" -G "https://api.callmebot.com/whatsapp.php" \
                 --data-urlencode "phone=$CALLMEBOT_PHONE" \
                 --data-urlencode "apikey=$CALLMEBOT_APIKEY" \
-                --data-urlencode "text=$mensaje" > /dev/null 2>&1 || true
+                --data-urlencode "text=$mensaje" || echo "[DEBUG] curl fallo"
             fi
           }
 
