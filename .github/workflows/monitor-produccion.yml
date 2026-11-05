@@ -37,7 +37,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           set -u
-          URL="https://app.carossiovairolatti.com.ar/api/ruta-que-no-existe-prueba-monitoreo"
+          URL="https://app.carossiovairolatti.com.ar/api/health"
           LABEL="incidente-servidor"
           INSTANCIA="sistemascyv-produccion"
 
@@ -78,12 +78,12 @@ jobs:
             SANO=true
           else
             echo "Intento 1 fallo, esperando 3 minutos..."
-            sleep 10
+            sleep 180
             if chequear_salud; then
               SANO=true
             else
               echo "Intento 2 fallo, esperando 3 minutos..."
-              sleep 10
+              sleep 180
               if chequear_salud; then
                 SANO=true
               else
@@ -124,7 +124,7 @@ jobs:
             --body "El chequeo automatico de salud fallo 3 veces seguidas (unos 10 minutos) contra $URL. Se va a intentar un reinicio automatico de la instancia $INSTANCIA via la API de AWS Lightsail.")
           NUEVO_ISSUE=$(basename "$NUEVO_ISSUE_URL")
 
-          if echo "(PRUEBA) Aqui se hubiera reiniciado la instancia $INSTANCIA, no se reinicio de verdad"; then
+          if aws lightsail reboot-instance --instance-name "$INSTANCIA"; then
             gh issue comment "$NUEVO_ISSUE" --body "Reinicio disparado con exito a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Este issue se va a cerrar solo cuando el servidor vuelva a responder."
             avisar_telegram "🔴 Sistema CyV: el servidor dejo de responder. Se disparo un reinicio automatico. Ver issue #$NUEVO_ISSUE."
             avisar_email "Sistema CyV: servidor caido - reinicio automatico disparado" "El servidor dejo de responder tras 3 intentos. Se disparo un reinicio automatico de la instancia $INSTANCIA a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Ver https://github.com/$GH_REPO/issues/$NUEVO_ISSUE"
