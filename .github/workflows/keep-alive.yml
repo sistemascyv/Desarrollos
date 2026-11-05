@@ -1,0 +1,25 @@
+name: Mantener el repo activo (evita que GitHub desactive los workflows programados)
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/cyv-driver-renditions-form-h4l5fu
+
+      - name: Commit vacio en una rama aparte (no dispara ningun deploy)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B keepalive
+          git commit --allow-empty -m "chore: commit vacio para evitar que GitHub desactive los workflows programados por inactividad"
+          git push origin keepalive --force

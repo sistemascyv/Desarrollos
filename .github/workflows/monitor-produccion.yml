@@ -32,6 +32,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
         run: |
           set -u
           URL="https://app.carossiovairolatti.com.ar/api/health"
@@ -42,6 +44,16 @@ jobs:
 
           chequear_salud() {
             curl -fsS --max-time 10 "$URL" > /dev/null 2>&1
+          }
+
+          avisar_whatsapp() {
+            local mensaje="$1"
+            if [ -n "${CALLMEBOT_PHONE:-}" ] && [ -n "${CALLMEBOT_APIKEY:-}" ]; then
+              curl -s -G "https://api.callmebot.com/whatsapp.php" \
+                --data-urlencode "phone=$CALLMEBOT_PHONE" \
+                --data-urlencode "apikey=$CALLMEBOT_APIKEY" \
+                --data-urlencode "text=$mensaje" > /dev/null 2>&1 || true
+            fi
           }
 
           SANO=false
@@ -77,12 +89,13 @@ jobs:
 
           echo "Servidor caido tras 3 intentos. Revisando si ya hay un incidente reciente..."
           CUTOFF=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)
-          ISSUES_JSON=$(gh issue list --label "$LABEL" --state open --json number,createdAt)
+          ISSUES_JSON=$(gh issue list --label "$LABEL" --state all --json number,createdAt)
           RECIENTE=$(echo "$ISSUES_JSON" | jq -r --arg cutoff "$CUTOFF" 'map(select(.createdAt > $cutoff)) | .[0].number // empty')
 
           if [ -n "$RECIENTE" ]; then
-            echo "Ya hay un incidente reciente (#$RECIENTE), no reinicio de nuevo (cooldown de 1 hora)."
-            gh issue comment "$RECIENTE" --body "El servidor sigue sin responder a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. No se dispara un nuevo reinicio automatico porque ya hay un incidente abierto de la ultima hora."
+            echo "Ya hay un incidente reciente (#$RECIENTE, abierto o cerrado), no reinicio de nuevo (cooldown de 1 hora, maximo 1 reinicio por hora)."
+            gh issue comment "$RECIENTE" --body "El servidor sigue sin responder a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. No se dispara un nuevo reinicio automatico porque ya hubo un incidente en la ultima hora (maximo 1 reinicio automatico por hora)."
+            avisar_whatsapp "🔴 Sistema CyV: el servidor sigue sin responder. No se reinicia de nuevo todavia (maximo 1 reinicio automatico por hora). Ver issue #$RECIENTE."
             exit 0
           fi
 
@@ -95,7 +108,9 @@ jobs:
 
           if aws lightsail reboot-instance --instance-name "$INSTANCIA"; then
             gh issue comment "$NUEVO_ISSUE" --body "Reinicio disparado con exito a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Este issue se va a cerrar solo cuando el servidor vuelva a responder."
+            avisar_whatsapp "🔴 Sistema CyV: el servidor dejo de responder. Se disparo un reinicio automatico. Ver issue #$NUEVO_ISSUE."
           else
             gh issue comment "$NUEVO_ISSUE" --body "⚠️ El intento de reinicio via la API de AWS Lightsail FALLO a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. El servidor sigue caido y no se reinicio automaticamente -- revisar manualmente."
+            avisar_whatsapp "🔴 Sistema CyV: el servidor dejo de responder Y el reinicio automatico FALLO. Revisar manualmente. Ver issue #$NUEVO_ISSUE."
             exit 1
           fi
