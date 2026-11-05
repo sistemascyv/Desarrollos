@@ -32,8 +32,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
-          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           set -u
           URL="https://app.carossiovairolatti.com.ar/api/health"
@@ -46,13 +47,29 @@ jobs:
             curl -fsS --max-time 10 "$URL" > /dev/null 2>&1
           }
 
-          avisar_whatsapp() {
+          avisar_telegram() {
             local mensaje="$1"
-            if [ -n "${CALLMEBOT_PHONE:-}" ] && [ -n "${CALLMEBOT_APIKEY:-}" ]; then
-              curl -s -G "https://api.callmebot.com/whatsapp.php" \
-                --data-urlencode "phone=$CALLMEBOT_PHONE" \
-                --data-urlencode "apikey=$CALLMEBOT_APIKEY" \
+            if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
+              curl -s -G "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+                --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" \
                 --data-urlencode "text=$mensaje" > /dev/null 2>&1 || true
+            fi
+          }
+
+          avisar_email() {
+            local asunto="$1"
+            local mensaje="$2"
+            if [ -n "${RESEND_API_KEY:-}" ]; then
+              local payload
+              payload=$(jq -n \
+                --arg from "Sistema CyV <onboarding@resend.dev>" \
+                --arg subject "$asunto" \
+                --arg text "$mensaje" \
+                '{from: $from, to: ["sistemas@carossiovairolatti.com.ar", "tobiactis@gmail.com"], subject: $subject, text: $text}')
+              curl -s -X POST "https://api.resend.com/emails" \
+                -H "Authorization: Bearer $RESEND_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "$payload" > /dev/null 2>&1 || true
             fi
           }
 
@@ -95,7 +112,8 @@ jobs:
           if [ -n "$RECIENTE" ]; then
             echo "Ya hay un incidente reciente (#$RECIENTE, abierto o cerrado), no reinicio de nuevo (cooldown de 1 hora, maximo 1 reinicio por hora)."
             gh issue comment "$RECIENTE" --body "El servidor sigue sin responder a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. No se dispara un nuevo reinicio automatico porque ya hubo un incidente en la ultima hora (maximo 1 reinicio automatico por hora)."
-            avisar_whatsapp "🔴 Sistema CyV: el servidor sigue sin responder. No se reinicia de nuevo todavia (maximo 1 reinicio automatico por hora). Ver issue #$RECIENTE."
+            avisar_telegram "🔴 Sistema CyV: el servidor sigue sin responder. No se reinicia de nuevo todavia (maximo 1 reinicio automatico por hora). Ver issue #$RECIENTE."
+            avisar_email "Sistema CyV: servidor caido (sin reinicio nuevo, cooldown activo)" "El servidor sigue sin responder a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. No se dispara un nuevo reinicio automatico porque ya hubo un incidente en la ultima hora (maximo 1 reinicio automatico por hora). Ver https://github.com/$GH_REPO/issues/$RECIENTE"
             exit 0
           fi
 
@@ -108,9 +126,11 @@ jobs:
 
           if aws lightsail reboot-instance --instance-name "$INSTANCIA"; then
             gh issue comment "$NUEVO_ISSUE" --body "Reinicio disparado con exito a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Este issue se va a cerrar solo cuando el servidor vuelva a responder."
-            avisar_whatsapp "🔴 Sistema CyV: el servidor dejo de responder. Se disparo un reinicio automatico. Ver issue #$NUEVO_ISSUE."
+            avisar_telegram "🔴 Sistema CyV: el servidor dejo de responder. Se disparo un reinicio automatico. Ver issue #$NUEVO_ISSUE."
+            avisar_email "Sistema CyV: servidor caido - reinicio automatico disparado" "El servidor dejo de responder tras 3 intentos. Se disparo un reinicio automatico de la instancia $INSTANCIA a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Ver https://github.com/$GH_REPO/issues/$NUEVO_ISSUE"
           else
             gh issue comment "$NUEVO_ISSUE" --body "⚠️ El intento de reinicio via la API de AWS Lightsail FALLO a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. El servidor sigue caido y no se reinicio automaticamente -- revisar manualmente."
-            avisar_whatsapp "🔴 Sistema CyV: el servidor dejo de responder Y el reinicio automatico FALLO. Revisar manualmente. Ver issue #$NUEVO_ISSUE."
+            avisar_telegram "🔴 Sistema CyV: el servidor dejo de responder Y el reinicio automatico FALLO. Revisar manualmente. Ver issue #$NUEVO_ISSUE."
+            avisar_email "⚠️ Sistema CyV: servidor caido - el reinicio automatico FALLO" "El servidor dejo de responder tras 3 intentos Y el intento de reinicio automatico via la API de AWS Lightsail fallo a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. El servidor sigue caido -- revisar manualmente. Ver https://github.com/$GH_REPO/issues/$NUEVO_ISSUE"
             exit 1
           fi
