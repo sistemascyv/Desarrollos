@@ -62,7 +62,7 @@ jobs:
             if [ -n "${RESEND_API_KEY:-}" ]; then
               local payload
               payload=$(jq -n \
-                --arg from "Sistema CyV <onboarding@resend.dev>" \
+                --arg from "Sistema CyV <alertas@carossiovairolatti.com.ar>" \
                 --arg subject "$asunto" \
                 --arg text "$mensaje" \
                 '{from: $from, to: ["sistemas@carossiovairolatti.com.ar", "tobiactis@gmail.com"], subject: $subject, text: $text}')
