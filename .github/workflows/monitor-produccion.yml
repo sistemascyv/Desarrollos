@@ -31,13 +31,14 @@ jobs:
       - name: Chequear salud del servidor y actuar si hace falta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -u
           URL="https://app.carossiovairolatti.com.ar/api/health"
           LABEL="incidente-servidor"
           INSTANCIA="sistemascyv-produccion"
 
-          gh label create "$LABEL" --color "d73a4a" --description "Incidente de caida del servidor de produccion" --force
+          gh label create "$LABEL" --color "d73a4a" --description "Incidente de caida del servidor de produccion" --force || true
 
           chequear_salud() {
             curl -fsS --max-time 10 "$URL" > /dev/null 2>&1
@@ -85,10 +86,16 @@ jobs:
             exit 0
           fi
 
-          echo "No hay incidente reciente. Reiniciando la instancia..."
-          aws lightsail reboot-instance --instance-name "$INSTANCIA"
-
-          gh issue create \
+          echo "No hay incidente reciente. Creando el issue y reiniciando la instancia..."
+          NUEVO_ISSUE_URL=$(gh issue create \
             --title "Servidor de produccion caido - reinicio automatico disparado ($(date -u +%Y-%m-%d\ %H:%M) UTC)" \
             --label "$LABEL" \
-            --body "El chequeo automatico de salud fallo 3 veces seguidas (unos 10 minutos) contra $URL. Se disparo un reinicio automatico de la instancia $INSTANCIA via la API de AWS Lightsail a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Este issue se va a cerrar solo cuando el servidor vuelva a responder."
+            --body "El chequeo automatico de salud fallo 3 veces seguidas (unos 10 minutos) contra $URL. Se va a intentar un reinicio automatico de la instancia $INSTANCIA via la API de AWS Lightsail.")
+          NUEVO_ISSUE=$(basename "$NUEVO_ISSUE_URL")
+
+          if aws lightsail reboot-instance --instance-name "$INSTANCIA"; then
+            gh issue comment "$NUEVO_ISSUE" --body "Reinicio disparado con exito a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. Este issue se va a cerrar solo cuando el servidor vuelva a responder."
+          else
+            gh issue comment "$NUEVO_ISSUE" --body "⚠️ El intento de reinicio via la API de AWS Lightsail FALLO a las $(date -u +%Y-%m-%dT%H:%M:%SZ) UTC. El servidor sigue caido y no se reinicio automaticamente -- revisar manualmente."
+            exit 1
+          fi
