@@ -331,6 +331,21 @@ export interface FichadasConfiguracion extends BaseRecord {
   horas_posibles_mensuales: number;
 }
 
+export interface FichadasVacacion extends BaseRecord {
+  legajo: string;
+  desde: string; // "YYYY-MM-DD"
+  hasta: string; // "YYYY-MM-DD"
+  comentario?: string;
+  notificado?: boolean;
+  expand?: { legajo?: FichadasLegajo };
+}
+
+export interface FichadasGrupoRestriccion extends BaseRecord {
+  nombre?: string;
+  legajos: string[];
+  expand?: { legajos?: FichadasLegajo[] };
+}
+
 export interface ModuleDef {
   id: string;
   label: string;
