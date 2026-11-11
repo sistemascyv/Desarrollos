@@ -4,7 +4,7 @@ import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { fechaSola } from '../../lib/format';
 import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from './motor';
-import type { DiaHorario, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
+import type { DiaHorario, FichadasEmpresa, FichadasGrupoRestriccion, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const SUB_TABS = [
@@ -13,6 +13,7 @@ const SUB_TABS = [
   { id: 'horas_fijas', label: 'Horas extra fijas' },
   { id: 'plantillas', label: 'Plantillas de horario' },
   { id: 'areas', label: 'Áreas' },
+  { id: 'grupos_restriccion', label: 'Grupos de restricción' },
 ] as const;
 type SubTabId = typeof SUB_TABS[number]['id'];
 
@@ -56,6 +57,7 @@ export function ConfiguracionTab() {
         {subTab === 'horas_fijas' && <HorasFijasSub legajos={legajos} onChanged={refrescar} />}
         {subTab === 'plantillas' && <PlantillasSub horarios={horarios} legajos={legajos} onChanged={refrescar} />}
         {subTab === 'areas' && <AreasSub empresas={empresas} legajos={legajos} onChanged={refrescar} />}
+        {subTab === 'grupos_restriccion' && <GruposRestriccionSub legajos={legajos} />}
       </div>
     </div>
   );
@@ -680,6 +682,126 @@ function AreasSub({ empresas, legajos, onChanged }: { empresas: FichadasEmpresa[
           </tbody>
         </table>
       </div>
+    </>
+  );
+}
+
+// ---------- Grupos de restricción (vacaciones que no pueden coincidir) ----------
+
+function GruposRestriccionSub({ legajos }: { legajos: FichadasLegajo[] }) {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [grupos, setGrupos] = useState<FichadasGrupoRestriccion[]>([]);
+  const [nombreNuevo, setNombreNuevo] = useState('');
+  const [seleccionNueva, setSeleccionNueva] = useState<string[]>([]);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [seleccionEditando, setSeleccionEditando] = useState<string[]>([]);
+
+  async function cargar() {
+    try {
+      const g = await pb.collection('fichadas_grupos_restriccion').getFullList<FichadasGrupoRestriccion>({ sort: 'nombre' });
+      setGrupos(g);
+    } catch (e) {
+      toast('No se pudieron cargar los grupos: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+  useEffect(() => { cargar(); }, []);
+
+  function opcionesSeleccionadas(select: HTMLSelectElement): string[] {
+    return Array.from(select.selectedOptions).map((o) => o.value);
+  }
+
+  async function crear() {
+    if (seleccionNueva.length < 2) { toast('Elegí al menos 2 personas para el grupo.', 'warn'); return; }
+    try {
+      await pb.collection('fichadas_grupos_restriccion').create({ nombre: nombreNuevo.trim() || null, legajos: seleccionNueva });
+      setNombreNuevo(''); setSeleccionNueva([]);
+      cargar();
+      toast('Grupo creado.', 'ok');
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  function abrirEdicion(g: FichadasGrupoRestriccion) {
+    setEditandoId(g.id);
+    setSeleccionEditando(g.legajos);
+  }
+
+  async function guardarEdicion() {
+    if (!editandoId) return;
+    if (seleccionEditando.length < 2) { toast('El grupo necesita al menos 2 personas.', 'warn'); return; }
+    try {
+      await pb.collection('fichadas_grupos_restriccion').update(editandoId, { legajos: seleccionEditando });
+      setEditandoId(null);
+      cargar();
+      toast('Grupo actualizado.', 'ok');
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  async function eliminar(id: string) {
+    if (!(await confirm('¿Eliminar este grupo de restricción?', 'Eliminar grupo'))) return;
+    try {
+      await pb.collection('fichadas_grupos_restriccion').delete(id);
+      cargar();
+      toast('Eliminado.', 'ok');
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  const legajoPorId = new Map(legajos.map((l) => [l.id, l]));
+
+  return (
+    <>
+      <div className="hint">Personas que no pueden coincidir de vacaciones al mismo tiempo. Al asignar un período que se solapa con alguien del mismo grupo, la pestaña Vacaciones avisa (no bloquea).</div>
+      <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '14px 0 8px' }}>Nuevo grupo</h3>
+      <div className="row">
+        <div className="field"><label>Nombre (opcional)</label><input value={nombreNuevo} onChange={(e) => setNombreNuevo(e.target.value)} placeholder="Ej: Julian y Diego" /></div>
+        <div className="field" style={{ flex: 2 }}>
+          <label>Personas (Ctrl/Cmd + clic para elegir varias)</label>
+          <select multiple value={seleccionNueva} onChange={(e) => setSeleccionNueva(opcionesSeleccionadas(e.target))} style={{ height: 140 }}>
+            {legajos.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+          </select>
+        </div>
+        <button onClick={crear}>Crear grupo</button>
+      </div>
+
+      <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Grupos ({grupos.length})</h3>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Nombre</th><th>Personas</th><th></th></tr></thead>
+          <tbody>
+            {grupos.map((g) => (
+              <tr key={g.id}>
+                <td className="admin-name">{g.nombre || '—'}</td>
+                <td>{g.legajos.map((id) => legajoPorId.get(id)?.nombre || '—').join(', ')}</td>
+                <td>
+                  <button className="small secondary" onClick={() => abrirEdicion(g)}>Editar</button>
+                  <button className="small danger" onClick={() => eliminar(g.id)}>Eliminar</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {editandoId && (
+        <>
+          <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Editar personas del grupo</h3>
+          <div className="row">
+            <div className="field" style={{ flex: 2 }}>
+              <select multiple value={seleccionEditando} onChange={(e) => setSeleccionEditando(opcionesSeleccionadas(e.target))} style={{ height: 140 }}>
+                {legajos.map((l) => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+              </select>
+            </div>
+            <button onClick={guardarEdicion}>Guardar</button>
+            <button className="secondary" onClick={() => setEditandoId(null)}>Cancelar</button>
+          </div>
+        </>
+      )}
     </>
   );
 }
