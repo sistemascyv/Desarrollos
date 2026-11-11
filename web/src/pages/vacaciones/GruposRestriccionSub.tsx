@@ -87,7 +87,7 @@ export function GruposRestriccionSub() {
 
   return (
     <div className="card">
-      <div className="hint">Personas que no pueden coincidir de vacaciones al mismo tiempo. Al asignar un período que se solapa con alguien del mismo grupo, la pestaña Vacaciones avisa (no bloquea).</div>
+      <div className="hint">Personas que no pueden coincidir de vacaciones al mismo tiempo. Al asignar un período que se solapa con alguien del mismo grupo, Vacaciones avisa (no bloquea).</div>
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '14px 0 8px' }}>Nuevo grupo</h3>
       <div className="row">
         <div className="field"><label>Nombre (opcional)</label><input value={nombreNuevo} onChange={(e) => setNombreNuevo(e.target.value)} placeholder="Ej: Julian y Diego" /></div>
