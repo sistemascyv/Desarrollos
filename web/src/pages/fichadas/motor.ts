@@ -35,7 +35,7 @@ export interface ResultadoDia {
 export const CAUSAS_AUSENTISMO: string[] = [
   'Enfermedad', 'Accidente', 'Examen', 'Permiso Gremial', 'Capacitación',
   'Casamiento', 'Nacimiento', 'Fallecimiento de Familiar', 'Donación de Sangre', 'Mudanza',
-  'Fam. Enfermo', 'Razones Particulares', 'Maternidad', 'PARO', 'Suspendido',
+  'Fam. Enfermo', 'Razones Particulares', 'Maternidad', 'Suspendido',
 ];
 export const CAUSA_SIN_JUSTIFICAR = 'Sin Justificar';
 
