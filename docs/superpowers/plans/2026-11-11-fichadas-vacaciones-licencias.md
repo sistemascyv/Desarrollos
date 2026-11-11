@@ -8,6 +8,15 @@
 
 **Tech Stack:** React + TypeScript (Vite), PocketBase (migraciones), `tsx` para probar las funciones puras, Node + `xlsx` (ya instalado en `web/node_modules`) para el script de extracción de datos.
 
+## Addendum post-revisión final (commit `a322604`)
+
+La revisión final de la rama encontró dos premisas de este plan que el Excel real contradice — las tareas de abajo quedan como constancia de lo que se armó primero, pero el código final ya refleja la corrección, no lo que dice el texto original de las tareas:
+
+- **`GRAL VACACIONES.xlsx` es una sola temporada continua (set/2026 a ago/2027), no está partida por año calendario.** Filtrar por `desde` (como hacían las Tareas 3 y 4 originalmente) perdía en silencio 65 de los 90 períodos reales ya asignados y notificados. Se agregó un campo `anio` explícito en `fichadas_vacaciones` (migración `1789355000_fichadas_vacaciones_anio.js`), independiente de las fechas, y toda la lógica de resumen/asignación/vista por año (`motor.ts`, `VacacionesTab.tsx`) bucket-ea por ese campo en vez de parsear `desde`. La migración de datos (`1789370000_seed_fichadas_vacaciones_2026.js`) se regeneró con los 90 períodos, todos `anio: 2026`.
+- **La fórmula de antigüedad menor a 1 año no era `antigüedad*14/100`** — esa es la excepción en 4 de 63 celdas reales del Excel, no la regla. La fórmula real, usada en 59 de esas celdas, es `antigüedad*14` (sin dividir). `diasQueCorrespondenPorAntiguedad` en `motor.ts` ya quedó corregida así.
+
+Un seguimiento pendiente, no bloqueante, que quedó anotado para el usuario: el selector de año de la pantalla Vacaciones usa el año calendario actual por defecto, pero una temporada corre de septiembre a agosto — entre enero y agosto de cualquier año, alguien que quiera cargar un período de la temporada anterior va a tener que cambiar el selector a mano (nada avisa si no lo hace).
+
 ## Global Constraints
 
 - "Días que corresponden": antigüedad en años = (31/12 del año elegido − `fecha_alta`) en días / 365. Si antigüedad > 1 año: <5→14, <10→21, <20→28, ≥20→35. Si antigüedad ≤ 1 año: `antigüedad * 14 / 100` (tal cual, sin corregir, aunque el resultado sea muy bajo — decisión explícita del usuario). Si antigüedad ≤ 0: 0. Sin `fecha_alta`: no calculable (`null`).
