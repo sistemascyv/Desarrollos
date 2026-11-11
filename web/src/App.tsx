@@ -33,6 +33,12 @@ const PosicionFlotaPage = lazy(() =>
 const FichadasPage = lazy(() =>
   import('./pages/fichadas/FichadasPage').then((m) => ({ default: m.FichadasPage }))
 );
+const VacacionesPage = lazy(() =>
+  import('./pages/vacaciones/VacacionesPage').then((m) => ({ default: m.VacacionesPage }))
+);
+const ReportesPage = lazy(() =>
+  import('./pages/reportes/ReportesPage').then((m) => ({ default: m.ReportesPage }))
+);
 const BotTarifasPage = lazy(() =>
   import('./pages/tarifas/BotTarifasPage').then((m) => ({ default: m.BotTarifasPage }))
 );
@@ -137,6 +143,22 @@ function App() {
           element={
             <RequireModule moduleId="fichadas">
               <FichadasPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/rrhh/vacaciones"
+          element={
+            <RequireModule moduleId="vacaciones">
+              <VacacionesPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/rrhh/reportes"
+          element={
+            <RequireModule moduleId="reportes">
+              <ReportesPage />
             </RequireModule>
           }
         />

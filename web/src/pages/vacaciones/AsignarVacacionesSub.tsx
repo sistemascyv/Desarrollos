@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import { calcularResumenVacaciones, detectarSolapamientoGrupo } from './motor';
+import { calcularResumenVacaciones, detectarSolapamientoGrupo } from '../fichadas/motor';
 import type { FichadasEmpresa, FichadasGrupoRestriccion, FichadasLegajo, FichadasVacacion } from '../../types';
 
 type Vista = 'lista' | 'por_legajo';
@@ -17,7 +17,7 @@ function diasDelPeriodo(desde: string, hasta: string): number {
   return Math.round((new Date(hasta + 'T00:00:00Z').getTime() - new Date(desde + 'T00:00:00Z').getTime()) / 86400000) + 1;
 }
 
-export function VacacionesTab() {
+export function AsignarVacacionesSub() {
   const toast = useToast();
   const confirm = useConfirm();
   const [vista, setVista] = useState<Vista>('lista');

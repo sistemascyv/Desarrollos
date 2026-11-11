@@ -364,6 +364,8 @@ export const MODULES: ModuleDef[] = [
   { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'MANTENIMIENTO', path: 'flota/panel-cubiertas' },
   { id: 'flota_posicion', label: 'Posición de Flota', group: 'MANTENIMIENTO', path: 'flota/posicion' },
   { id: 'fichadas', label: 'Fichadas', group: 'RRHH', path: 'rrhh/fichadas' },
+  { id: 'vacaciones', label: 'Vacaciones', group: 'RRHH', path: 'rrhh/vacaciones' },
+  { id: 'reportes', label: 'Reportes', group: 'RRHH', path: 'rrhh/reportes' },
   { id: 'bot_tarifas', label: 'Actualizar Tarifas', group: 'COMERCIAL', path: 'comercial/bot-tarifas' },
   { id: 'cuadro_tarifario', label: 'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' },
   { id: 'cotizador', label: 'Cotizador', group: 'COMERCIAL', path: 'comercial/cotizador' },

@@ -6,7 +6,7 @@ import { isoDate } from '../../lib/format';
 import {
   procesarPeriodo, calcularEstadisticaHorasExtras, calcularEstadisticaAusentismo, calcularEstadisticaRotacion,
   type FilaEstadisticaArea, type FilaEstadisticaCausa, type RotacionMes, type MovimientoRotacion,
-} from './motor';
+} from '../fichadas/motor';
 import type { FichadasConfiguracion, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -53,7 +53,7 @@ function filaAoaAusentismo(f: FilaEstadisticaCausa): FilaExcel[] {
   ]);
 }
 
-export function EstadisticasTab() {
+export function ReportesPage() {
   const toast = useToast();
   const [vista, setVista] = useState<Vista>('horas_extras');
   const [anio, setAnio] = useState(() => new Date().getFullYear());
@@ -261,109 +261,111 @@ export function EstadisticasTab() {
   const todoCalculado = !!(filasHorasExtras && totalHorasExtras && filasAusentismo && totalAusentismo && rotacionMeses);
 
   return (
-    <div className="card">
-      <h2>Estadísticas</h2>
-      <div className="hint">Resumen anual por área/causa/rotación — reemplaza las planillas que arma RRHH a mano.</div>
+    <main>
+      <div className="card">
+        <h2>Estadísticas</h2>
+        <div className="hint">Resumen anual por área/causa/rotación — reemplaza las planillas que arma RRHH a mano.</div>
 
-      <div className="row" style={{ marginTop: 14, flexWrap: 'wrap', alignItems: 'end' }}>
-        <div className="field">
-          <label>Ver</label>
-          <select value={vista} onChange={(e) => setVista(e.target.value as Vista)}>
-            <option value="horas_extras">Horas Extras</option>
-            <option value="ausentismo">Ausentismo</option>
-            <option value="rotacion">Rotación</option>
-          </select>
+        <div className="row" style={{ marginTop: 14, flexWrap: 'wrap', alignItems: 'end' }}>
+          <div className="field">
+            <label>Ver</label>
+            <select value={vista} onChange={(e) => setVista(e.target.value as Vista)}>
+              <option value="horas_extras">Horas Extras</option>
+              <option value="ausentismo">Ausentismo</option>
+              <option value="rotacion">Rotación</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Año</label>
+            <input type="number" min={2015} max={new Date().getFullYear()} value={anio} onChange={(e) => setAnio(Number(e.target.value))} style={{ width: 90 }} />
+          </div>
+          <div className="field">
+            <label>Horas posibles por mes</label>
+            <input value={horasPosibles} onChange={(e) => setHorasPosibles(e.target.value)} style={{ width: 90 }} />
+          </div>
+          <button className="secondary" onClick={guardarHorasPosibles} disabled={guardandoConfig}>Guardar horas posibles</button>
+          <button onClick={calcular} disabled={cargando}>{cargando ? 'Calculando…' : 'Calcular'}</button>
+          <button className="secondary" onClick={descargarExcel} disabled={!todoCalculado}>Descargar Excel</button>
         </div>
-        <div className="field">
-          <label>Año</label>
-          <input type="number" min={2015} max={new Date().getFullYear()} value={anio} onChange={(e) => setAnio(Number(e.target.value))} style={{ width: 90 }} />
-        </div>
-        <div className="field">
-          <label>Horas posibles por mes</label>
-          <input value={horasPosibles} onChange={(e) => setHorasPosibles(e.target.value)} style={{ width: 90 }} />
-        </div>
-        <button className="secondary" onClick={guardarHorasPosibles} disabled={guardandoConfig}>Guardar horas posibles</button>
-        <button onClick={calcular} disabled={cargando}>{cargando ? 'Calculando…' : 'Calcular'}</button>
-        <button className="secondary" onClick={descargarExcel} disabled={!todoCalculado}>Descargar Excel</button>
-      </div>
 
-      {hayDatos && vista === 'ausentismo' && ultimaFechaConDatos && (
-        <div className="hint" style={{ marginTop: 16 }}>
-          Fichadas cargadas hasta el {ultimaFechaConDatos.split('-').reverse().join('/')} — los días sin fichadas importadas todavía no se cuentan como "Sin Justificar".
-        </div>
-      )}
+        {hayDatos && vista === 'ausentismo' && ultimaFechaConDatos && (
+          <div className="hint" style={{ marginTop: 16 }}>
+            Fichadas cargadas hasta el {ultimaFechaConDatos.split('-').reverse().join('/')} — los días sin fichadas importadas todavía no se cuentan como "Sin Justificar".
+          </div>
+        )}
 
-      {hayDatos && vista !== 'rotacion' && (
-        <div className="table-wrap" style={{ marginTop: 16 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>{vista === 'horas_extras' ? 'Área' : 'Causa'}</th><th></th>
-                {MESES.map((m) => <th key={m} className="num">{m}</th>)}
-                <th className="num">Prom.</th>
-                <th className="num">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vista === 'horas_extras' && filasHorasExtras && totalHorasExtras && (
-                <>
-                  {filasHorasExtras.map((f) => <Fragment key={f.area}>{filaTablaHorasExtras(f, false)}</Fragment>)}
-                  {filaTablaHorasExtras(totalHorasExtras, true)}
-                </>
-              )}
-              {vista === 'ausentismo' && filasAusentismo && totalAusentismo && (
-                <>
-                  {filasAusentismo.map((f) => <Fragment key={f.causa}>{filaTablaAusentismo(f, false)}</Fragment>)}
-                  {filaTablaAusentismo(totalAusentismo, true)}
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {hayDatos && vista === 'rotacion' && rotacionMeses && (
-        <>
+        {hayDatos && vista !== 'rotacion' && (
           <div className="table-wrap" style={{ marginTop: 16 }}>
             <table>
               <thead>
                 <tr>
-                  <th colSpan={2}>Métrica</th>
+                  <th>{vista === 'horas_extras' ? 'Área' : 'Causa'}</th><th></th>
                   {MESES.map((m) => <th key={m} className="num">{m}</th>)}
                   <th className="num">Prom.</th>
                   <th className="num">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {filasRotacion(rotacionMeses, rotacionMesesTranscurridos).map((f) => (
-                  <tr key={f.etiqueta}>
-                    <td colSpan={2} style={{ fontWeight: 700 }}>{f.etiqueta}</td>
-                    {f.valores.map((v, idx) => <td key={idx} className="num">{f.esPorcentaje ? fmtPct(v) : String(v)}</td>)}
-                    <td className="num">{f.prom !== undefined ? (f.esPorcentaje ? fmtPct(f.prom) : fmtHs(f.prom)) : ''}</td>
-                    <td className="num">{f.tot !== undefined ? String(f.tot) : ''}</td>
-                  </tr>
-                ))}
+                {vista === 'horas_extras' && filasHorasExtras && totalHorasExtras && (
+                  <>
+                    {filasHorasExtras.map((f) => <Fragment key={f.area}>{filaTablaHorasExtras(f, false)}</Fragment>)}
+                    {filaTablaHorasExtras(totalHorasExtras, true)}
+                  </>
+                )}
+                {vista === 'ausentismo' && filasAusentismo && totalAusentismo && (
+                  <>
+                    {filasAusentismo.map((f) => <Fragment key={f.causa}>{filaTablaAusentismo(f, false)}</Fragment>)}
+                    {filaTablaAusentismo(totalAusentismo, true)}
+                  </>
+                )}
               </tbody>
             </table>
           </div>
-          {rotacionMovimientos && rotacionMovimientos.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '0 0 8px' }}>Movimientos del año</h3>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {rotacionMovimientos.map((mv, idx) => (
-                  <li key={idx} style={{ fontSize: 12 }}>
-                    {mv.fecha.split('-').reverse().join('/')} — {mv.nombre} — {mv.tipo === 'ingreso' ? 'Alta' : `Baja (${mv.motivo || 'sin motivo'})`}
-                  </li>
-                ))}
-              </ul>
+        )}
+
+        {hayDatos && vista === 'rotacion' && rotacionMeses && (
+          <>
+            <div className="table-wrap" style={{ marginTop: 16 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th colSpan={2}>Métrica</th>
+                    {MESES.map((m) => <th key={m} className="num">{m}</th>)}
+                    <th className="num">Prom.</th>
+                    <th className="num">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filasRotacion(rotacionMeses, rotacionMesesTranscurridos).map((f) => (
+                    <tr key={f.etiqueta}>
+                      <td colSpan={2} style={{ fontWeight: 700 }}>{f.etiqueta}</td>
+                      {f.valores.map((v, idx) => <td key={idx} className="num">{f.esPorcentaje ? fmtPct(v) : String(v)}</td>)}
+                      <td className="num">{f.prom !== undefined ? (f.esPorcentaje ? fmtPct(f.prom) : fmtHs(f.prom)) : ''}</td>
+                      <td className="num">{f.tot !== undefined ? String(f.tot) : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-          {rotacionMovimientos && rotacionMovimientos.length === 0 && (
-            <div className="empty" style={{ marginTop: 16 }}>Sin altas ni bajas cargadas este año.</div>
-          )}
-        </>
-      )}
-      {!hayDatos && !cargando && <div className="empty" style={{ marginTop: 16 }}>Elegí un año y apretá "Calcular".</div>}
-    </div>
+            {rotacionMovimientos && rotacionMovimientos.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '0 0 8px' }}>Movimientos del año</h3>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {rotacionMovimientos.map((mv, idx) => (
+                    <li key={idx} style={{ fontSize: 12 }}>
+                      {mv.fecha.split('-').reverse().join('/')} — {mv.nombre} — {mv.tipo === 'ingreso' ? 'Alta' : `Baja (${mv.motivo || 'sin motivo'})`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {rotacionMovimientos && rotacionMovimientos.length === 0 && (
+              <div className="empty" style={{ marginTop: 16 }}>Sin altas ni bajas cargadas este año.</div>
+            )}
+          </>
+        )}
+        {!hayDatos && !cargando && <div className="empty" style={{ marginTop: 16 }}>Elegí un año y apretá "Calcular".</div>}
+      </div>
+    </main>
   );
 }
