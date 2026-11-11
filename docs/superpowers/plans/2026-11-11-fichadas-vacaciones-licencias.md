@@ -479,7 +479,7 @@ function excelFechaATexto(valor) {
       const mes = Number(m[1]), dia = Number(m[2]);
       let anio = Number(m[3]);
       if (anio < 100) anio += (anio <= 30 ? 2000 : 1900);
-      if (mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31 && anio >= 2000 && anio <= 2100) {
+      if (mes >= 1 && mes <= 12 && dia >= 1 && dia <= 31 && anio >= 1900 && anio <= 2100) {
         return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
       }
     }
