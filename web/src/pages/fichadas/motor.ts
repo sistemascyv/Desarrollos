@@ -1,4 +1,4 @@
-import type { DiaHorario, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
+import type { DiaHorario, FichadasFeriado, FichadasGrupoRestriccion, FichadasLegajo, FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo } from '../../types';
 
 // Motor de cálculo de fichadas — portado 1:1 de la lógica ya validada en
 // el prototipo standalone (fichadas_prototipo.html). Misma fórmula de
@@ -586,4 +586,115 @@ export function calcularEstadisticaRotacion(params: {
 
   movimientos.sort((a, b) => a.fecha.localeCompare(b.fecha));
   return { meses, movimientos };
+}
+
+// ---------- Vacaciones/Licencias ----------
+
+// Misma fórmula que ya usaba el Excel de RRHH (LIC-CHOF.xls, columna de
+// "Días"), con fecha de referencia el 31/12 del año elegido. Para
+// antigüedad <= 1 año se replica tal cual la cuenta del Excel
+// (antiguedadAnios * 14 / 100) aunque da un resultado muy por debajo del
+// proporcional real de la ley -- decisión explícita del usuario, no
+// "corregirla" para no cambiar los números que RRHH ya conoce.
+export function diasQueCorrespondenPorAntiguedad(fechaAlta: string | null | undefined, anio: number): number | null {
+  if (!fechaAlta) return null;
+  const [yA, mA, dA] = fechaAlta.split('-').map(Number);
+  const altaUtc = Date.UTC(yA, mA - 1, dA);
+  const refUtc = Date.UTC(anio, 11, 31);
+  const antiguedadAnios = (refUtc - altaUtc) / 86400000 / 365;
+  if (antiguedadAnios <= 0) return 0;
+  if (antiguedadAnios > 1) {
+    if (antiguedadAnios < 5) return 14;
+    if (antiguedadAnios < 10) return 21;
+    if (antiguedadAnios < 20) return 28;
+    return 35;
+  }
+  return (antiguedadAnios * 14) / 100;
+}
+
+function diasEntre(desde: string, hasta: string): number {
+  const [yD, mD, dD] = desde.split('-').map(Number);
+  const [yH, mH, dH] = hasta.split('-').map(Number);
+  return Math.round((Date.UTC(yH, mH - 1, dH) - Date.UTC(yD, mD - 1, dD)) / 86400000) + 1;
+}
+
+export interface ResumenVacacionLegajo {
+  idLegajo: string;
+  nombre: string;
+  area: string;
+  diasQueCorresponden: number | null; // null = no calculable (sin fecha_alta)
+  diasAsignados: number;
+  diasRestantes: number | null; // null si diasQueCorresponden es null
+  periodos: FichadasVacacion[]; // los que caen en `anio`, ordenados por desde
+}
+
+export function calcularResumenVacaciones(params: {
+  legajos: FichadasLegajo[];
+  vacaciones: FichadasVacacion[];
+  empresaNombrePorId: Map<string, string>;
+  anio: number;
+}): ResumenVacacionLegajo[] {
+  const { legajos, vacaciones, empresaNombrePorId, anio } = params;
+  const vacacionesPorLegajo = new Map<string, FichadasVacacion[]>();
+  vacaciones.forEach((v) => {
+    if (!vacacionesPorLegajo.has(v.legajo)) vacacionesPorLegajo.set(v.legajo, []);
+    vacacionesPorLegajo.get(v.legajo)!.push(v);
+  });
+
+  return legajos.map((l) => {
+    const todasDelLegajo = vacacionesPorLegajo.get(l.id) || [];
+    const periodos = todasDelLegajo
+      .filter((v) => Number(v.desde.slice(0, 4)) === anio)
+      .sort((a, b) => a.desde.localeCompare(b.desde));
+    const diasQueCorresponden = diasQueCorrespondenPorAntiguedad(l.fecha_alta, anio);
+    const diasAsignados = periodos.reduce((acc, v) => acc + diasEntre(v.desde, v.hasta), 0);
+    const diasRestantes = diasQueCorresponden === null ? null : diasQueCorresponden - diasAsignados;
+    return {
+      idLegajo: l.id,
+      nombre: l.nombre,
+      area: l.empresa ? (empresaNombrePorId.get(l.empresa) || '—') : '—',
+      diasQueCorresponden, diasAsignados, diasRestantes, periodos,
+    };
+  });
+}
+
+export interface SolapamientoGrupo {
+  nombre: string; // nombre de la otra persona
+  desde: string;
+  hasta: string;
+}
+
+function seSuperponen(aDesde: string, aHasta: string, bDesde: string, bHasta: string): boolean {
+  return aDesde <= bHasta && aHasta >= bDesde; // "YYYY-MM-DD" compara bien como texto
+}
+
+// Detecta si asignar [desde,hasta] a idLegajo se solapa con algún período
+// de otra persona de su mismo grupo de restricción, en cualquier año. Un
+// legajo puede estar en más de un grupo -- se juntan todos los
+// compañeros de todos sus grupos antes de comparar.
+export function detectarSolapamientoGrupo(params: {
+  idLegajo: string;
+  desde: string;
+  hasta: string;
+  grupos: FichadasGrupoRestriccion[];
+  vacaciones: FichadasVacacion[];
+  legajoPorId: Map<string, FichadasLegajo>;
+}): SolapamientoGrupo[] {
+  const { idLegajo, desde, hasta, grupos, vacaciones, legajoPorId } = params;
+  const companerosDeGrupo = new Set<string>();
+  grupos.forEach((g) => {
+    if (g.legajos.includes(idLegajo)) {
+      g.legajos.forEach((id) => { if (id !== idLegajo) companerosDeGrupo.add(id); });
+    }
+  });
+  if (companerosDeGrupo.size === 0) return [];
+
+  const resultado: SolapamientoGrupo[] = [];
+  vacaciones.forEach((v) => {
+    if (!companerosDeGrupo.has(v.legajo)) return;
+    if (!seSuperponen(desde, hasta, v.desde, v.hasta)) return;
+    const otro = legajoPorId.get(v.legajo);
+    resultado.push({ nombre: otro?.nombre || '—', desde: v.desde, hasta: v.hasta });
+  });
+  return resultado;
 }
