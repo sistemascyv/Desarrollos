@@ -33,9 +33,9 @@ export interface ResultadoDia {
 // Lista fija, igual a la que ya usaba el Excel de RRHH -- no agregar ni
 // sacar ninguna sin actualizar también la migración del campo `causa`.
 export const CAUSAS_AUSENTISMO: string[] = [
-  'Enfermedad', 'Accidente', 'COVID-19', 'Examen', 'Permiso Gremial', 'Capacitación',
+  'Enfermedad', 'Accidente', 'Examen', 'Permiso Gremial', 'Capacitación',
   'Casamiento', 'Nacimiento', 'Fallecimiento de Familiar', 'Donación de Sangre', 'Mudanza',
-  'Fam. Enfermo', 'Razones Particulares', 'Maternidad', 'Cuarentena', 'PARO', 'Suspendido',
+  'Fam. Enfermo', 'Razones Particulares', 'Maternidad', 'PARO', 'Suspendido',
 ];
 export const CAUSA_SIN_JUSTIFICAR = 'Sin Justificar';
 
