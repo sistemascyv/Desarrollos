@@ -59,7 +59,7 @@ export function VacacionesTab() {
   const legajoPorId = useMemo(() => new Map(legajos.map((l) => [l.id, l])), [legajos]);
 
   const legajosParaResumen = useMemo(
-    () => legajos.filter((l) => l.estado || vacaciones.some((v) => v.legajo === l.id && Number(v.desde.slice(0, 4)) === anio)),
+    () => legajos.filter((l) => l.estado || vacaciones.some((v) => v.legajo === l.id && v.anio === anio)),
     [legajos, vacaciones, anio]
   );
   const resumen = useMemo(
@@ -69,7 +69,7 @@ export function VacacionesTab() {
 
   const periodosDelAnio = useMemo(() => {
     return vacaciones
-      .filter((v) => Number(v.desde.slice(0, 4)) === anio)
+      .filter((v) => v.anio === anio)
       .filter((v) => !areaFiltro || legajoPorId.get(v.legajo)?.empresa === areaFiltro)
       .sort((a, b) => a.desde.localeCompare(b.desde));
   }, [vacaciones, anio, areaFiltro, legajoPorId]);
@@ -80,17 +80,16 @@ export function VacacionesTab() {
     setGuardando(true);
     try {
       const creado = await pb.collection('fichadas_vacaciones').create<FichadasVacacion>({
-        legajo: idLegajoNuevo, desde: desdeNuevo, hasta: hastaNuevo, comentario: comentarioNuevo.trim() || null,
+        legajo: idLegajoNuevo, desde: desdeNuevo, hasta: hastaNuevo, anio, comentario: comentarioNuevo.trim() || null,
       });
 
       const legajoElegido = legajoPorId.get(idLegajoNuevo);
-      const anioDelPeriodo = Number(desdeNuevo.slice(0, 4));
       if (legajoElegido) {
         const resumenLegajo = calcularResumenVacaciones({
-          legajos: [legajoElegido], vacaciones: [...vacaciones, creado], empresaNombrePorId, anio: anioDelPeriodo,
+          legajos: [legajoElegido], vacaciones: [...vacaciones, creado], empresaNombrePorId, anio,
         })[0];
         if (resumenLegajo.diasRestantes !== null && resumenLegajo.diasRestantes < 0) {
-          toast(`${resumenLegajo.nombre} queda con ${fmtDias(resumenLegajo.diasRestantes)} días de exceso sobre lo que le corresponde en ${anioDelPeriodo}.`, 'warn');
+          toast(`${resumenLegajo.nombre} queda con ${fmtDias(resumenLegajo.diasRestantes)} días de exceso sobre lo que le corresponde en ${anio}.`, 'warn');
         }
       }
 

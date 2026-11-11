@@ -335,6 +335,7 @@ export interface FichadasVacacion extends BaseRecord {
   legajo: string;
   desde: string; // "YYYY-MM-DD"
   hasta: string; // "YYYY-MM-DD"
+  anio: number; // temporada a la que pertenece (ej. 2026), independiente de desde/hasta
   comentario?: string;
   notificado?: boolean;
   expand?: { legajo?: FichadasLegajo };

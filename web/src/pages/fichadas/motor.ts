@@ -592,10 +592,11 @@ export function calcularEstadisticaRotacion(params: {
 
 // Misma fórmula que ya usaba el Excel de RRHH (LIC-CHOF.xls, columna de
 // "Días"), con fecha de referencia el 31/12 del año elegido. Para
-// antigüedad <= 1 año se replica tal cual la cuenta del Excel
-// (antiguedadAnios * 14 / 100) aunque da un resultado muy por debajo del
-// proporcional real de la ley -- decisión explícita del usuario, no
-// "corregirla" para no cambiar los números que RRHH ya conoce.
+// antigüedad <= 1 año la fórmula real del Excel es antiguedad*14 (mismas
+// 59 celdas revisadas en la revisión final de la rama) -- la misma forma
+// que el propio *14 de la escalera para el tramo más joven, solo que sin
+// clampear a un 14 plano. Confirmado contra las celdas de fórmula reales:
+// solo 4 de 63 usan antiguedad*14/100 (la excepción, no la regla).
 export function diasQueCorrespondenPorAntiguedad(fechaAlta: string | null | undefined, anio: number): number | null {
   if (!fechaAlta) return null;
   const [yA, mA, dA] = fechaAlta.split('-').map(Number);
@@ -609,7 +610,7 @@ export function diasQueCorrespondenPorAntiguedad(fechaAlta: string | null | unde
     if (antiguedadAnios < 20) return 28;
     return 35;
   }
-  return (antiguedadAnios * 14) / 100;
+  return antiguedadAnios * 14;
 }
 
 function diasEntre(desde: string, hasta: string): number {
@@ -644,7 +645,7 @@ export function calcularResumenVacaciones(params: {
   return legajos.map((l) => {
     const todasDelLegajo = vacacionesPorLegajo.get(l.id) || [];
     const periodos = todasDelLegajo
-      .filter((v) => Number(v.desde.slice(0, 4)) === anio)
+      .filter((v) => v.anio === anio)
       .sort((a, b) => a.desde.localeCompare(b.desde));
     const diasQueCorresponden = diasQueCorrespondenPorAntiguedad(l.fecha_alta, anio);
     const diasAsignados = periodos.reduce((acc, v) => acc + diasEntre(v.desde, v.hasta), 0);
