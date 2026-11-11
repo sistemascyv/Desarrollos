@@ -26,7 +26,7 @@
 ## Task 1: Colecciones nuevas + tipos TS
 
 **Files:**
-- Create: `pb_migrations/1789230000_fichadas_vacaciones_y_grupos.js`
+- Create: `pb_migrations/1789350000_fichadas_vacaciones_y_grupos.js`
 - Modify: `web/src/types.ts`
 
 **Interfaces:**
@@ -137,7 +137,7 @@ cp /ruta/al/repo/pb_hooks/*.js hooks/
 
 (En Windows, usar `pocketbase_0.22.55_windows_amd64.zip` y `pocketbase.exe`.)
 
-Expected: `Applied 1789230000_fichadas_vacaciones_y_grupos.js` sin errores (junto con todas las migraciones anteriores que ya pasaban).
+Expected: `Applied 1789350000_fichadas_vacaciones_y_grupos.js` sin errores (junto con todas las migraciones anteriores que ya pasaban).
 
 - [ ] **Step 3: Verificar las 2 colecciones quedaron bien definidas**
 
@@ -193,7 +193,7 @@ Expected: build exitoso, sin errores de TypeScript.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add pb_migrations/1789230000_fichadas_vacaciones_y_grupos.js web/src/types.ts
+git add pb_migrations/1789350000_fichadas_vacaciones_y_grupos.js web/src/types.ts
 git commit -m "feat(fichadas): colecciones fichadas_vacaciones y fichadas_grupos_restriccion"
 ```
 
@@ -439,8 +439,8 @@ git commit -m "feat(fichadas): calculo de dias por antiguedad, resumen de vacaci
 
 **Files:**
 - Create (temporal, se borra al final): `scripts-tmp/extraer_vacaciones.js`
-- Create: `pb_migrations/1789240000_backfill_fecha_alta_desde_ingreso.js` (generado por el script)
-- Create: `pb_migrations/1789250000_seed_fichadas_vacaciones_2026.js` (generado por el script)
+- Create: `pb_migrations/1789360000_backfill_fecha_alta_desde_ingreso.js` (generado por el script)
+- Create: `pb_migrations/1789370000_seed_fichadas_vacaciones_2026.js` (generado por el script)
 
 **Interfaces:**
 - Consumes: los 6 archivos reales ya confirmados en disco en `FICHADAS REPORTES/estadisticas/` (`LIC-CHOF.xls`, `LICENCIA VACACIONES - ADMINISTRATIVOS.xls`, `LICENCIA VACACIONES - BSAS.xls`, `LICENCIA VACACIONES - CBA.xls`, `LICENCIA VACACIONES - OPERATIVOS.xls`, `GRAL VACACIONES.xlsx`), y `fichadas_legajos` (match en tiempo de ejecución de la migración, vía `nombre`).
@@ -627,8 +627,8 @@ migrate((db) => {
   return null;
 })
 `;
-fs.writeFileSync(path.join(DESTINO_MIGRACIONES, '1789240000_backfill_fecha_alta_desde_ingreso.js'), migracionBackfill);
-console.log('Escrito: pb_migrations/1789240000_backfill_fecha_alta_desde_ingreso.js');
+fs.writeFileSync(path.join(DESTINO_MIGRACIONES, '1789360000_backfill_fecha_alta_desde_ingreso.js'), migracionBackfill);
+console.log('Escrito: pb_migrations/1789360000_backfill_fecha_alta_desde_ingreso.js');
 
 const periodosArr = periodos2026.map((p) => ({ nombre_normalizado: normalizarNombreJS(p.nombre), nombre_original: p.nombre, desde: p.desde, hasta: p.hasta, comentario: p.comentario, notificado: p.notificado }));
 function normalizarNombreJS(nombre) { return normalizarNombre(nombre); }
@@ -639,7 +639,7 @@ const migracionVacaciones = `/// <reference path="../pb_data/types.d.ts" />
 // vez con un script temporal (ver
 // docs/superpowers/plans/2026-11-11-fichadas-vacaciones-licencias.md).
 // Match por nombre normalizado, mismo criterio que
-// 1789240000_backfill_fecha_alta_desde_ingreso.js. No se migra ningún
+// 1789360000_backfill_fecha_alta_desde_ingreso.js. No se migra ningún
 // año anterior a 2026 (decidido con el usuario).
 function normalizarNombre(nombre) {
   return (nombre || '').toUpperCase()
@@ -685,8 +685,8 @@ migrate((db) => {
   return null;
 })
 `;
-fs.writeFileSync(path.join(DESTINO_MIGRACIONES, '1789250000_seed_fichadas_vacaciones_2026.js'), migracionVacaciones);
-console.log('Escrito: pb_migrations/1789250000_seed_fichadas_vacaciones_2026.js');
+fs.writeFileSync(path.join(DESTINO_MIGRACIONES, '1789370000_seed_fichadas_vacaciones_2026.js'), migracionVacaciones);
+console.log('Escrito: pb_migrations/1789370000_seed_fichadas_vacaciones_2026.js');
 ```
 
 - [ ] **Step 2: Correr el script**
@@ -707,8 +707,8 @@ Expected (contra los archivos reales de `FICHADAS REPORTES/estadisticas/`, ya ve
 [backfill] total personas distintas con fecha de ingreso: 120
 [vacaciones] 10 períodos de SUCURSALES + 15 de CHOFERES = 25 períodos de 2026 (antes de matchear contra legajos).
 Autochequeo OK (Carossio, Pablo).
-Escrito: pb_migrations/1789240000_backfill_fecha_alta_desde_ingreso.js
-Escrito: pb_migrations/1789250000_seed_fichadas_vacaciones_2026.js
+Escrito: pb_migrations/1789360000_backfill_fecha_alta_desde_ingreso.js
+Escrito: pb_migrations/1789370000_seed_fichadas_vacaciones_2026.js
 ```
 (Si el repo tiene archivos distintos a los de esta sesión, los números de "personas"/"períodos leídos" pueden variar — lo que no puede fallar es el autochequeo de Carossio, Pablo, ni la escritura final de los 2 archivos.)
 
@@ -726,8 +726,8 @@ Run: `./pocketbase migrate up --migrationsDir mig --hooksDir hooks --dir data` (
 
 Expected (contra la base armada únicamente con las migraciones de este repo, que es la misma foto de legajos que usó esta sesión para probar el script):
 ```
-Applied 1789240000_backfill_fecha_alta_desde_ingreso.js
-Applied 1789250000_seed_fichadas_vacaciones_2026.js
+Applied 1789360000_backfill_fecha_alta_desde_ingreso.js
+Applied 1789370000_seed_fichadas_vacaciones_2026.js
 ```
 con, en la salida de consola de PocketBase, una línea final tipo `vacaciones: fecha_alta completada en 53 legajos (0 ya la tenían, 67 sin match por nombre)` y `vacaciones 2026: 12 períodos creados, 13 sin match por nombre` (más los 2 descartados antes por fecha inválida, que ni llegan a este paso). Si el número exacto difiere, lo que importa es que el total `completados + yaTenian + sinMatch` sea igual a la cantidad de `datos` de cada migración, y que no haya ningún error de SQL.
 
@@ -748,7 +748,7 @@ Expected: `OK: período de Carossio Pablo cargado correctamente -> ('2026-12-07'
 - [ ] **Step 6: Commit**
 
 ```bash
-git add pb_migrations/1789240000_backfill_fecha_alta_desde_ingreso.js pb_migrations/1789250000_seed_fichadas_vacaciones_2026.js
+git add pb_migrations/1789360000_backfill_fecha_alta_desde_ingreso.js pb_migrations/1789370000_seed_fichadas_vacaciones_2026.js
 git commit -m "data(fichadas): backfill de fecha_alta y carga de vacaciones 2026 desde los Excel de RRHH"
 ```
 
