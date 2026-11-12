@@ -292,7 +292,9 @@ export interface FichadasLegajo extends BaseRecord {
   fecha_alta?: string; // "YYYY-MM-DD", opcional -- vacío en legajos de antes del sistema
   fecha_baja?: string; // "YYYY-MM-DD", opcional -- si está cargada, estado = false
   motivo_baja?: string; // una de MOTIVOS_BAJA (motor.ts), solo si fecha_baja está cargada
-  expand?: { empresa?: FichadasEmpresa; horario?: FichadasHorario };
+  categoria?: string;
+  basico?: number;
+  expand?: { empresa?: FichadasEmpresa; horario?: FichadasHorario; categoria?: FichadasCategoria };
 }
 
 // Una fila por cada etapa laboral YA CERRADA de un legajo (reingresos) --
@@ -345,6 +347,18 @@ export interface FichadasGrupoRestriccion extends BaseRecord {
   nombre?: string;
   legajos: string[];
   expand?: { legajos?: FichadasLegajo[] };
+}
+
+export interface FichadasCategoria extends BaseRecord {
+  nombre: string;
+  plus_vacacional: number;
+  divisor_mensual: number;
+  pct_jubilacion: number;
+  pct_ley19032: number;
+  pct_obra_social: number;
+  pct_ansal: number;
+  pct_cuota_sindical: number;
+  pct_seguro_sepelio: number;
 }
 
 export interface ModuleDef {
