@@ -285,8 +285,8 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
                 </td>
                 <td>
                   <input
-                    key={l.id + '-' + (l.basico ?? '')}
-                    defaultValue={l.basico ?? ''}
+                    key={l.id + '-' + (l.basico || '')}
+                    defaultValue={l.basico || ''}
                     style={{ width: 90 }}
                     onBlur={(e) => {
                       const txt = e.target.value.trim();
