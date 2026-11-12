@@ -4,7 +4,7 @@ import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { fechaSola } from '../../lib/format';
 import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from './motor';
-import type { DiaHorario, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
+import type { DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const SUB_TABS = [
@@ -21,6 +21,7 @@ export function ConfiguracionTab() {
   const [empresas, setEmpresas] = useState<FichadasEmpresa[]>([]);
   const [horarios, setHorarios] = useState<FichadasHorario[]>([]);
   const [legajos, setLegajos] = useState<FichadasLegajo[]>([]);
+  const [categorias, setCategorias] = useState<FichadasCategoria[]>([]);
   const [tick, setTick] = useState(0);
   const refrescar = () => setTick((t) => t + 1);
   const toast = useToast();
@@ -28,12 +29,13 @@ export function ConfiguracionTab() {
   useEffect(() => {
     (async () => {
       try {
-        const [e, h, l] = await Promise.all([
+        const [e, h, l, c] = await Promise.all([
           pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' }),
           pb.collection('fichadas_horarios').getFullList<FichadasHorario>({ sort: 'nombre' }),
           pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ sort: 'nombre' }),
+          pb.collection('fichadas_categorias').getFullList<FichadasCategoria>({ sort: 'nombre' }),
         ]);
-        setEmpresas(e); setHorarios(h); setLegajos(l);
+        setEmpresas(e); setHorarios(h); setLegajos(l); setCategorias(c);
       } catch (err) {
         toast('No se pudo cargar la configuración: ' + (err instanceof Error ? err.message : ''), 'err');
       }
@@ -51,7 +53,7 @@ export function ConfiguracionTab() {
         ))}
       </div>
       <div style={{ marginTop: 14 }}>
-        {subTab === 'empleados' && <EmpleadosSub empresas={empresas} horarios={horarios} legajos={legajos} onChanged={refrescar} />}
+        {subTab === 'empleados' && <EmpleadosSub empresas={empresas} horarios={horarios} legajos={legajos} categorias={categorias} onChanged={refrescar} />}
         {subTab === 'horario_personal' && <HorarioPersonalSub legajos={legajos} onChanged={refrescar} />}
         {subTab === 'horas_fijas' && <HorasFijasSub legajos={legajos} onChanged={refrescar} />}
         {subTab === 'plantillas' && <PlantillasSub horarios={horarios} legajos={legajos} onChanged={refrescar} />}
@@ -63,7 +65,7 @@ export function ConfiguracionTab() {
 
 // ---------- Empleados ----------
 
-function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: FichadasEmpresa[]; horarios: FichadasHorario[]; legajos: FichadasLegajo[]; onChanged: () => void }) {
+function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { empresas: FichadasEmpresa[]; horarios: FichadasHorario[]; legajos: FichadasLegajo[]; categorias: FichadasCategoria[]; onChanged: () => void }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [nroLegajo, setNroLegajo] = useState('');
@@ -104,8 +106,9 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
         return;
       }
     }
+    const valorAEnviar = (campo === 'categoria' || campo === 'basico') && valor === '' ? null : valor;
     try {
-      await pb.collection('fichadas_legajos').update(id, { [campo]: valor });
+      await pb.collection('fichadas_legajos').update(id, { [campo]: valorAEnviar });
       onChanged();
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -254,7 +257,7 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
       <div className="table-wrap" style={{ maxHeight: '50vh' }}>
         <table>
-          <thead><tr><th>Legajo</th><th>Tarjeta</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Fecha alta</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Legajo</th><th>Tarjeta</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Fecha alta</th><th>Categoría</th><th>Básico</th><th>Estado</th><th></th></tr></thead>
           <tbody>
             {legajos.map((l) => (
               <tr key={l.id} className={!l.estado ? 'inactivo' : ''}>
@@ -273,6 +276,26 @@ function EmpleadosSub({ empresas, horarios, legajos, onChanged }: { empresas: Fi
                 </td>
                 <td>
                   <input type="date" value={l.fecha_alta || ''} onChange={(e) => editar(l.id, 'fecha_alta', e.target.value)} />
+                </td>
+                <td>
+                  <select value={l.categoria || ''} onChange={(e) => editar(l.id, 'categoria', e.target.value)}>
+                    <option value="">Sin categoría</option>
+                    {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <input
+                    key={l.id + '-' + (l.basico ?? '')}
+                    defaultValue={l.basico ?? ''}
+                    style={{ width: 90 }}
+                    onBlur={(e) => {
+                      const txt = e.target.value.trim();
+                      if (txt === '') { if (l.basico != null) editar(l.id, 'basico', ''); return; }
+                      const n = Number(txt.replace(',', '.'));
+                      if (!isFinite(n) || n < 0) { toast('El Básico tiene que ser un número.', 'warn'); return; }
+                      if (n !== l.basico) editar(l.id, 'basico', String(n));
+                    }}
+                  />
                 </td>
                 <td>
                   {l.estado

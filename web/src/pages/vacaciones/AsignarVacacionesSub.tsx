@@ -2,8 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import { calcularResumenVacaciones, detectarSolapamientoGrupo } from '../fichadas/motor';
-import type { FichadasEmpresa, FichadasGrupoRestriccion, FichadasLegajo, FichadasVacacion } from '../../types';
+import {
+  calcularHorasExtraPromedioPorLegajo, calcularLiquidacionVacaciones, calcularResumenVacaciones,
+  detectarSolapamientoGrupo, partirPeriodoPorMes, procesarPeriodo,
+  type TramoLiquidacion,
+} from '../fichadas/motor';
+import type {
+  FichadasCategoria, FichadasEmpresa, FichadasFeriado, FichadasGrupoRestriccion, FichadasLegajo,
+  FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo,
+} from '../../types';
 
 type Vista = 'lista' | 'por_legajo';
 
@@ -13,8 +20,29 @@ function fmtDias(n: number | null): string {
   return r % 1 === 0 ? String(r) : r.toFixed(1);
 }
 
+function fmtMoneda(n: number): string {
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function diasDelPeriodo(desde: string, hasta: string): number {
   return Math.round((new Date(hasta + 'T00:00:00Z').getTime() - new Date(desde + 'T00:00:00Z').getTime()) / 86400000) + 1;
+}
+
+// Mes inmediatamente anterior a `anioMes` ("YYYY-MM" -> "YYYY-MM" del mes previo).
+function mesAnterior(anioMes: string): string {
+  const [y, m] = anioMes.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1, 1));
+  d.setUTCMonth(d.getUTCMonth() - 1);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+interface ResultadoLiquidacion {
+  vacacionId: string;
+  nombreLegajo: string;
+  tramos: TramoLiquidacion[];
+  bruto: number;
+  totalDescuentos: number;
+  neto: number;
 }
 
 export function AsignarVacacionesSub() {
@@ -26,6 +54,7 @@ export function AsignarVacacionesSub() {
   const [empresas, setEmpresas] = useState<FichadasEmpresa[]>([]);
   const [vacaciones, setVacaciones] = useState<FichadasVacacion[]>([]);
   const [grupos, setGrupos] = useState<FichadasGrupoRestriccion[]>([]);
+  const [categorias, setCategorias] = useState<FichadasCategoria[]>([]);
   const [areaFiltro, setAreaFiltro] = useState('');
   const [tick, setTick] = useState(0);
   const refrescar = () => setTick((t) => t + 1);
@@ -36,16 +65,20 @@ export function AsignarVacacionesSub() {
   const [comentarioNuevo, setComentarioNuevo] = useState('');
   const [guardando, setGuardando] = useState(false);
 
+  const [liquidando, setLiquidando] = useState<string | null>(null);
+  const [liquidacion, setLiquidacion] = useState<ResultadoLiquidacion | null>(null);
+
   useEffect(() => {
     (async () => {
       try {
-        const [l, e, v, g] = await Promise.all([
+        const [l, e, v, g, c] = await Promise.all([
           pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ sort: 'nombre' }),
           pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' }),
           pb.collection('fichadas_vacaciones').getFullList<FichadasVacacion>({ sort: 'desde' }),
           pb.collection('fichadas_grupos_restriccion').getFullList<FichadasGrupoRestriccion>(),
+          pb.collection('fichadas_categorias').getFullList<FichadasCategoria>({ sort: 'nombre' }),
         ]);
-        setLegajos(l); setEmpresas(e); setVacaciones(v); setGrupos(g);
+        setLegajos(l); setEmpresas(e); setVacaciones(v); setGrupos(g); setCategorias(c);
       } catch (err) {
         toast('No se pudo cargar Vacaciones: ' + (err instanceof Error ? err.message : ''), 'err');
       }
@@ -57,6 +90,7 @@ export function AsignarVacacionesSub() {
 
   const empresaNombrePorId = useMemo(() => new Map(empresas.map((e) => [e.id, e.nombre])), [empresas]);
   const legajoPorId = useMemo(() => new Map(legajos.map((l) => [l.id, l])), [legajos]);
+  const categoriaPorId = useMemo(() => new Map(categorias.map((c) => [c.id, c])), [categorias]);
 
   const legajosParaResumen = useMemo(
     () => legajos.filter((l) => l.estado || vacaciones.some((v) => v.legajo === l.id && v.anio === anio)),
@@ -130,10 +164,61 @@ export function AsignarVacacionesSub() {
     }
   }
 
+  async function liquidarPeriodo(v: FichadasVacacion) {
+    const legajo = legajoPorId.get(v.legajo);
+    if (!legajo) return;
+    if (!legajo.categoria || legajo.basico == null) {
+      toast('Para liquidar, completá Categoría y Básico de este legajo en Configuración → Empleados.', 'warn');
+      return;
+    }
+    const categoria = categoriaPorId.get(legajo.categoria);
+    if (!categoria) { toast('No se encontró la categoría de este legajo.', 'err'); return; }
+    if (!legajo.fecha_alta) { toast('Este legajo no tiene fecha de alta cargada, no se puede liquidar.', 'err'); return; }
+
+    setLiquidando(v.id);
+    try {
+      const tramosMes = partirPeriodoPorMes(v.desde, v.hasta);
+      const primerMes = tramosMes[0].anioMes;
+      // ventana de 6 meses calendario inmediatamente anteriores al mes de inicio
+      let cursor = primerMes;
+      const mesesVentana: string[] = [];
+      for (let i = 0; i < 6; i++) { cursor = mesAnterior(cursor); mesesVentana.push(cursor); }
+      mesesVentana.sort();
+      const [yIni, mIni] = mesesVentana[0].split('-').map(Number);
+      const [yFin, mFin] = mesesVentana[mesesVentana.length - 1].split('-').map(Number);
+      const desdeVentana = `${yIni}-${String(mIni).padStart(2, '0')}-01`;
+      const ultimoDiaFin = new Date(Date.UTC(yFin, mFin, 0)).getUTCDate();
+      const hastaVentana = `${yFin}-${String(mFin).padStart(2, '0')}-${String(ultimoDiaFin).padStart(2, '0')}`;
+
+      const [marcas, novedades, feriados, historial] = await Promise.all([
+        pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desdeVentana, h: hastaVentana }) }),
+        pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desdeVentana, h: hastaVentana }) }),
+        pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desdeVentana, h: hastaVentana }) }),
+        pb.collection('fichadas_legajo_historial').getFullList<HistorialLegajo>(),
+      ]);
+      const { resultados } = procesarPeriodo({
+        legajos: [legajo], marcas, novedades, feriados, historial, empresaNombrePorId,
+        desde: desdeVentana, hasta: hastaVentana,
+      });
+      const horasExtraPromedio = calcularHorasExtraPromedioPorLegajo(resultados, legajo.id, primerMes, 6);
+
+      const resultado = calcularLiquidacionVacaciones({
+        basico: legajo.basico, fechaAlta: legajo.fecha_alta, categoria, horasExtraPromedio,
+        desde: v.desde, hasta: v.hasta,
+      });
+      if (!resultado) { toast('No se pudo calcular la liquidación.', 'err'); return; }
+      setLiquidacion({ vacacionId: v.id, nombreLegajo: legajo.nombre, ...resultado });
+    } catch (e) {
+      toast('Error al liquidar: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setLiquidando(null);
+    }
+  }
+
   return (
     <div className="card">
       <h2>Vacaciones</h2>
-      <div className="hint">Días por antigüedad, asignación de períodos y control de notificación — reemplaza los Excel de licencias que arma RRHH a mano.</div>
+      <div className="hint">Días por antigüedad, asignación de períodos, liquidación y control de notificación — reemplaza los Excel de licencias que arma RRHH a mano.</div>
 
       <div className="row" style={{ marginTop: 14, flexWrap: 'wrap', alignItems: 'end' }}>
         <div className="field">
@@ -191,7 +276,12 @@ export function AsignarVacacionesSub() {
                       <td className="num">{diasDelPeriodo(v.desde, v.hasta)}</td>
                       <td>{v.comentario || ''}</td>
                       <td><input type="checkbox" checked={!!v.notificado} onChange={() => toggleNotificado(v)} /></td>
-                      <td><button className="small danger" onClick={() => eliminarPeriodo(v.id)}>Eliminar</button></td>
+                      <td>
+                        <button className="small secondary" onClick={() => liquidarPeriodo(v)} disabled={liquidando === v.id}>
+                          {liquidando === v.id ? 'Calculando…' : 'Liquidar'}
+                        </button>
+                        <button className="small danger" onClick={() => eliminarPeriodo(v.id)}>Eliminar</button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -222,6 +312,49 @@ export function AsignarVacacionesSub() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </>
+      )}
+
+      {liquidacion && (
+        <>
+          <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Liquidación — {liquidacion.nombreLegajo}</h3>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mes</th><th>Días</th><th>Antig. %</th><th>Total mensual</th><th>Por día</th>
+                  <th>Vacaciones</th><th>Plus Vac.</th><th>Antig. Plus Vac.</th><th>Bruto</th>
+                  <th>Jubil.</th><th>Ley 19032</th><th>Obra Soc.</th><th>ANSSAL</th><th>Sindical</th><th>Sepelio</th><th>Neto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {liquidacion.tramos.map((t) => (
+                  <tr key={t.anioMes}>
+                    <td>{t.anioMes}</td>
+                    <td className="num">{t.dias}</td>
+                    <td className="num">{t.antiguedadPct}%</td>
+                    <td className="num">{fmtMoneda(t.totalMensual)}</td>
+                    <td className="num">{fmtMoneda(t.porDia)}</td>
+                    <td className="num">{fmtMoneda(t.vacacionesBase)}</td>
+                    <td className="num">{fmtMoneda(t.plusVacacional)}</td>
+                    <td className="num">{fmtMoneda(t.antiguedadPlusVacacional)}</td>
+                    <td className="num">{fmtMoneda(t.bruto)}</td>
+                    <td className="num">{fmtMoneda(t.descuentoJubilacion)}</td>
+                    <td className="num">{fmtMoneda(t.descuentoLey19032)}</td>
+                    <td className="num">{fmtMoneda(t.descuentoObraSocial)}</td>
+                    <td className="num">{fmtMoneda(t.descuentoAnsal)}</td>
+                    <td className="num">{fmtMoneda(t.descuentoCuotaSindical)}</td>
+                    <td className="num">{fmtMoneda(t.descuentoSeguroSepelio)}</td>
+                    <td className="num" style={{ fontWeight: 700 }}>{fmtMoneda(t.neto)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="row" style={{ marginTop: 10, alignItems: 'center' }}>
+            <div style={{ fontWeight: 700 }}>Neto total del período: ${fmtMoneda(liquidacion.neto)}</div>
+            <button className="small secondary" onClick={() => setLiquidacion(null)}>Cerrar</button>
           </div>
         </>
       )}
