@@ -805,6 +805,7 @@ export function calcularLiquidacionVacaciones(params: {
 }): { tramos: TramoLiquidacion[]; bruto: number; totalDescuentos: number; neto: number } | null {
   const { basico, fechaAlta, categoria, horasExtraPromedio, desde, hasta } = params;
   if (!fechaAlta) return null;
+  if (!categoria.divisor_mensual || categoria.divisor_mensual <= 0) return null;
 
   const valorHoraExtra = (basico / 24 / 8) * 1.5;
   const montoHorasExtra = valorHoraExtra * horasExtraPromedio;
