@@ -58,8 +58,11 @@ export function CategoriasSub() {
     if (!nombre) { toast('Ponele un nombre a la categoría.', 'warn'); return null; }
     const numericos: Record<string, number> = {};
     for (const campo of CAMPOS_NUMERICOS) {
-      const n = Number(form[campo].replace(',', '.'));
-      if (!isFinite(n) || n < 0) { toast(`Revisá el valor de "${campo}".`, 'warn'); return null; }
+      const txt = form[campo].trim();
+      if (!txt) { toast(`Completá el valor de "${campo}".`, 'warn'); return null; }
+      const n = Number(txt.replace(',', '.'));
+      if (!isFinite(n)) { toast(`Revisá el valor de "${campo}".`, 'warn'); return null; }
+      if (campo === 'divisor_mensual' ? n <= 0 : n < 0) { toast(`Revisá el valor de "${campo}".`, 'warn'); return null; }
       numericos[campo] = n;
     }
     return { nombre, ...numericos };
