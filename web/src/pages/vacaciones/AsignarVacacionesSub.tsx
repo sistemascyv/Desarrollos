@@ -39,6 +39,9 @@ function mesAnterior(anioMes: string): string {
 interface ResultadoLiquidacion {
   vacacionId: string;
   nombreLegajo: string;
+  nombreCategoria: string;
+  basico: number;
+  horasExtraPromedio: number;
   tramos: TramoLiquidacion[];
   bruto: number;
   totalDescuentos: number;
@@ -208,7 +211,7 @@ export function AsignarVacacionesSub() {
         desde: v.desde, hasta: v.hasta,
       });
       if (!resultado) { toast('No se pudo calcular la liquidación.', 'err'); return; }
-      setLiquidacion({ vacacionId: v.id, nombreLegajo: legajo.nombre, ...resultado });
+      setLiquidacion({ vacacionId: v.id, nombreLegajo: legajo.nombre, nombreCategoria: categoria.nombre, ...resultado });
     } catch (e) {
       toast('Error al liquidar: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
@@ -320,11 +323,14 @@ export function AsignarVacacionesSub() {
       {liquidacion && (
         <>
           <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Liquidación — {liquidacion.nombreLegajo}</h3>
+          <div className="hint" style={{ marginBottom: 8 }}>
+            Categoría: {liquidacion.nombreCategoria} — Básico: ${fmtMoneda(liquidacion.basico)} — Horas extra promedio (6 meses): {liquidacion.horasExtraPromedio.toFixed(2)} hs/mes
+          </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Mes</th><th>Días</th><th>Antig. %</th><th>Total mensual</th><th>Por día</th>
+                  <th>Mes</th><th>Días</th><th>Antig. %</th><th>Horas Extra</th><th>Antig. $</th><th>Total mensual</th><th>Por día</th>
                   <th>Vacaciones</th><th>Plus Vac.</th><th>Antig. Plus Vac.</th><th>Bruto</th>
                   <th>Jubil.</th><th>Ley 19032</th><th>Obra Soc.</th><th>ANSSAL</th><th>Sindical</th><th>Sepelio</th><th>Neto</th>
                 </tr>
@@ -335,6 +341,8 @@ export function AsignarVacacionesSub() {
                     <td>{t.anioMes}</td>
                     <td className="num">{t.dias}</td>
                     <td className="num">{t.antiguedadPct}%</td>
+                    <td className="num">{fmtMoneda(t.montoHorasExtra)}</td>
+                    <td className="num">{fmtMoneda(t.montoAntiguedad)}</td>
                     <td className="num">{fmtMoneda(t.totalMensual)}</td>
                     <td className="num">{fmtMoneda(t.porDia)}</td>
                     <td className="num">{fmtMoneda(t.vacacionesBase)}</td>

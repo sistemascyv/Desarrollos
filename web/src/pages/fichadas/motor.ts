@@ -775,6 +775,8 @@ export interface TramoLiquidacion {
   anioMes: string;
   dias: number;
   antiguedadPct: number;
+  montoHorasExtra: number;
+  montoAntiguedad: number;
   totalMensual: number;
   porDia: number;
   vacacionesBase: number;
@@ -802,7 +804,7 @@ export function calcularLiquidacionVacaciones(params: {
   horasExtraPromedio: number;
   desde: string;
   hasta: string;
-}): { tramos: TramoLiquidacion[]; bruto: number; totalDescuentos: number; neto: number } | null {
+}): { basico: number; horasExtraPromedio: number; tramos: TramoLiquidacion[]; bruto: number; totalDescuentos: number; neto: number } | null {
   const { basico, fechaAlta, categoria, horasExtraPromedio, desde, hasta } = params;
   if (!fechaAlta) return null;
   if (!categoria.divisor_mensual || categoria.divisor_mensual <= 0) return null;
@@ -829,7 +831,7 @@ export function calcularLiquidacionVacaciones(params: {
     const totalDescuentos = descuentoJubilacion + descuentoLey19032 + descuentoObraSocial + descuentoAnsal + descuentoCuotaSindical + descuentoSeguroSepelio;
     const neto = bruto - totalDescuentos;
     return {
-      anioMes: t.anioMes, dias: t.dias, antiguedadPct, totalMensual, porDia,
+      anioMes: t.anioMes, dias: t.dias, antiguedadPct, montoHorasExtra, montoAntiguedad, totalMensual, porDia,
       vacacionesBase, plusVacacional, antiguedadPlusVacacional, bruto,
       descuentoJubilacion, descuentoLey19032, descuentoObraSocial, descuentoAnsal, descuentoCuotaSindical, descuentoSeguroSepelio,
       totalDescuentos, neto,
@@ -837,6 +839,7 @@ export function calcularLiquidacionVacaciones(params: {
   });
 
   return {
+    basico, horasExtraPromedio,
     tramos,
     bruto: tramos.reduce((a, t) => a + t.bruto, 0),
     totalDescuentos: tramos.reduce((a, t) => a + t.totalDescuentos, 0),
