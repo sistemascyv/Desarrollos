@@ -1,4 +1,4 @@
-import type { DiaHorario, FichadasFeriado, FichadasGrupoRestriccion, FichadasLegajo, FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo } from '../../types';
+import type { DiaHorario, FichadasCategoria, FichadasFeriado, FichadasGrupoRestriccion, FichadasLegajo, FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo } from '../../types';
 
 // Motor de cálculo de fichadas — portado 1:1 de la lógica ya validada en
 // el prototipo standalone (fichadas_prototipo.html). Misma fórmula de
@@ -698,4 +698,147 @@ export function detectarSolapamientoGrupo(params: {
     resultado.push({ nombre: otro?.nombre || '—', desde: v.desde, hasta: v.hasta });
   });
   return resultado;
+}
+
+// ---------- Liquidación de Vacaciones ----------
+
+// (añoLiquidacion - año de fecha_alta) + 1 -- se cuenta por años
+// calendario que abarca el período trabajado, no por años cumplidos
+// (verificado contra un caso real: ingreso 2025, liquidación 2026 ->
+// antigüedad 2, no 1). Sin fecha_alta: no calculable.
+export function calcularAntiguedadPctLiquidacion(fechaAlta: string | null | undefined, anioLiquidacion: number): number | null {
+  if (!fechaAlta) return null;
+  const anioAlta = Number(fechaAlta.slice(0, 4));
+  return (anioLiquidacion - anioAlta) + 1;
+}
+
+export interface TramoMes {
+  anioMes: string; // "YYYY-MM"
+  desde: string; // "YYYY-MM-DD"
+  hasta: string; // "YYYY-MM-DD"
+  dias: number; // inclusive
+}
+
+// Parte [desde,hasta] en tramos que no cruzan de mes calendario -- cada
+// tramo tiene su propio "año" para el cálculo de antigüedad de
+// liquidación (un período que cruza de diciembre a enero puede tener
+// % distinto en cada tramo).
+export function partirPeriodoPorMes(desde: string, hasta: string): TramoMes[] {
+  const [yD, mD, dD] = desde.split('-').map(Number);
+  const [yH, mH, dH] = hasta.split('-').map(Number);
+  const hastaUtc = Date.UTC(yH, mH - 1, dH);
+  const tramos: TramoMes[] = [];
+  let curUtc = Date.UTC(yD, mD - 1, dD);
+  while (curUtc <= hastaUtc) {
+    const cur = new Date(curUtc);
+    const anio = cur.getUTCFullYear();
+    const mes = cur.getUTCMonth(); // 0-indexado
+    const finDeMesUtc = Date.UTC(anio, mes + 1, 0); // último día de este mes
+    const finTramoUtc = Math.min(hastaUtc, finDeMesUtc);
+    const dias = Math.round((finTramoUtc - curUtc) / 86400000) + 1;
+    tramos.push({
+      anioMes: `${anio}-${String(mes + 1).padStart(2, '0')}`,
+      desde: new Date(curUtc).toISOString().slice(0, 10),
+      hasta: new Date(finTramoUtc).toISOString().slice(0, 10),
+      dias,
+    });
+    curUtc = finTramoUtc + 86400000;
+  }
+  return tramos;
+}
+
+// Promedio en HORAS (ResultadoDia.hE está en minutos) de horas extra de
+// los `meses` meses calendario inmediatamente anteriores a
+// `mesInicioExclusive` (sin incluirlo), para un legajo puntual.
+export function calcularHorasExtraPromedioPorLegajo(
+  resultados: ResultadoDia[],
+  idLegajo: string,
+  mesInicioExclusive: string, // "YYYY-MM"
+  meses = 6
+): number {
+  const [anioInicio, mesInicio] = mesInicioExclusive.split('-').map(Number);
+  const indiceInicio = anioInicio * 12 + (mesInicio - 1);
+  const indicesVentana = new Set<number>();
+  for (let i = 1; i <= meses; i++) indicesVentana.add(indiceInicio - i);
+
+  let totalMinutos = 0;
+  resultados.forEach((r) => {
+    if (r.idLegajo !== idLegajo) return;
+    const [y, m] = r.fecha.split('-').map(Number);
+    const indice = y * 12 + (m - 1);
+    if (indicesVentana.has(indice)) totalMinutos += r.hE;
+  });
+  return totalMinutos / 60 / meses;
+}
+
+export interface TramoLiquidacion {
+  anioMes: string;
+  dias: number;
+  antiguedadPct: number;
+  totalMensual: number;
+  porDia: number;
+  vacacionesBase: number;
+  plusVacacional: number;
+  antiguedadPlusVacacional: number;
+  bruto: number;
+  descuentoJubilacion: number;
+  descuentoLey19032: number;
+  descuentoObraSocial: number;
+  descuentoAnsal: number;
+  descuentoCuotaSindical: number;
+  descuentoSeguroSepelio: number;
+  totalDescuentos: number;
+  neto: number;
+}
+
+// Replica exacta de las fórmulas del Excel de RRHH (ACTIS TOBIAS.xls).
+// Un período que cruza de mes se parte en tramos (partirPeriodoPorMes);
+// cada tramo usa el mismo basico/horasExtraPromedio/categoria, pero su
+// propio antiguedadPct (el año de ESE tramo).
+export function calcularLiquidacionVacaciones(params: {
+  basico: number;
+  fechaAlta: string | null | undefined;
+  categoria: FichadasCategoria;
+  horasExtraPromedio: number;
+  desde: string;
+  hasta: string;
+}): { tramos: TramoLiquidacion[]; bruto: number; totalDescuentos: number; neto: number } | null {
+  const { basico, fechaAlta, categoria, horasExtraPromedio, desde, hasta } = params;
+  if (!fechaAlta) return null;
+
+  const valorHoraExtra = (basico / 24 / 8) * 1.5;
+  const montoHorasExtra = valorHoraExtra * horasExtraPromedio;
+
+  const tramos: TramoLiquidacion[] = partirPeriodoPorMes(desde, hasta).map((t) => {
+    const anioTramo = Number(t.anioMes.slice(0, 4));
+    const antiguedadPct = calcularAntiguedadPctLiquidacion(fechaAlta, anioTramo)!;
+    const montoAntiguedad = (basico + montoHorasExtra) * (antiguedadPct / 100);
+    const totalMensual = basico + montoHorasExtra + montoAntiguedad;
+    const porDia = totalMensual / categoria.divisor_mensual;
+    const vacacionesBase = porDia * t.dias;
+    const plusVacacional = categoria.plus_vacacional * t.dias;
+    const antiguedadPlusVacacional = plusVacacional * (antiguedadPct / 100);
+    const bruto = vacacionesBase + plusVacacional + antiguedadPlusVacacional;
+    const descuentoJubilacion = bruto * (categoria.pct_jubilacion / 100);
+    const descuentoLey19032 = bruto * (categoria.pct_ley19032 / 100);
+    const descuentoObraSocial = bruto * (categoria.pct_obra_social / 100);
+    const descuentoAnsal = bruto * (categoria.pct_ansal / 100);
+    const descuentoCuotaSindical = bruto * (categoria.pct_cuota_sindical / 100);
+    const descuentoSeguroSepelio = bruto * (categoria.pct_seguro_sepelio / 100);
+    const totalDescuentos = descuentoJubilacion + descuentoLey19032 + descuentoObraSocial + descuentoAnsal + descuentoCuotaSindical + descuentoSeguroSepelio;
+    const neto = bruto - totalDescuentos;
+    return {
+      anioMes: t.anioMes, dias: t.dias, antiguedadPct, totalMensual, porDia,
+      vacacionesBase, plusVacacional, antiguedadPlusVacacional, bruto,
+      descuentoJubilacion, descuentoLey19032, descuentoObraSocial, descuentoAnsal, descuentoCuotaSindical, descuentoSeguroSepelio,
+      totalDescuentos, neto,
+    };
+  });
+
+  return {
+    tramos,
+    bruto: tramos.reduce((a, t) => a + t.bruto, 0),
+    totalDescuentos: tramos.reduce((a, t) => a + t.totalDescuentos, 0),
+    neto: tramos.reduce((a, t) => a + t.neto, 0),
+  };
 }
