@@ -1,12 +1,10 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { CargaTab } from './CargaTab';
 import { ResultadosTab } from './ResultadosTab';
-import { ConfiguracionTab } from './ConfiguracionTab';
 
 const TABS = [
   { id: 'carga', label: 'Carga y novedades' },
   { id: 'resultados', label: 'Resultados' },
-  { id: 'configuracion', label: 'Configuración' },
 ];
 
 export function FichadasPage() {
@@ -38,7 +36,6 @@ export function FichadasPage() {
 
       {tab === 'carga' && <CargaTab />}
       {tab === 'resultados' && <ResultadosTab />}
-      {tab === 'configuracion' && <ConfiguracionTab />}
     </main>
   );
 }

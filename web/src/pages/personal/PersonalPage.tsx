@@ -3,7 +3,7 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { fechaSola } from '../../lib/format';
-import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from './motor';
+import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from '../fichadas/motor';
 import type { DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -16,7 +16,7 @@ const SUB_TABS = [
 ] as const;
 type SubTabId = typeof SUB_TABS[number]['id'];
 
-export function ConfiguracionTab() {
+export function PersonalPage() {
   const [subTab, setSubTab] = useState<SubTabId>('empleados');
   const [empresas, setEmpresas] = useState<FichadasEmpresa[]>([]);
   const [horarios, setHorarios] = useState<FichadasHorario[]>([]);
@@ -44,22 +44,24 @@ export function ConfiguracionTab() {
   }, [tick]);
 
   return (
-    <div className="card">
-      <h2>Configuración</h2>
-      <div className="hint">Empleados nuevos, cambios de horario, plantillas y áreas — sin depender de un nuevo export de CINTIA.</div>
-      <div className="row" style={{ marginTop: 12 }}>
-        {SUB_TABS.map((t) => (
-          <button key={t.id} className={subTab === t.id ? 'small' : 'small secondary'} onClick={() => setSubTab(t.id)}>{t.label}</button>
-        ))}
+    <main>
+      <div className="card">
+        <h2>Configuración</h2>
+        <div className="hint">Empleados nuevos, cambios de horario, plantillas y áreas — sin depender de un nuevo export de CINTIA.</div>
+        <div className="row" style={{ marginTop: 12 }}>
+          {SUB_TABS.map((t) => (
+            <button key={t.id} className={subTab === t.id ? 'small' : 'small secondary'} onClick={() => setSubTab(t.id)}>{t.label}</button>
+          ))}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          {subTab === 'empleados' && <EmpleadosSub empresas={empresas} horarios={horarios} legajos={legajos} categorias={categorias} onChanged={refrescar} />}
+          {subTab === 'horario_personal' && <HorarioPersonalSub legajos={legajos} onChanged={refrescar} />}
+          {subTab === 'horas_fijas' && <HorasFijasSub legajos={legajos} onChanged={refrescar} />}
+          {subTab === 'plantillas' && <PlantillasSub horarios={horarios} legajos={legajos} onChanged={refrescar} />}
+          {subTab === 'areas' && <AreasSub empresas={empresas} legajos={legajos} onChanged={refrescar} />}
+        </div>
       </div>
-      <div style={{ marginTop: 14 }}>
-        {subTab === 'empleados' && <EmpleadosSub empresas={empresas} horarios={horarios} legajos={legajos} categorias={categorias} onChanged={refrescar} />}
-        {subTab === 'horario_personal' && <HorarioPersonalSub legajos={legajos} onChanged={refrescar} />}
-        {subTab === 'horas_fijas' && <HorasFijasSub legajos={legajos} onChanged={refrescar} />}
-        {subTab === 'plantillas' && <PlantillasSub horarios={horarios} legajos={legajos} onChanged={refrescar} />}
-        {subTab === 'areas' && <AreasSub empresas={empresas} legajos={legajos} onChanged={refrescar} />}
-      </div>
-    </div>
+    </main>
   );
 }
 
