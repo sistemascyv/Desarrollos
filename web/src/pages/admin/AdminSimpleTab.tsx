@@ -7,7 +7,9 @@ import type { BaseRecord } from '../../types';
 export interface ColumnDef<T> {
   field: keyof T;
   label: string;
-  type?: 'text' | 'number'; // default 'text' — controla el input al editar
+  type?: 'text' | 'number' | 'select'; // default 'text' — controla el input al editar
+  options?: { value: string; label: string }[]; // requerido si type === 'select'
+  render?: (value: unknown) => string; // cómo mostrar el valor en modo lectura (default: String(value))
 }
 
 interface Props<T extends BaseRecord & { activo: boolean }> {
@@ -161,13 +163,23 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
                   {columns.map((c, i) => (
                     <td key={String(c.field)} className={i === 0 ? 'admin-name' : ''}>
                       {editing ? (
-                        <input
-                          type={c.type === 'number' ? 'number' : 'text'}
-                          value={draft[String(c.field)] ?? ''}
-                          onChange={(e) => setDraft((d) => ({ ...d, [String(c.field)]: e.target.value }))}
-                        />
+                        c.type === 'select' ? (
+                          <select
+                            value={draft[String(c.field)] ?? ''}
+                            onChange={(e) => setDraft((d) => ({ ...d, [String(c.field)]: e.target.value }))}
+                          >
+                            <option value="">—</option>
+                            {(c.options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            type={c.type === 'number' ? 'number' : 'text'}
+                            value={draft[String(c.field)] ?? ''}
+                            onChange={(e) => setDraft((d) => ({ ...d, [String(c.field)]: e.target.value }))}
+                          />
+                        )
                       ) : (
-                        String(item[c.field] ?? '') || (i === 0 ? '—' : '')
+                        c.render ? c.render(item[c.field]) : (String(item[c.field] ?? '') || (i === 0 ? '—' : ''))
                       )}
                     </td>
                   ))}

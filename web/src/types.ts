@@ -10,6 +10,7 @@ export interface Chofer extends BaseRecord {
   nombre: string;
   localidad?: string;
   activo: boolean;
+  legajo?: string; // relación a fichadas_legajos (id)
 }
 
 export interface ValeCaja extends BaseRecord {
