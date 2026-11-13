@@ -102,8 +102,8 @@ migrate((db) => {
   const tarifas = dao.findCollectionByNameOrId('sueldos_tarifas_viaje');
   const tarifasNuevas = [
     { nombre: "Control Carga y Descarga", valor: 47720.58 },
-    { nombre: "Kilometros recorridos (por km)", valor: 91.625 },
-    { nombre: "Kilometros zona 1,20 (por km)", valor: 109.951 },
+    { nombre: "Kilometros recorridos (por km)", valor: 91.62549 },
+    { nombre: "Kilometros zona 1,20 (por km)", valor: 109.950588 },
     { nombre: "Permanencia remunerativa (por dia y persona)", valor: 32418.56 },
     { nombre: "Permanencia viaticos (por dia y persona)", valor: 61847.64 },
     { nombre: "Cruce de frontera (por cada cruce)", valor: 42592.11 },

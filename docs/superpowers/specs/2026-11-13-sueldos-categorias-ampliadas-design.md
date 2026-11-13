@@ -41,8 +41,8 @@ Conductor 1ª/2ª/3ª, Conductor 1ª Local (+18%), Conductor 1ª Pinturas y Mat.
 
 **Tarifas de viaje:**
 - Control Carga y Descarga: $47.720,58
-- Kilómetros recorridos: $91,625 (por km)
-- Kilómetros zona 1,20: $109,951 (por km)
+- Kilómetros recorridos: $91,62549 (por km)
+- Kilómetros zona 1,20: $109,950588 (por km)
 - Permanencia remunerativa: $32.418,56 (por día y persona)
 - Permanencia viáticos: $61.847,64 (por día y persona)
 - Cruce de frontera: $42.592,11 (por cada cruce)
