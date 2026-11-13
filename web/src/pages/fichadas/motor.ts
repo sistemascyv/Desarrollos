@@ -846,3 +846,59 @@ export function calcularLiquidacionVacaciones(params: {
     neto: tramos.reduce((a, t) => a + t.neto, 0),
   };
 }
+
+export interface LiquidacionSueldoMensual {
+  basico: number;
+  antiguedadPct: number;
+  horasExtraMes: number;
+  montoHorasExtra: number;
+  montoAntiguedad: number;
+  bruto: number;
+  descuentoJubilacion: number;
+  descuentoLey19032: number;
+  descuentoObraSocial: number;
+  descuentoAnsal: number;
+  descuentoCuotaSindical: number;
+  descuentoSeguroSepelio: number;
+  totalDescuentos: number;
+  neto: number;
+}
+
+// Sueldo mensual de un legajo administrativo: básico + horas extra REALES de
+// ese mes (a diferencia de la liquidación de vacaciones, que promedia 6
+// meses) + antigüedad − descuentos = neto. A diferencia de
+// calcularLiquidacionVacaciones, acá el básico YA es el sueldo del mes
+// completo -- no se prorratea por día ni se suma plus vacacional.
+export function calcularLiquidacionSueldoMensual(params: {
+  basico: number;
+  fechaAlta: string | null | undefined;
+  categoria: FichadasCategoria;
+  horasExtraMes: number; // en HORAS, no minutos
+  anioMes: string; // "YYYY-MM"
+}): LiquidacionSueldoMensual | null {
+  const { basico, fechaAlta, categoria, horasExtraMes, anioMes } = params;
+  if (!fechaAlta) return null;
+  const anio = Number(anioMes.slice(0, 4));
+  const antiguedadPct = calcularAntiguedadPctLiquidacion(fechaAlta, anio);
+  if (antiguedadPct === null) return null;
+
+  const valorHoraExtra = (basico / 24 / 8) * 1.5;
+  const montoHorasExtra = valorHoraExtra * horasExtraMes;
+  const montoAntiguedad = (basico + montoHorasExtra) * (antiguedadPct / 100);
+  const bruto = basico + montoHorasExtra + montoAntiguedad;
+
+  const descuentoJubilacion = bruto * (categoria.pct_jubilacion / 100);
+  const descuentoLey19032 = bruto * (categoria.pct_ley19032 / 100);
+  const descuentoObraSocial = bruto * (categoria.pct_obra_social / 100);
+  const descuentoAnsal = bruto * (categoria.pct_ansal / 100);
+  const descuentoCuotaSindical = bruto * (categoria.pct_cuota_sindical / 100);
+  const descuentoSeguroSepelio = bruto * (categoria.pct_seguro_sepelio / 100);
+  const totalDescuentos = descuentoJubilacion + descuentoLey19032 + descuentoObraSocial + descuentoAnsal + descuentoCuotaSindical + descuentoSeguroSepelio;
+  const neto = bruto - totalDescuentos;
+
+  return {
+    basico, antiguedadPct, horasExtraMes, montoHorasExtra, montoAntiguedad, bruto,
+    descuentoJubilacion, descuentoLey19032, descuentoObraSocial, descuentoAnsal, descuentoCuotaSindical, descuentoSeguroSepelio,
+    totalDescuentos, neto,
+  };
+}
