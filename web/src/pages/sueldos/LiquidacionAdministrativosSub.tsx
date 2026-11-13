@@ -21,7 +21,7 @@ export function LiquidacionAdministrativosSub() {
       try {
         const [todos, choferes] = await Promise.all([
           pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ filter: 'estado = true', sort: 'nombre', expand: 'categoria' }),
-          pb.collection('choferes').getFullList<Chofer>(),
+          pb.collection('choferes').getFullList<Chofer>({ filter: 'activo = true' }),
         ]);
         const legajosDeChofer = new Set(choferes.map((c) => c.legajo).filter(Boolean));
         setLegajos(todos.filter((l) => !legajosDeChofer.has(l.id)));
