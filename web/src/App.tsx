@@ -36,6 +36,9 @@ const FichadasPage = lazy(() =>
 const PersonalPage = lazy(() =>
   import('./pages/personal/PersonalPage').then((m) => ({ default: m.PersonalPage }))
 );
+const SueldosPage = lazy(() =>
+  import('./pages/sueldos/SueldosPage').then((m) => ({ default: m.SueldosPage }))
+);
 const VacacionesPage = lazy(() =>
   import('./pages/vacaciones/VacacionesPage').then((m) => ({ default: m.VacacionesPage }))
 );
@@ -154,6 +157,14 @@ function App() {
           element={
             <RequireModule moduleId="personal">
               <PersonalPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/rrhh/sueldos"
+          element={
+            <RequireModule moduleId="sueldos">
+              <SueldosPage />
             </RequireModule>
           }
         />
