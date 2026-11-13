@@ -32,6 +32,7 @@ const COLUMNAS_EXCEL: [keyof Tramo, string, boolean, boolean][] = [
   ['total_gastos', 'Total gastos', true, true], ['km_recorridos', 'Km recorridos', false, true],
   ['km_dobles', 'Km dobles', false, true], ['control', 'Control', false, false],
   ['permanencia', 'Permanencia (noches)', false, true], ['cruce_frontera', 'Cruce frontera', false, true],
+  ['km_zona_120', 'Km zona 1,20', false, true], ['es_aguas_gaseosas', 'Aguas y Gaseosas', false, false],
 ];
 
 function cmpTramos(a: Tramo, b: Tramo) {

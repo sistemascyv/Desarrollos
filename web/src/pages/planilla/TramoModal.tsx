@@ -37,6 +37,8 @@ interface FormState {
   litros_intermedios: number;
   litros_equipo_frio: number;
   es_posicionamiento: boolean;
+  es_aguas_gaseosas: boolean;
+  km_zona_120: number;
   control: boolean;
 }
 
@@ -45,6 +47,7 @@ type NumKey = { [K in keyof FormState]: FormState[K] extends number ? K : never 
 // Ninguno de estos admite valores negativos.
 const NUM_LABELS: Record<NumKey, string> = {
   peajes: 'Peajes', gastos_varios: 'Gastos varios', km_alargue: 'Km alargue',
+  km_zona_120: 'Km zona 1,20',
   comida_viaje: 'Comida viaje', comida_internacional: 'Comida internacional',
   entrega_retiro_sfco: 'Entrega/Retiro SFCO', interrupcion: 'Interrupción', cyd_manual: 'CyD manual',
   control_gral: 'Control gral', descanso: 'Descanso', vale_importe: 'Vale importe',
@@ -60,6 +63,7 @@ const EMPTY: FormState = {
   cyd_manual: 0, control_gral: 0, descanso: 0, vale_nro: '', vale_importe: 0,
   km_recorridos: 0, km_dobles: 0, permanencia: 0, cruce_frontera: 0,
   litros_consumidos: 0, litros_intermedios: 0, litros_equipo_frio: 0,
+  km_zona_120: 0, es_aguas_gaseosas: false,
   es_posicionamiento: false, control: false,
 };
 
@@ -92,6 +96,8 @@ function fromTramo(t: Tramo): FormState {
     litros_consumidos: t.litros_consumidos || 0,
     litros_intermedios: t.litros_intermedios || 0,
     litros_equipo_frio: t.litros_equipo_frio || 0,
+    km_zona_120: t.km_zona_120 || 0,
+    es_aguas_gaseosas: !!t.es_aguas_gaseosas,
     es_posicionamiento: !!t.es_posicionamiento,
     control: !!t.control,
   };
@@ -262,6 +268,7 @@ export function TramoModal({ tramo, vehiculos, clientes, rutas, mesesCerrados, o
               <div className="row">
                 <div className="field"><label><input type="checkbox" checked={form.es_posicionamiento} onChange={(e) => onPosicionamientoChange(e.target.checked)} /> Es posicionamiento (Carga = "T")</label></div>
                 <div className="field"><label><input type="checkbox" checked={form.control} onChange={(e) => set('control', e.target.checked)} /> Control</label></div>
+                <div className="field"><label><input type="checkbox" checked={form.es_aguas_gaseosas} onChange={(e) => set('es_aguas_gaseosas', e.target.checked)} /> Aguas y Gaseosas</label></div>
               </div>
             </fieldset>
             <fieldset>
@@ -282,6 +289,7 @@ export function TramoModal({ tramo, vehiculos, clientes, rutas, mesesCerrados, o
               )}
               <div className="row">
                 <Num label="Cruce frontera" value={form.cruce_frontera} onChange={(n) => set('cruce_frontera', n)} />
+                <Num label="Km zona 1,20" value={form.km_zona_120} onChange={(n) => set('km_zona_120', n)} />
               </div>
             </fieldset>
           </div>

@@ -86,9 +86,11 @@ export interface Tramo extends BaseRecord {
   destino?: string;
   cliente?: string;
   es_posicionamiento?: boolean;
+  es_aguas_gaseosas?: boolean;
   peajes?: number;
   gastos_varios?: number;
   km_alargue?: number;
+  km_zona_120?: number;
   comida_viaje?: number;
   comida_internacional?: number;
   entrega_retiro_sfco?: number;
