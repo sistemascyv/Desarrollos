@@ -42,6 +42,12 @@ function fechaCorta(iso: string | undefined) {
   return iso ? new Date(iso.replace(' ', 'T')).toLocaleDateString('es-AR') : '';
 }
 
+interface CruceUnidad {
+  tractor: string;
+  kmCargados: number;
+  kmSatelital: number | null; // null = sin dato del satelital para esta unidad
+}
+
 export function PlanillaChoferesPage() {
   const toast = useToast();
   const confirm = useConfirm();
@@ -73,6 +79,8 @@ export function PlanillaChoferesPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTramo, setEditingTramo] = useState<Tramo | null>(null);
+  const [verificando, setVerificando] = useState(false);
+  const [cruceSatelital, setCruceSatelital] = useState<CruceUnidad[] | null>(null);
 
   // Cada búsqueda lleva un número: si el usuario cambia de chofer/mes mientras
   // la anterior sigue en vuelo, la respuesta vieja se descarta en vez de pisar
@@ -281,6 +289,52 @@ export function PlanillaChoferesPage() {
     setTramos(todos);
     await ensureTarifasFor([...new Set(todos.map((t) => t.mes).filter(Boolean))]);
     if (mi === tramosReq.current) setCargando(false);
+  }
+
+  async function verificarSatelital() {
+    if (!choferId || !desde || !hasta) { toast('Elegí chofer y el rango de fechas.', 'warn'); return; }
+    setVerificando(true);
+    setCruceSatelital(null);
+    try {
+      const desdeUnix = Math.floor(new Date(desde + 'T00:00:00').getTime() / 1000);
+      const hastaUnix = Math.floor(new Date(hasta + 'T23:59:59').getTime() / 1000);
+      const res = await pb.send<{ unidades: { alias: string; patente: string; distanciaKm: number }[]; megatransFallidos?: number }>(
+        `/api/flota/km-real/${desdeUnix}/${hastaUnix}`, { method: 'GET' }
+      );
+      const unidadesSatelital = res.unidades || [];
+      if (res.megatransFallidos) {
+        toast(`${res.megatransFallidos} unidad(es) de Megatrans no respondieron — el cruce puede estar incompleto.`, 'warn');
+      }
+
+      const porTractor = new Map<string, number>();
+      for (const t of tramos) {
+        const tractor = (t.tractor || '').trim();
+        if (!tractor) continue;
+        const km = (t.km_recorridos || 0) + (t.km_alargue || 0);
+        porTractor.set(tractor, (porTractor.get(tractor) || 0) + km);
+      }
+
+      const normalizar = (s: string) => s.replace(/\s+/g, '').toUpperCase();
+      const resultado: CruceUnidad[] = [];
+      for (const [tractor, kmCargados] of porTractor) {
+        const vehiculo = vehiculos.find((v) => normalizar(v.codigo) === normalizar(tractor));
+        let kmSatelital: number | null = null;
+        if (vehiculo) {
+          const match = unidadesSatelital.find((u) =>
+            normalizar(u.alias) === normalizar(vehiculo.codigo) ||
+            (!!vehiculo.patente && normalizar(u.patente) === normalizar(vehiculo.patente))
+          );
+          if (match) kmSatelital = match.distanciaKm;
+        }
+        resultado.push({ tractor, kmCargados, kmSatelital });
+      }
+      resultado.sort((a, b) => a.tractor.localeCompare(b.tractor));
+      setCruceSatelital(resultado);
+    } catch (e) {
+      toast('No se pudo verificar con el satelital: ' + mensajeDeError(e), 'err');
+    } finally {
+      setVerificando(false);
+    }
   }
 
   async function loadValesDisponibles() {
@@ -550,8 +604,45 @@ export function PlanillaChoferesPage() {
           <button className="secondary" onClick={() => { setEditingTramo(null); setModalOpen(true); }}>+ Nuevo tramo</button>
           <button className="secondary" onClick={exportExcel}>Exportar Excel</button>
           <button className="secondary" onClick={() => window.print()}>Imprimir</button>
+          <button className="secondary" onClick={verificarSatelital} disabled={verificando || !choferId || !desde || !hasta}>
+            {verificando ? 'Verificando…' : 'Verificar con satelital'}
+          </button>
         </div>
       </div>
+
+      {cruceSatelital && (
+        <div className="card">
+          <h2>Cruce con satelital</h2>
+          <div className="hint">Km cargados en los tramos (km_recorridos + km_alargue) vs. km real del satelital (Pressa/Megatrans) para el mismo período.</div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Unidad</th><th className="num">Km cargados</th><th className="num">Km satelital</th><th className="num">Diferencia</th></tr></thead>
+              <tbody>
+                {cruceSatelital.map((c) => {
+                  const diferencia = c.kmSatelital !== null ? c.kmCargados - c.kmSatelital : null;
+                  const diferenciaPct = c.kmSatelital !== null && c.kmSatelital !== 0 ? ((diferencia as number) / c.kmSatelital) * 100 : null;
+                  const alerta = diferenciaPct !== null && Math.abs(diferenciaPct) > 10;
+                  return (
+                    <tr key={c.tractor}>
+                      <td className="admin-name">{c.tractor}</td>
+                      <td className="num">{c.kmCargados.toLocaleString('es-AR')}</td>
+                      <td className="num">{c.kmSatelital !== null ? c.kmSatelital.toLocaleString('es-AR') : 'Sin dato satelital para esta unidad'}</td>
+                      <td className="num">
+                        {diferencia !== null ? (
+                          <span className={alerta ? 'badge pending' : undefined}>
+                            {diferencia > 0 ? '+' : ''}{diferencia.toLocaleString('es-AR')} km{diferenciaPct !== null ? ` (${diferenciaPct.toFixed(1)}%)` : ''}
+                          </span>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {cruceSatelital.length === 0 && <tr><td className="empty" colSpan={4}>No hay tramos con unidad cargada en este período.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h2>Tarifa y viático por mes</h2>
