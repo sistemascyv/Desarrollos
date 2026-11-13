@@ -15,6 +15,7 @@ const CAMPOS_PCT: { key: keyof FormCategoria; label: string }[] = [
 
 interface FormCategoria {
   nombre: string;
+  basico_sugerido: string;
   plus_vacacional: string;
   divisor_mensual: string;
   pct_jubilacion: string;
@@ -31,7 +32,7 @@ const CAMPOS_NUMERICOS: (keyof FormCategoria)[] = [
 ];
 
 const FORM_VACIO: FormCategoria = {
-  nombre: '', plus_vacacional: '', divisor_mensual: '24',
+  nombre: '', basico_sugerido: '', plus_vacacional: '', divisor_mensual: '24',
   pct_jubilacion: '11', pct_ley19032: '3', pct_obra_social: '2.55',
   pct_ansal: '0.45', pct_cuota_sindical: '3', pct_seguro_sepelio: '1.5',
 };
@@ -65,6 +66,12 @@ export function CategoriasSub() {
       if (campo === 'divisor_mensual' ? n <= 0 : n < 0) { toast(`Revisá el valor de "${campo}".`, 'warn'); return null; }
       numericos[campo] = n;
     }
+    const basicoTxt = form.basico_sugerido.trim();
+    if (basicoTxt) {
+      const basico = Number(basicoTxt.replace(',', '.'));
+      if (!isFinite(basico) || basico < 0) { toast('Revisá el valor de "Básico sugerido".', 'warn'); return null; }
+      numericos.basico_sugerido = basico;
+    }
     return { nombre, ...numericos };
   }
 
@@ -85,6 +92,7 @@ export function CategoriasSub() {
     setEditandoId(c.id);
     setForm({
       nombre: c.nombre,
+      basico_sugerido: c.basico_sugerido ? String(c.basico_sugerido) : '',
       plus_vacacional: String(c.plus_vacacional),
       divisor_mensual: String(c.divisor_mensual),
       pct_jubilacion: String(c.pct_jubilacion),
@@ -129,10 +137,11 @@ export function CategoriasSub() {
 
   return (
     <div className="card">
-      <div className="hint">Categorías de convenio — cada una con su Plus Vacacional, divisor y % de descuentos, usados al liquidar vacaciones.</div>
+      <div className="hint">Categorías de convenio — cada una con su Plus Vacacional, divisor y % de descuentos, usados al liquidar vacaciones. El Básico sugerido es solo de referencia (viene de la escala del sindicato) — el básico real de cada empleado se sigue cargando a mano en Personal.</div>
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '14px 0 8px' }}>{editandoId ? 'Editar categoría' : 'Nueva categoría'}</h3>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <div className="field"><label>Nombre</label><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Administ 2da" /></div>
+        <div className="field"><label>Básico sugerido ($, opcional)</label><input value={form.basico_sugerido} onChange={(e) => setForm({ ...form, basico_sugerido: e.target.value })} style={{ width: 130 }} /></div>
         <div className="field"><label>Plus Vacacional ($/día)</label><input value={form.plus_vacacional} onChange={(e) => setForm({ ...form, plus_vacacional: e.target.value })} style={{ width: 110 }} /></div>
         <div className="field"><label>Divisor mensual</label><input value={form.divisor_mensual} onChange={(e) => setForm({ ...form, divisor_mensual: e.target.value })} style={{ width: 90 }} /></div>
         {CAMPOS_PCT.map((c) => (
@@ -156,11 +165,12 @@ export function CategoriasSub() {
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Categorías ({categorias.length})</h3>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Nombre</th><th>Plus Vac.</th><th>Divisor</th><th>Jubil.</th><th>Ley 19032</th><th>Obra Soc.</th><th>ANSSAL</th><th>Sindical</th><th>Sepelio</th><th></th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Básico sug.</th><th>Plus Vac.</th><th>Divisor</th><th>Jubil.</th><th>Ley 19032</th><th>Obra Soc.</th><th>ANSSAL</th><th>Sindical</th><th>Sepelio</th><th></th></tr></thead>
           <tbody>
             {categorias.map((c) => (
               <tr key={c.id}>
                 <td className="admin-name">{c.nombre}</td>
+                <td className="num">{c.basico_sugerido || '—'}</td>
                 <td className="num">{c.plus_vacacional}</td>
                 <td className="num">{c.divisor_mensual}</td>
                 <td className="num">{c.pct_jubilacion}%</td>

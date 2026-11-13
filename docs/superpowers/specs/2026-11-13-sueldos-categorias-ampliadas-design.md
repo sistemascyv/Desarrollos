@@ -37,7 +37,7 @@ Este spec cubre **solo el punto 1**.
 Extraje estos valores directo de la hoja `noviembre 2026 ` del Excel y los crucé contra la escala oficial del sindicato (coinciden). Los cargo como parte de la migración:
 
 **Categorías — básicos (ya existen como concepto, agrego las filas que faltan):**
-Conductor 1ª/2ª/3ª, Conductor 1ª Local (+18%), Conductor 1ª Pinturas y Mat. Peligro (+20%), Encargado, Recibidor/Clasificador (+16%), Recibidor en Cámara de Frío (+18%), Peones Especializados, Peones Especializados Cámara de Frío (+18%), Peones Carga y Descarga (+16%), Peones Carga y Descarga Cámara de Frío (+18%), Operadores de Autoelevadores, Oficial de Primera (+25%), Oficial de Taller (+25%), Oficial (+25%), Medio Oficial (+18%), Oficial Gomero (+25%), Medio Oficial Gomero (+18%), Lavadores/Engrasadores, Administrativo 1ª/2ª/3ª/4ª, Maestranza y/o Serenos — básico y plus vacacional ($26.753,19, igual para todas) de cada una.
+Conductor 1ª/2ª/3ª, Conductor 1ª Local (+18%), Conductor 1ª Pinturas y Mat. Peligro (+20%), Encargado, Recibidor/Clasificador (+16%), Recibidor en Cámara de Frío (+18%), Peones Especializados, Peones Especializados Cámara de Frío (+18%), Peones Carga y Descarga (+16%), Peones Carga y Descarga Cámara de Frío (+18%), Operadores de Autoelevadores, Oficial de Primera (+25%), Oficial de Taller (+25%), Oficial (+25%), Medio Oficial (+18%), Oficial Gomero (+25%), Medio Oficial Gomero (+18%), Lavadores/Engrasadores, Administrativo 1ª/2ª/3ª/4ª, Maestranza y/o Serenos — cada una con su "Básico sugerido" (el básico final de la Planilla 248, ya con el adicional de especialidad incluido — ver Addendum) y plus vacacional ($26.753,19, igual para todas).
 
 **Tarifas de viaje:**
 - Control Carga y Descarga: $47.720,58
@@ -51,7 +51,7 @@ Conductor 1ª/2ª/3ª, Conductor 1ª Local (+18%), Conductor 1ª Pinturas y Mat.
 
 ## Modelo de datos
 
-`fichadas_categorias` — sin cambios de esquema. Solo cambian las reglas de acceso (ver abajo) y se agregan filas.
+`fichadas_categorias` gana un campo nuevo, `basico_sugerido` (number, opcional) — ver Addendum. Fuera de eso, sin más cambios de esquema; solo cambian las reglas de acceso (ver abajo) y se agregan filas.
 
 `sueldos_tarifas_viaje` (colección nueva):
 - `nombre` (text, requerido)
@@ -74,3 +74,11 @@ Conductor 1ª/2ª/3ª, Conductor 1ª Local (+18%), Conductor 1ª Pinturas y Mat.
 ## Testing
 
 Sin tests automatizados de frontend en este proyecto (ya establecido). Cada tarea del plan termina con `npm run build` limpio + verificación manual paso a paso, más prueba en vivo contra una instancia de PocketBase de testing con un usuario no-admin que solo tenga el módulo `sueldos` (mismo patrón de verificación que se usó en Personal/Liquidación de Vacaciones) para confirmar que los permisos cortan donde deben.
+
+## Addendum (post-implementación, antes de desplegar en ningún entorno)
+
+La revisión final de rama (whole-branch review) detectó que esta sección de "Datos iniciales" prometía ambiguamente "básico ... de cada una" para las categorías, pero `fichadas_categorias` nunca tuvo ni tiene un campo `basico` (el básico real de cada empleado se carga a mano en Personal, por diseño) — así que las ~25 categorías/variantes quedaron idénticas en todo salvo el nombre, sin ningún dato que ayude a recordar qué básico corresponde a cada variante de especialidad. Consultado, el usuario pidió agregar un campo de referencia cargado por mí mismo (no a mano) desde la misma Planilla 248.
+
+Se agregó `basico_sugerido` (number, opcional, solo informativo — no se usa en ningún cálculo) a `fichadas_categorias`, con el valor de la columna "nuevo básico" de la hoja `noviembre 2026 ` de `PLANILLA SUELDOS 2026.xls` (el básico final de cada fila, ya con el adicional de especialidad sumado) para las 25 categorías/variantes. Se agregó al mismo campo del esquema en la migración `1789480000` (no se creó una migración nueva, ya que esta no se había desplegado en ningún entorno todavía), al tipo `FichadasCategoria` en `web/src/types.ts`, y como columna/campo editable (opcional) en `CategoriasSub.tsx`.
+
+También se corrigió, en el mismo pase, que las tarifas "Kilómetros recorridos" y "Kilómetros zona 1,20" habían quedado redondeadas a 3 decimales en la migración en vez de usar la precisión completa del Excel (91,62549 y 109,950588) — detectado por la misma revisión final, corregido antes de aplicarse en ningún entorno.

@@ -351,6 +351,7 @@ export interface FichadasGrupoRestriccion extends BaseRecord {
 
 export interface FichadasCategoria extends BaseRecord {
   nombre: string;
+  basico_sugerido?: number;
   plus_vacacional: number;
   divisor_mensual: number;
   pct_jubilacion: number;
