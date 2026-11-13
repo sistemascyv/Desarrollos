@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CategoriasSub } from './CategoriasSub';
+import { TarifasViajeSub } from './TarifasViajeSub';
 
 type Vista = 'categorias' | 'tarifas';
 
@@ -18,7 +19,7 @@ export function SueldosPage() {
       </div>
 
       {vista === 'categorias' && <CategoriasSub />}
-      {vista === 'tarifas' && <div className="card">Próximamente.</div>}
+      {vista === 'tarifas' && <TarifasViajeSub />}
     </main>
   );
 }

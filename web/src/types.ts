@@ -361,6 +361,11 @@ export interface FichadasCategoria extends BaseRecord {
   pct_seguro_sepelio: number;
 }
 
+export interface SueldosTarifaViaje extends BaseRecord {
+  nombre: string;
+  valor: number;
+}
+
 export interface ModuleDef {
   id: string;
   label: string;
