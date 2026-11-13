@@ -171,7 +171,7 @@ export function AsignarVacacionesSub() {
     const legajo = legajoPorId.get(v.legajo);
     if (!legajo) return;
     if (!legajo.categoria || !legajo.basico) {
-      toast('Para liquidar, completá Categoría y Básico de este legajo en Configuración → Empleados.', 'warn');
+      toast('Para liquidar, completá Categoría y Básico de este legajo en Personal → Empleados.', 'warn');
       return;
     }
     const categoria = categoriaPorId.get(legajo.categoria);

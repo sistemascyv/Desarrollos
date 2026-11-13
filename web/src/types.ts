@@ -298,7 +298,7 @@ export interface FichadasLegajo extends BaseRecord {
 }
 
 // Una fila por cada etapa laboral YA CERRADA de un legajo (reingresos) --
-// se crea al "Reactivar" en Configuración, antes de abrir la etapa nueva.
+// se crea al "Reactivar" en PersonalPage.tsx, antes de abrir la etapa nueva.
 export interface HistorialLegajo extends BaseRecord {
   legajo: string;
   fecha_alta?: string; // "YYYY-MM-DD", opcional -- igual criterio que FichadasLegajo.fecha_alta ("de antes")

@@ -37,7 +37,7 @@ export function PersonalPage() {
         ]);
         setEmpresas(e); setHorarios(h); setLegajos(l); setCategorias(c);
       } catch (err) {
-        toast('No se pudo cargar la configuración: ' + (err instanceof Error ? err.message : ''), 'err');
+        toast('No se pudo cargar Personal: ' + (err instanceof Error ? err.message : ''), 'err');
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,7 +46,7 @@ export function PersonalPage() {
   return (
     <main>
       <div className="card">
-        <h2>Configuración</h2>
+        <h2>Personal</h2>
         <div className="hint">Empleados nuevos, cambios de horario, plantillas y áreas — sin depender de un nuevo export de CINTIA.</div>
         <div className="row" style={{ marginTop: 12 }}>
           {SUB_TABS.map((t) => (

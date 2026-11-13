@@ -15,8 +15,8 @@
 // el array ya interpretado.
 
 // Guardia de consistencia: estado se deriva de fecha_baja (activo = sin
-// fecha de baja cargada) -- la pantalla de Configuración ya lo mantiene
-// así (ver ConfiguracionTab.tsx, "Dar de baja"/"Reactivar"), esto es
+// fecha de baja cargada) -- la pantalla de Personal ya lo mantiene
+// así (ver PersonalPage.tsx, "Dar de baja"/"Reactivar"), esto es
 // defensa en profundidad por si alguien edita el registro directo por la
 // API o el admin de PocketBase sin pasar por esos botones.
 onRecordBeforeCreateRequest((e) => {
