@@ -8,6 +8,11 @@ import type { Chofer, FichadasEmpresa, FichadasFeriado, FichadasLegajo, Fichadas
 const NOMBRE_TARIFA_COMIDA = 'Viaticos 4.1.12 - Comida (por dia trabajado)';
 const NOMBRE_TARIFA_ESPECIAL = 'Viaticos 4.1.13 - Especial (por dia trabajado)';
 
+function pctSobre(monto: number, base: number) {
+  if (!base) return '';
+  return (monto / base * 100).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+}
+
 export function LiquidacionAdministrativosSub() {
   const toast = useToast();
   const now = useRef(new Date());
@@ -143,15 +148,15 @@ export function LiquidacionAdministrativosSub() {
               <tbody>
                 <tr><td>Sueldo básico</td><td className="num"></td><td className="num">{resultado.basico.toLocaleString('es-AR')}</td><td className="num"></td></tr>
                 <tr><td>Horas extra</td><td className="num">{resultado.horasExtraMes.toFixed(1)}</td><td className="num">{resultado.montoHorasExtra.toLocaleString('es-AR')}</td><td className="num"></td></tr>
-                <tr><td>Antigüedad ({resultado.antiguedadPct}%)</td><td className="num"></td><td className="num">{resultado.montoAntiguedad.toLocaleString('es-AR')}</td><td className="num"></td></tr>
+                <tr><td>Antigüedad</td><td className="num">{resultado.antiguedadPct.toLocaleString('es-AR')}%</td><td className="num">{resultado.montoAntiguedad.toLocaleString('es-AR')}</td><td className="num"></td></tr>
                 <tr><td>Viáticos 4.1.12 (Comida)</td><td className="num">{resultado.diasTrabajados}</td><td className="num">{(resultado.diasTrabajados * resultado.tarifaComida).toLocaleString('es-AR')}</td><td className="num"></td></tr>
                 <tr><td>Viáticos 4.1.13 (Especial)</td><td className="num">{resultado.diasTrabajados}</td><td className="num">{(resultado.diasTrabajados * resultado.tarifaEspecial).toLocaleString('es-AR')}</td><td className="num"></td></tr>
-                <tr><td>Jubilación</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoJubilacion.toLocaleString('es-AR')}</td></tr>
-                <tr><td>Ley 19032</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoLey19032.toLocaleString('es-AR')}</td></tr>
-                <tr><td>Obra Social</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoObraSocial.toLocaleString('es-AR')}</td></tr>
-                <tr><td>A.N.S.S.A.L.</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoAnsal.toLocaleString('es-AR')}</td></tr>
-                <tr><td>Cuota Sindical</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoCuotaSindical.toLocaleString('es-AR')}</td></tr>
-                <tr><td>Seguro de Sepelio</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoSeguroSepelio.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Jubilación</td><td className="num">{pctSobre(resultado.descuentoJubilacion, resultado.brutoSujetoRetencion)}</td><td className="num"></td><td className="num">{resultado.descuentoJubilacion.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Ley 19032</td><td className="num">{pctSobre(resultado.descuentoLey19032, resultado.brutoSujetoRetencion)}</td><td className="num"></td><td className="num">{resultado.descuentoLey19032.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Obra Social</td><td className="num">{pctSobre(resultado.descuentoObraSocial, resultado.brutoSujetoRetencion)}</td><td className="num"></td><td className="num">{resultado.descuentoObraSocial.toLocaleString('es-AR')}</td></tr>
+                <tr><td>A.N.S.S.A.L.</td><td className="num">{pctSobre(resultado.descuentoAnsal, resultado.brutoSujetoRetencion)}</td><td className="num"></td><td className="num">{resultado.descuentoAnsal.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Cuota Sindical</td><td className="num">{pctSobre(resultado.descuentoCuotaSindical, resultado.brutoSujetoRetencion)}</td><td className="num"></td><td className="num">{resultado.descuentoCuotaSindical.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Seguro de Sepelio</td><td className="num">{pctSobre(resultado.descuentoSeguroSepelio, resultado.brutoSujetoRetencion)}</td><td className="num"></td><td className="num">{resultado.descuentoSeguroSepelio.toLocaleString('es-AR')}</td></tr>
               </tbody>
               <tfoot>
                 <tr>
