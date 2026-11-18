@@ -853,6 +853,11 @@ export interface LiquidacionSueldoMensual {
   horasExtraMes: number;
   montoHorasExtra: number;
   montoAntiguedad: number;
+  brutoSujetoRetencion: number;
+  diasTrabajados: number;
+  tarifaComida: number;
+  tarifaEspecial: number;
+  montoViaticos: number;
   bruto: number;
   descuentoJubilacion: number;
   descuentoLey19032: number;
@@ -866,17 +871,24 @@ export interface LiquidacionSueldoMensual {
 
 // Sueldo mensual de un legajo administrativo: básico + horas extra REALES de
 // ese mes (a diferencia de la liquidación de vacaciones, que promedia 6
-// meses) + antigüedad − descuentos = neto. A diferencia de
+// meses) + antigüedad − descuentos + viáticos = neto. A diferencia de
 // calcularLiquidacionVacaciones, acá el básico YA es el sueldo del mes
-// completo -- no se prorratea por día ni se suma plus vacacional.
+// completo -- no se prorratea por día ni se suma plus vacacional. Los
+// viáticos 4.1.12 (Comida) y 4.1.13 (Especial) se pagan por día trabajado y
+// NO entran en la base de los 6 descuentos -- confirmado contra recibos de
+// sueldo reales: esa base es solo básico+horas extra+antigüedad
+// (brutoSujetoRetencion), los viáticos se suman recién al final.
 export function calcularLiquidacionSueldoMensual(params: {
   basico: number;
   fechaAlta: string | null | undefined;
   categoria: FichadasCategoria;
   horasExtraMes: number; // en HORAS, no minutos
   anioMes: string; // "YYYY-MM"
+  diasTrabajados: number;
+  tarifaComida: number;
+  tarifaEspecial: number;
 }): LiquidacionSueldoMensual | null {
-  const { basico, fechaAlta, categoria, horasExtraMes, anioMes } = params;
+  const { basico, fechaAlta, categoria, horasExtraMes, anioMes, diasTrabajados, tarifaComida, tarifaEspecial } = params;
   if (!fechaAlta) return null;
   const anio = Number(anioMes.slice(0, 4));
   const antiguedadPct = calcularAntiguedadPctLiquidacion(fechaAlta, anio);
@@ -885,19 +897,23 @@ export function calcularLiquidacionSueldoMensual(params: {
   const valorHoraExtra = (basico / 24 / 8) * 1.5;
   const montoHorasExtra = valorHoraExtra * horasExtraMes;
   const montoAntiguedad = (basico + montoHorasExtra) * (antiguedadPct / 100);
-  const bruto = basico + montoHorasExtra + montoAntiguedad;
+  const brutoSujetoRetencion = basico + montoHorasExtra + montoAntiguedad;
 
-  const descuentoJubilacion = bruto * (categoria.pct_jubilacion / 100);
-  const descuentoLey19032 = bruto * (categoria.pct_ley19032 / 100);
-  const descuentoObraSocial = bruto * (categoria.pct_obra_social / 100);
-  const descuentoAnsal = bruto * (categoria.pct_ansal / 100);
-  const descuentoCuotaSindical = bruto * (categoria.pct_cuota_sindical / 100);
-  const descuentoSeguroSepelio = bruto * (categoria.pct_seguro_sepelio / 100);
+  const montoViaticos = diasTrabajados * (tarifaComida + tarifaEspecial);
+  const bruto = brutoSujetoRetencion + montoViaticos;
+
+  const descuentoJubilacion = brutoSujetoRetencion * (categoria.pct_jubilacion / 100);
+  const descuentoLey19032 = brutoSujetoRetencion * (categoria.pct_ley19032 / 100);
+  const descuentoObraSocial = brutoSujetoRetencion * (categoria.pct_obra_social / 100);
+  const descuentoAnsal = brutoSujetoRetencion * (categoria.pct_ansal / 100);
+  const descuentoCuotaSindical = brutoSujetoRetencion * (categoria.pct_cuota_sindical / 100);
+  const descuentoSeguroSepelio = brutoSujetoRetencion * (categoria.pct_seguro_sepelio / 100);
   const totalDescuentos = descuentoJubilacion + descuentoLey19032 + descuentoObraSocial + descuentoAnsal + descuentoCuotaSindical + descuentoSeguroSepelio;
-  const neto = bruto - totalDescuentos;
+  const neto = brutoSujetoRetencion - totalDescuentos + montoViaticos;
 
   return {
-    basico, antiguedadPct, horasExtraMes, montoHorasExtra, montoAntiguedad, bruto,
+    basico, antiguedadPct, horasExtraMes, montoHorasExtra, montoAntiguedad, brutoSujetoRetencion,
+    diasTrabajados, tarifaComida, tarifaEspecial, montoViaticos, bruto,
     descuentoJubilacion, descuentoLey19032, descuentoObraSocial, descuentoAnsal, descuentoCuotaSindical, descuentoSeguroSepelio,
     totalDescuentos, neto,
   };
