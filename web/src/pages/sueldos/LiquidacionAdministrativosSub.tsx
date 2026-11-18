@@ -71,18 +71,19 @@ export function LiquidacionAdministrativosSub() {
       const resultadosLegajo = resultados.filter((r) => r.idLegajo === legajoId);
       const minutosExtra = resultadosLegajo.reduce((acc, r) => acc + r.hE, 0);
       const horasExtraMes = minutosExtra / 60;
-      const diasTrabajados = resultadosLegajo.filter((r) => r.paresEsperados.length > 0 && !r.ausente).length;
+      const diasTrabajados = resultadosLegajo.filter((r) => r.paresEsperados.length > 0 && !r.ausente && !r.novedad).length;
 
       const tarifaPorNombre = new Map(tarifas.map((t) => [t.nombre, t.valor]));
       const tarifaComida = tarifaPorNombre.get(NOMBRE_TARIFA_COMIDA);
       const tarifaEspecial = tarifaPorNombre.get(NOMBRE_TARIFA_ESPECIAL);
       if (tarifaComida === undefined || tarifaEspecial === undefined) {
-        toast('No se encontró la tarifa de viáticos (revisá los nombres en Sueldos → Tarifas de viaje).', 'warn');
+        setAviso('No se encontró la tarifa de viáticos (revisá los nombres en Sueldos → Tarifas de viaje).');
+        return;
       }
 
       const calc = calcularLiquidacionSueldoMensual({
         basico: legajo.basico, fechaAlta: legajo.fecha_alta, categoria, horasExtraMes, anioMes,
-        diasTrabajados, tarifaComida: tarifaComida ?? 0, tarifaEspecial: tarifaEspecial ?? 0,
+        diasTrabajados, tarifaComida, tarifaEspecial,
       });
       if (!calc) { setAviso('No se pudo calcular (revisá la fecha de alta del legajo).'); return; }
       setResultado(calc);
@@ -95,7 +96,7 @@ export function LiquidacionAdministrativosSub() {
 
   return (
     <div className="card">
-      <div className="hint">Básico + horas extra reales del mes + antigüedad − descuentos = neto. Solo legajos que no son choferes (los choferes se liquidan en la pestaña "Liquidación — Choferes").</div>
+      <div className="hint">(Básico + horas extra reales del mes + antigüedad − descuentos) + viáticos (exentos, por día trabajado) = neto. Solo legajos que no son choferes (los choferes se liquidan en la pestaña "Liquidación — Choferes").</div>
       <div className="row" style={{ marginTop: 10 }}>
         <div className="field" style={{ minWidth: 220 }}>
           <label>Legajo</label>
