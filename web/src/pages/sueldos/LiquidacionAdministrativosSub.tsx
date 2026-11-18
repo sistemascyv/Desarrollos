@@ -123,39 +123,44 @@ export function LiquidacionAdministrativosSub() {
       {resultado && (
         <div style={{ marginTop: 16 }}>
           <div className="summary-grid summary-grid-compact" style={{ marginBottom: 14 }}>
-            <div className="stat"><div className="lbl">Básico</div><div className="val">{resultado.basico.toLocaleString('es-AR')}</div></div>
-            <div className="stat"><div className="lbl">Horas extra ({resultado.horasExtraMes.toFixed(1)} hs)</div><div className="val">{resultado.montoHorasExtra.toLocaleString('es-AR')}</div></div>
-            <div className="stat"><div className="lbl">Antigüedad ({resultado.antiguedadPct}%)</div><div className="val">{resultado.montoAntiguedad.toLocaleString('es-AR')}</div></div>
-            <div className="stat"><div className="lbl">Viáticos (exento)</div><div className="val">{resultado.montoViaticos.toLocaleString('es-AR')}</div></div>
-            <div className="stat"><div className="lbl">Bruto</div><div className="val">{resultado.bruto.toLocaleString('es-AR')}</div></div>
-            <div className="stat"><div className="lbl">Neto</div><div className="val">{resultado.neto.toLocaleString('es-AR')}</div></div>
+            <div className="stat"><div className="lbl">Total sujeto a retención</div><div className="val">{resultado.brutoSujetoRetencion.toLocaleString('es-AR')}</div></div>
+            <div className="stat"><div className="lbl">Total exento (viáticos)</div><div className="val">{resultado.montoViaticos.toLocaleString('es-AR')}</div></div>
+            <div className="stat"><div className="lbl">Total descuentos</div><div className="val">{resultado.totalDescuentos.toLocaleString('es-AR')}</div></div>
+            <div className="stat"><div className="lbl">Total neto</div><div className="val">{resultado.neto.toLocaleString('es-AR')}</div></div>
           </div>
 
-          <h3 style={{ fontSize: 13, color: 'var(--navy)' }}>Viáticos (días trabajados: {resultado.diasTrabajados})</h3>
+          <div className="hint" style={{ marginBottom: 6 }}>Días trabajados del mes: {resultado.diasTrabajados}</div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Concepto</th><th className="num">Días</th><th className="num">Tarifa</th><th className="num">Monto</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Descripción de conceptos</th>
+                  <th className="num">Unidades</th>
+                  <th className="num">Remuneraciones</th>
+                  <th className="num">Descuentos</th>
+                </tr>
+              </thead>
               <tbody>
-                <tr><td>Comida (4.1.12)</td><td className="num">{resultado.diasTrabajados}</td><td className="num">{resultado.tarifaComida.toLocaleString('es-AR')}</td><td className="num">{(resultado.diasTrabajados * resultado.tarifaComida).toLocaleString('es-AR')}</td></tr>
-                <tr><td>Especial (4.1.13)</td><td className="num">{resultado.diasTrabajados}</td><td className="num">{resultado.tarifaEspecial.toLocaleString('es-AR')}</td><td className="num">{(resultado.diasTrabajados * resultado.tarifaEspecial).toLocaleString('es-AR')}</td></tr>
-                <tr><td><strong>Total viáticos</strong></td><td></td><td></td><td className="num"><strong>{resultado.montoViaticos.toLocaleString('es-AR')}</strong></td></tr>
+                <tr><td>Sueldo básico</td><td className="num"></td><td className="num">{resultado.basico.toLocaleString('es-AR')}</td><td className="num"></td></tr>
+                <tr><td>Horas extra</td><td className="num">{resultado.horasExtraMes.toFixed(1)}</td><td className="num">{resultado.montoHorasExtra.toLocaleString('es-AR')}</td><td className="num"></td></tr>
+                <tr><td>Antigüedad ({resultado.antiguedadPct}%)</td><td className="num"></td><td className="num">{resultado.montoAntiguedad.toLocaleString('es-AR')}</td><td className="num"></td></tr>
+                <tr><td>Viáticos 4.1.12 (Comida)</td><td className="num">{resultado.diasTrabajados}</td><td className="num">{(resultado.diasTrabajados * resultado.tarifaComida).toLocaleString('es-AR')}</td><td className="num"></td></tr>
+                <tr><td>Viáticos 4.1.13 (Especial)</td><td className="num">{resultado.diasTrabajados}</td><td className="num">{(resultado.diasTrabajados * resultado.tarifaEspecial).toLocaleString('es-AR')}</td><td className="num"></td></tr>
+                <tr><td>Jubilación</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoJubilacion.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Ley 19032</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoLey19032.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Obra Social</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoObraSocial.toLocaleString('es-AR')}</td></tr>
+                <tr><td>A.N.S.S.A.L.</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoAnsal.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Cuota Sindical</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoCuotaSindical.toLocaleString('es-AR')}</td></tr>
+                <tr><td>Seguro de Sepelio</td><td className="num"></td><td className="num"></td><td className="num">{resultado.descuentoSeguroSepelio.toLocaleString('es-AR')}</td></tr>
               </tbody>
-            </table>
-          </div>
-
-          <h3 style={{ fontSize: 13, color: 'var(--navy)' }}>Descuentos</h3>
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Concepto</th><th className="num">Monto</th></tr></thead>
-              <tbody>
-                <tr><td>Jubilación</td><td className="num">{resultado.descuentoJubilacion.toLocaleString('es-AR')}</td></tr>
-                <tr><td>Ley 19032</td><td className="num">{resultado.descuentoLey19032.toLocaleString('es-AR')}</td></tr>
-                <tr><td>Obra Social</td><td className="num">{resultado.descuentoObraSocial.toLocaleString('es-AR')}</td></tr>
-                <tr><td>ANSSAL</td><td className="num">{resultado.descuentoAnsal.toLocaleString('es-AR')}</td></tr>
-                <tr><td>Cuota Sindical</td><td className="num">{resultado.descuentoCuotaSindical.toLocaleString('es-AR')}</td></tr>
-                <tr><td>Seguro de Sepelio</td><td className="num">{resultado.descuentoSeguroSepelio.toLocaleString('es-AR')}</td></tr>
-                <tr><td><strong>Total descuentos</strong></td><td className="num"><strong>{resultado.totalDescuentos.toLocaleString('es-AR')}</strong></td></tr>
-              </tbody>
+              <tfoot>
+                <tr>
+                  <td><strong>Totales</strong></td>
+                  <td></td>
+                  <td className="num"><strong>{resultado.bruto.toLocaleString('es-AR')}</strong></td>
+                  <td className="num"><strong>{resultado.totalDescuentos.toLocaleString('es-AR')}</strong></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
