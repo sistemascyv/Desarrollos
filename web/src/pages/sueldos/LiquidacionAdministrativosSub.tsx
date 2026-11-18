@@ -3,7 +3,10 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { NOMBRES_MESES } from '../../lib/format';
 import { procesarPeriodo, calcularLiquidacionSueldoMensual, type LiquidacionSueldoMensual } from '../fichadas/motor';
-import type { Chofer, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
+import type { Chofer, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo, SueldosTarifaViaje } from '../../types';
+
+const NOMBRE_TARIFA_COMIDA = 'Viaticos 4.1.12 - Comida (por dia trabajado)';
+const NOMBRE_TARIFA_ESPECIAL = 'Viaticos 4.1.13 - Especial (por dia trabajado)';
 
 export function LiquidacionAdministrativosSub() {
   const toast = useToast();
@@ -50,13 +53,14 @@ export function LiquidacionAdministrativosSub() {
       const desde = anioMes + '-01';
       const hasta = anioMes + '-' + String(diasDelMes).padStart(2, '0');
 
-      const [legajosTodos, marcas, novedades, feriados, empresas, historial] = await Promise.all([
+      const [legajosTodos, marcas, novedades, feriados, empresas, historial, tarifas] = await Promise.all([
         pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ expand: 'empresa,horario' }),
         pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>(),
         pb.collection('fichadas_legajo_historial').getFullList<HistorialLegajo>(),
+        pb.collection('sueldos_tarifas_viaje').getFullList<SueldosTarifaViaje>(),
       ]);
       const legajosAjustados = legajosTodos.map((l) => ((l.estado || l.fecha_baja) ? l : { ...l, horas_extra_fijas: null }));
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
@@ -64,11 +68,21 @@ export function LiquidacionAdministrativosSub() {
         legajos: legajosAjustados, marcas, novedades, feriados, historial, empresaNombrePorId, desde, hasta,
       });
 
-      const minutosExtra = resultados.filter((r) => r.idLegajo === legajoId).reduce((acc, r) => acc + r.hE, 0);
+      const resultadosLegajo = resultados.filter((r) => r.idLegajo === legajoId);
+      const minutosExtra = resultadosLegajo.reduce((acc, r) => acc + r.hE, 0);
       const horasExtraMes = minutosExtra / 60;
+      const diasTrabajados = resultadosLegajo.filter((r) => r.paresEsperados.length > 0 && !r.ausente).length;
+
+      const tarifaPorNombre = new Map(tarifas.map((t) => [t.nombre, t.valor]));
+      const tarifaComida = tarifaPorNombre.get(NOMBRE_TARIFA_COMIDA);
+      const tarifaEspecial = tarifaPorNombre.get(NOMBRE_TARIFA_ESPECIAL);
+      if (tarifaComida === undefined || tarifaEspecial === undefined) {
+        toast('No se encontró la tarifa de viáticos (revisá los nombres en Sueldos → Tarifas de viaje).', 'warn');
+      }
 
       const calc = calcularLiquidacionSueldoMensual({
         basico: legajo.basico, fechaAlta: legajo.fecha_alta, categoria, horasExtraMes, anioMes,
+        diasTrabajados, tarifaComida: tarifaComida ?? 0, tarifaEspecial: tarifaEspecial ?? 0,
       });
       if (!calc) { setAviso('No se pudo calcular (revisá la fecha de alta del legajo).'); return; }
       setResultado(calc);
@@ -111,8 +125,21 @@ export function LiquidacionAdministrativosSub() {
             <div className="stat"><div className="lbl">Básico</div><div className="val">{resultado.basico.toLocaleString('es-AR')}</div></div>
             <div className="stat"><div className="lbl">Horas extra ({resultado.horasExtraMes.toFixed(1)} hs)</div><div className="val">{resultado.montoHorasExtra.toLocaleString('es-AR')}</div></div>
             <div className="stat"><div className="lbl">Antigüedad ({resultado.antiguedadPct}%)</div><div className="val">{resultado.montoAntiguedad.toLocaleString('es-AR')}</div></div>
+            <div className="stat"><div className="lbl">Viáticos (exento)</div><div className="val">{resultado.montoViaticos.toLocaleString('es-AR')}</div></div>
             <div className="stat"><div className="lbl">Bruto</div><div className="val">{resultado.bruto.toLocaleString('es-AR')}</div></div>
             <div className="stat"><div className="lbl">Neto</div><div className="val">{resultado.neto.toLocaleString('es-AR')}</div></div>
+          </div>
+
+          <h3 style={{ fontSize: 13, color: 'var(--navy)' }}>Viáticos (días trabajados: {resultado.diasTrabajados})</h3>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Concepto</th><th className="num">Días</th><th className="num">Tarifa</th><th className="num">Monto</th></tr></thead>
+              <tbody>
+                <tr><td>Comida (4.1.12)</td><td className="num">{resultado.diasTrabajados}</td><td className="num">{resultado.tarifaComida.toLocaleString('es-AR')}</td><td className="num">{(resultado.diasTrabajados * resultado.tarifaComida).toLocaleString('es-AR')}</td></tr>
+                <tr><td>Especial (4.1.13)</td><td className="num">{resultado.diasTrabajados}</td><td className="num">{resultado.tarifaEspecial.toLocaleString('es-AR')}</td><td className="num">{(resultado.diasTrabajados * resultado.tarifaEspecial).toLocaleString('es-AR')}</td></tr>
+                <tr><td><strong>Total viáticos</strong></td><td></td><td></td><td className="num"><strong>{resultado.montoViaticos.toLocaleString('es-AR')}</strong></td></tr>
+              </tbody>
+            </table>
           </div>
 
           <h3 style={{ fontSize: 13, color: 'var(--navy)' }}>Descuentos</h3>
