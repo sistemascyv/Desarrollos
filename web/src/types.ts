@@ -371,6 +371,14 @@ export interface SueldosTarifaViaje extends BaseRecord {
   valor: number;
 }
 
+export interface SueldosBasicoHistorial extends BaseRecord {
+  legajo: string;
+  categoria: string;
+  basico: number;
+  vigencia_desde: string; // "YYYY-MM-DD"
+  vigencia_hasta?: string; // "YYYY-MM-DD", vacío = tramo vigente actual
+}
+
 export interface ModuleDef {
   id: string;
   label: string;

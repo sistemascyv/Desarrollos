@@ -1,4 +1,4 @@
-import type { DiaHorario, FichadasCategoria, FichadasFeriado, FichadasGrupoRestriccion, FichadasLegajo, FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo } from '../../types';
+import type { DiaHorario, FichadasCategoria, FichadasFeriado, FichadasGrupoRestriccion, FichadasLegajo, FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo, SueldosBasicoHistorial } from '../../types';
 
 // Motor de cálculo de fichadas — portado 1:1 de la lógica ya validada en
 // el prototipo standalone (fichadas_prototipo.html). Misma fórmula de
@@ -917,4 +917,20 @@ export function calcularLiquidacionSueldoMensual(params: {
     descuentoJubilacion, descuentoLey19032, descuentoObraSocial, descuentoAnsal, descuentoCuotaSindical, descuentoSeguroSepelio,
     totalDescuentos, neto,
   };
+}
+
+// Básico vigente de un legajo a una fecha puntual -- resuelve contra los
+// tramos de sueldos_basico_historial (vigencia_desde <= fecha <=
+// vigencia_hasta, o vigencia_hasta vacío = tramo todavía abierto). Si hay
+// más de un tramo que la cubre (no debería pasar en uso normal), gana el de
+// vigencia_desde más reciente. Devuelve null si ningún tramo cubre esa
+// fecha -- las pantallas que llaman esto no deben inventar un básico, tienen
+// que avisar y no calcular.
+export function basicoVigente(historial: SueldosBasicoHistorial[], legajoId: string, fecha: string): number | null {
+  const tramos = historial.filter((h) =>
+    h.legajo === legajoId && h.vigencia_desde <= fecha && (!h.vigencia_hasta || h.vigencia_hasta >= fecha)
+  );
+  if (tramos.length === 0) return null;
+  tramos.sort((a, b) => b.vigencia_desde.localeCompare(a.vigencia_desde));
+  return tramos[0].basico;
 }
