@@ -69,7 +69,9 @@ export function LiquidacionChoferesSub() {
         pb.collection('tramos').getFullList<Tramo>({ filter: pb.filter('chofer = {:chofer} && mes = {:mes}', { chofer: choferId, mes: mesStr }) }),
         pb.collection('sueldos_basico_historial').getFullList<SueldosBasicoHistorial>({ filter: pb.filter('legajo = {:l}', { l: legajo.id }) }),
       ]);
-      const basico = basicoVigente(historialBasico, legajo.id, mesStr + '-01');
+      const primerDiaDelMes = mesStr + '-01';
+      const fechaResolucionBasico = legajo.fecha_alta && legajo.fecha_alta > primerDiaDelMes ? legajo.fecha_alta : primerDiaDelMes;
+      const basico = basicoVigente(historialBasico, legajo.id, fechaResolucionBasico);
       if (basico === null) { setAviso('No se encontró un básico vigente para este período (revisá el historial en Personal → Empleados).'); return; }
 
       const tarifaPorNombre = new Map(tarifas.map((t) => [t.nombre, t.valor]));

@@ -67,7 +67,8 @@ export function LiquidacionAdministrativosSub() {
         pb.collection('sueldos_tarifas_viaje').getFullList<SueldosTarifaViaje>(),
         pb.collection('sueldos_basico_historial').getFullList<SueldosBasicoHistorial>({ filter: pb.filter('legajo = {:l}', { l: legajoId }) }),
       ]);
-      const basico = basicoVigente(historialBasico, legajoId, desde);
+      const fechaResolucionBasico = legajo.fecha_alta && legajo.fecha_alta > desde ? legajo.fecha_alta : desde;
+      const basico = basicoVigente(historialBasico, legajoId, fechaResolucionBasico);
       if (basico === null) { setAviso('No se encontró un básico vigente para este período (revisá el historial en Personal → Empleados).'); return; }
       const legajosAjustados = legajosTodos.map((l) => ((l.estado || l.fecha_baja) ? l : { ...l, horas_extra_fijas: null }));
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));

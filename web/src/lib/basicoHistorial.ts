@@ -22,7 +22,7 @@ export async function cambiarBasicoLegajo(params: {
   vigenciaDesde: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const { legajoId, categoriaId, basicoSugerido, vigenciaDesde } = params;
-  if (basicoSugerido == null) {
+  if (!basicoSugerido) {
     return { ok: false, error: 'Esa categoría no tiene "Básico sugerido" cargado — completalo primero en Sueldos → Categorías.' };
   }
 

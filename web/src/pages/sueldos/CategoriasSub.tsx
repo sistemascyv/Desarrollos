@@ -106,7 +106,7 @@ export function CategoriasSub() {
       pct_cuota_sindical: String(c.pct_cuota_sindical),
       pct_seguro_sepelio: String(c.pct_seguro_sepelio),
     });
-    setBasicoSugeridoOriginal(c.basico_sugerido ?? null);
+    setBasicoSugeridoOriginal(c.basico_sugerido || null);
     setVigenciaDesde('');
   }
 
@@ -114,7 +114,7 @@ export function CategoriasSub() {
     if (!editandoId) return;
     const payload = construirPayload();
     if (!payload) return;
-    const basicoNuevo = typeof payload.basico_sugerido === 'number' ? payload.basico_sugerido : null;
+    const basicoNuevo = (typeof payload.basico_sugerido === 'number' && payload.basico_sugerido) ? payload.basico_sugerido : null;
     const cambioBasico = basicoNuevo !== basicoSugeridoOriginal;
     if (cambioBasico && !vigenciaDesde) {
       toast('Completá "Vigente desde" — el Básico sugerido cambió y hay que propagarlo a los legajos de esta categoría.', 'warn');
@@ -130,11 +130,15 @@ export function CategoriasSub() {
         let actualizados = 0;
         const errores: string[] = [];
         for (const l of legajosDeCategoria) {
-          const resultado = await cambiarBasicoLegajo({
-            legajoId: l.id, categoriaId: editandoId, basicoSugerido: basicoNuevo, vigenciaDesde,
-          });
-          if (resultado.ok) actualizados++;
-          else errores.push(l.nombre + ': ' + resultado.error);
+          try {
+            const resultado = await cambiarBasicoLegajo({
+              legajoId: l.id, categoriaId: editandoId, basicoSugerido: basicoNuevo, vigenciaDesde,
+            });
+            if (resultado.ok) actualizados++;
+            else errores.push(l.nombre + ': ' + resultado.error);
+          } catch (e) {
+            errores.push(l.nombre + ': ' + (e instanceof Error ? e.message : String(e)));
+          }
         }
         if (errores.length) {
           toast(`Categoría actualizada. ${actualizados} legajo(s) actualizados, ${errores.length} con error: ${errores.join(' · ')}`, 'warn');
