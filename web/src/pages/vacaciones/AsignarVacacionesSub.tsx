@@ -3,13 +3,13 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import {
-  calcularHorasExtraPromedioPorLegajo, calcularLiquidacionVacaciones, calcularResumenVacaciones,
+  basicoVigente, calcularHorasExtraPromedioPorLegajo, calcularLiquidacionVacaciones, calcularResumenVacaciones,
   detectarSolapamientoGrupo, partirPeriodoPorMes, procesarPeriodo,
   type TramoLiquidacion,
 } from '../fichadas/motor';
 import type {
   FichadasCategoria, FichadasEmpresa, FichadasFeriado, FichadasGrupoRestriccion, FichadasLegajo,
-  FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo,
+  FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo, SueldosBasicoHistorial,
 } from '../../types';
 
 type Vista = 'lista' | 'por_legajo';
@@ -170,8 +170,8 @@ export function AsignarVacacionesSub() {
   async function liquidarPeriodo(v: FichadasVacacion) {
     const legajo = legajoPorId.get(v.legajo);
     if (!legajo) return;
-    if (!legajo.categoria || !legajo.basico) {
-      toast('Para liquidar, completá Categoría y Básico de este legajo en Personal → Empleados.', 'warn');
+    if (!legajo.categoria) {
+      toast('Para liquidar, completá la Categoría de este legajo en Personal → Empleados.', 'warn');
       return;
     }
     const categoria = categoriaPorId.get(legajo.categoria);
@@ -193,13 +193,16 @@ export function AsignarVacacionesSub() {
       const ultimoDiaFin = new Date(Date.UTC(yFin, mFin, 0)).getUTCDate();
       const hastaVentana = `${yFin}-${String(mFin).padStart(2, '0')}-${String(ultimoDiaFin).padStart(2, '0')}`;
 
-      const [marcas, novedades, feriados, historial, legajoConHorario] = await Promise.all([
+      const [marcas, novedades, feriados, historial, legajoConHorario, historialBasico] = await Promise.all([
         pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desdeVentana, h: hastaVentana }) }),
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desdeVentana, h: hastaVentana }) }),
         pb.collection('fichadas_feriados').getFullList<FichadasFeriado>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desdeVentana, h: hastaVentana }) }),
         pb.collection('fichadas_legajo_historial').getFullList<HistorialLegajo>(),
         pb.collection('fichadas_legajos').getOne<FichadasLegajo>(legajo.id, { expand: 'horario' }),
+        pb.collection('sueldos_basico_historial').getFullList<SueldosBasicoHistorial>({ filter: pb.filter('legajo = {:l}', { l: legajo.id }) }),
       ]);
+      const basico = basicoVigente(historialBasico, legajo.id, v.desde);
+      if (basico === null) { toast('No se encontró un básico vigente para este período (revisá el historial en Personal → Empleados).', 'warn'); return; }
       const { resultados } = procesarPeriodo({
         legajos: [legajoConHorario], marcas, novedades, feriados, historial, empresaNombrePorId,
         desde: desdeVentana, hasta: hastaVentana,
@@ -207,7 +210,7 @@ export function AsignarVacacionesSub() {
       const horasExtraPromedio = calcularHorasExtraPromedioPorLegajo(resultados, legajo.id, primerMes, 6);
 
       const resultado = calcularLiquidacionVacaciones({
-        basico: legajo.basico, fechaAlta: legajo.fecha_alta, categoria, horasExtraPromedio,
+        basico, fechaAlta: legajo.fecha_alta, categoria, horasExtraPromedio,
         desde: v.desde, hasta: v.hasta,
       });
       if (!resultado) { toast('No se pudo calcular la liquidación.', 'err'); return; }

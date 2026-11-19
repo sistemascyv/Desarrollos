@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { NOMBRES_MESES } from '../../lib/format';
-import type { Chofer, Tramo, SueldosTarifaViaje, FichadasFeriado } from '../../types';
+import { basicoVigente } from '../fichadas/motor';
+import type { Chofer, Tramo, SueldosBasicoHistorial, SueldosTarifaViaje, FichadasFeriado } from '../../types';
 
 const NOMBRE_TARIFA_KM = 'Kilometros recorridos (por km)';
 const NOMBRE_TARIFA_KM120 = 'Kilometros zona 1,20 (por km)';
@@ -60,14 +61,16 @@ export function LiquidacionChoferesSub() {
       const legajo = chofer.expand?.legajo;
       if (!legajo) { setAviso('Este chofer todavía no tiene un legajo vinculado (Administración → Choferes).'); return; }
       const categoria = legajo.expand?.categoria;
-      if (!legajo.basico) { setAviso('El legajo vinculado no tiene un básico cargado (Personal → Empleados).'); return; }
       if (!categoria) { setAviso('El legajo vinculado no tiene una categoría de convenio asignada (Personal → Empleados).'); return; }
 
-      const [tarifas, feriados, tramos] = await Promise.all([
+      const [tarifas, feriados, tramos, historialBasico] = await Promise.all([
         pb.collection('sueldos_tarifas_viaje').getFullList<SueldosTarifaViaje>(),
         pb.collection('fichadas_feriados').getFullList<FichadasFeriado>(),
         pb.collection('tramos').getFullList<Tramo>({ filter: pb.filter('chofer = {:chofer} && mes = {:mes}', { chofer: choferId, mes: mesStr }) }),
+        pb.collection('sueldos_basico_historial').getFullList<SueldosBasicoHistorial>({ filter: pb.filter('legajo = {:l}', { l: legajo.id }) }),
       ]);
+      const basico = basicoVigente(historialBasico, legajo.id, mesStr + '-01');
+      if (basico === null) { setAviso('No se encontró un básico vigente para este período (revisá el historial en Personal → Empleados).'); return; }
 
       const tarifaPorNombre = new Map(tarifas.map((t) => [t.nombre, t.valor]));
       const fechasFeriado = new Set(feriados.map((f) => f.fecha));
@@ -103,7 +106,6 @@ export function LiquidacionChoferesSub() {
       }
 
       const variable = items.reduce((acc, i) => acc + i.monto, 0) + cydManual;
-      const basico = legajo.basico;
       const bruto = basico + variable;
 
       const descuentosDef: { label: string; pct: number }[] = [

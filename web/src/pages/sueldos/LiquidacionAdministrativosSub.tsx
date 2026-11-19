@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { NOMBRES_MESES } from '../../lib/format';
-import { procesarPeriodo, calcularLiquidacionSueldoMensual, type LiquidacionSueldoMensual } from '../fichadas/motor';
-import type { Chofer, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo, SueldosTarifaViaje } from '../../types';
+import { procesarPeriodo, calcularLiquidacionSueldoMensual, basicoVigente, type LiquidacionSueldoMensual } from '../fichadas/motor';
+import type { Chofer, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo, SueldosBasicoHistorial, SueldosTarifaViaje } from '../../types';
 
 const NOMBRE_TARIFA_COMIDA = 'Viaticos 4.1.12 - Comida (por dia trabajado)';
 const NOMBRE_TARIFA_ESPECIAL = 'Viaticos 4.1.13 - Especial (por dia trabajado)';
@@ -50,7 +50,6 @@ export function LiquidacionAdministrativosSub() {
       const legajo = legajos.find((l) => l.id === legajoId);
       if (!legajo) { setAviso('Legajo no encontrado.'); return; }
       if (!legajo.fecha_alta) { setAviso('Este legajo no tiene fecha de alta cargada (Personal → Empleados).'); return; }
-      if (!legajo.basico) { setAviso('Este legajo no tiene un básico cargado (Personal → Empleados).'); return; }
       const categoria = legajo.expand?.categoria;
       if (!categoria) { setAviso('Este legajo no tiene una categoría de convenio asignada (Personal → Empleados).'); return; }
 
@@ -58,7 +57,7 @@ export function LiquidacionAdministrativosSub() {
       const desde = anioMes + '-01';
       const hasta = anioMes + '-' + String(diasDelMes).padStart(2, '0');
 
-      const [legajosTodos, marcas, novedades, feriados, empresas, historial, tarifas] = await Promise.all([
+      const [legajosTodos, marcas, novedades, feriados, empresas, historial, tarifas, historialBasico] = await Promise.all([
         pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ expand: 'empresa,horario' }),
         pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
@@ -66,7 +65,10 @@ export function LiquidacionAdministrativosSub() {
         pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>(),
         pb.collection('fichadas_legajo_historial').getFullList<HistorialLegajo>(),
         pb.collection('sueldos_tarifas_viaje').getFullList<SueldosTarifaViaje>(),
+        pb.collection('sueldos_basico_historial').getFullList<SueldosBasicoHistorial>({ filter: pb.filter('legajo = {:l}', { l: legajoId }) }),
       ]);
+      const basico = basicoVigente(historialBasico, legajoId, desde);
+      if (basico === null) { setAviso('No se encontró un básico vigente para este período (revisá el historial en Personal → Empleados).'); return; }
       const legajosAjustados = legajosTodos.map((l) => ((l.estado || l.fecha_baja) ? l : { ...l, horas_extra_fijas: null }));
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
       const { resultados } = procesarPeriodo({
@@ -87,7 +89,7 @@ export function LiquidacionAdministrativosSub() {
       }
 
       const calc = calcularLiquidacionSueldoMensual({
-        basico: legajo.basico, fechaAlta: legajo.fecha_alta, categoria, horasExtraMes, anioMes,
+        basico, fechaAlta: legajo.fecha_alta, categoria, horasExtraMes, anioMes,
         diasTrabajados, tarifaComida, tarifaEspecial,
       });
       if (!calc) { setAviso('No se pudo calcular (revisá la fecha de alta del legajo).'); return; }
