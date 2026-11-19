@@ -4,6 +4,7 @@ import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
 import { fechaSola } from '../../lib/format';
 import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from '../fichadas/motor';
+import { cambiarBasicoLegajo } from '../../lib/basicoHistorial';
 import type { DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -81,6 +82,10 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
   const [motivoBaja, setMotivoBaja] = useState('');
   const [idEnReingreso, setIdEnReingreso] = useState<string | null>(null);
   const [fechaAltaNueva, setFechaAltaNueva] = useState('');
+  const [idCambiandoCategoria, setIdCambiandoCategoria] = useState<string | null>(null);
+  const [categoriaNueva, setCategoriaNueva] = useState('');
+  const [vigenciaDesde, setVigenciaDesde] = useState('');
+  const [guardandoCategoria, setGuardandoCategoria] = useState(false);
 
   useEffect(() => { if (!empresa && empresas[0]) setEmpresa(empresas[0].id); }, [empresas, empresa]);
   useEffect(() => { if (!horario && horarios[0]) setHorario(horarios[0].id); }, [horarios, horario]);
@@ -108,9 +113,8 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
         return;
       }
     }
-    const valorAEnviar = (campo === 'categoria' || campo === 'basico') && valor === '' ? null : valor;
     try {
-      await pb.collection('fichadas_legajos').update(id, { [campo]: valorAEnviar });
+      await pb.collection('fichadas_legajos').update(id, { [campo]: valor });
       onChanged();
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -199,6 +203,34 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
     }
   }
 
+  function abrirCambioCategoria(l: FichadasLegajo) {
+    setIdCambiandoCategoria(l.id);
+    setCategoriaNueva(l.categoria || '');
+    setVigenciaDesde(l.categoria ? '' : (l.fecha_alta || ''));
+  }
+
+  async function confirmarCambioCategoria() {
+    if (!idCambiandoCategoria) return;
+    if (!categoriaNueva) { toast('Elegí una categoría.', 'warn'); return; }
+    if (!vigenciaDesde) { toast('Completá la fecha de vigencia.', 'warn'); return; }
+    const categoria = categorias.find((c) => c.id === categoriaNueva);
+    setGuardandoCategoria(true);
+    try {
+      const resultado = await cambiarBasicoLegajo({
+        legajoId: idCambiandoCategoria, categoriaId: categoriaNueva,
+        basicoSugerido: categoria?.basico_sugerido, vigenciaDesde,
+      });
+      if (!resultado.ok) { toast(resultado.error, 'warn'); return; }
+      setIdCambiandoCategoria(null);
+      onChanged();
+      toast('Categoría y básico actualizados.', 'ok');
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setGuardandoCategoria(false);
+    }
+  }
+
   async function eliminar(id: string) {
     if (!(await confirm('¿Eliminar este empleado? Mejor usar "Dar de baja" si solo dejó de trabajar, para no perder su historial de fichadas.', 'Eliminar empleado'))) return;
     try {
@@ -256,6 +288,30 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
         </>
       )}
 
+      {idCambiandoCategoria && (() => {
+        const l = legajos.find((x) => x.id === idCambiandoCategoria);
+        return (
+          <>
+            <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>
+              {l?.categoria ? 'Cambiar categoría de' : 'Asignar categoría a'} "{l?.nombre}"
+            </h3>
+            <div className="hint">El básico se toma automáticamente del "Básico sugerido" de la categoría elegida (Sueldos → Categorías) — ya no se edita a mano.</div>
+            <div className="row" style={{ marginTop: 6 }}>
+              <div className="field">
+                <label>Categoría</label>
+                <select value={categoriaNueva} onChange={(e) => setCategoriaNueva(e.target.value)}>
+                  <option value="">Elegir…</option>
+                  {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                </select>
+              </div>
+              <div className="field"><label>Vigente desde</label><input type="date" value={vigenciaDesde} onChange={(e) => setVigenciaDesde(e.target.value)} /></div>
+              <button onClick={confirmarCambioCategoria} disabled={guardandoCategoria}>{guardandoCategoria ? 'Guardando…' : 'Confirmar'}</button>
+              <button className="secondary" onClick={() => setIdCambiandoCategoria(null)}>Cancelar</button>
+            </div>
+          </>
+        );
+      })()}
+
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
       <div className="table-wrap" style={{ maxHeight: '50vh' }}>
         <table>
@@ -280,25 +336,12 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
                   <input type="date" value={l.fecha_alta || ''} onChange={(e) => editar(l.id, 'fecha_alta', e.target.value)} />
                 </td>
                 <td>
-                  <select value={l.categoria || ''} onChange={(e) => editar(l.id, 'categoria', e.target.value)}>
-                    <option value="">Sin categoría</option>
-                    {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
+                  {categorias.find((c) => c.id === l.categoria)?.nombre || 'Sin categoría'}{' '}
+                  <button className="small secondary" onClick={() => abrirCambioCategoria(l)}>
+                    {l.categoria ? 'Cambiar' : 'Asignar'}
+                  </button>
                 </td>
-                <td>
-                  <input
-                    key={l.id + '-' + (l.basico || '')}
-                    defaultValue={l.basico || ''}
-                    style={{ width: 90 }}
-                    onBlur={(e) => {
-                      const txt = e.target.value.trim();
-                      if (txt === '') { if (l.basico != null) editar(l.id, 'basico', ''); return; }
-                      const n = Number(txt.replace(',', '.'));
-                      if (!isFinite(n) || n < 0) { toast('El Básico tiene que ser un número.', 'warn'); return; }
-                      if (n !== l.basico) editar(l.id, 'basico', String(n));
-                    }}
-                  />
-                </td>
+                <td className="num">{l.basico != null ? l.basico.toLocaleString('es-AR') : '—'}</td>
                 <td>
                   {l.estado
                     ? <button className="small secondary" onClick={() => abrirBaja(l.id)}>Dar de baja</button>
