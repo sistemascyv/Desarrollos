@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { useConfirm } from '../../lib/ConfirmContext';
-import type { FichadasCategoria } from '../../types';
+import { cambiarBasicoLegajo } from '../../lib/basicoHistorial';
+import type { FichadasCategoria, FichadasLegajo } from '../../types';
 
 const CAMPOS_PCT: { key: keyof FormCategoria; label: string }[] = [
   { key: 'pct_jubilacion', label: 'Jubilación %' },
@@ -43,6 +44,9 @@ export function CategoriasSub() {
   const [categorias, setCategorias] = useState<FichadasCategoria[]>([]);
   const [form, setForm] = useState<FormCategoria>(FORM_VACIO);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [basicoSugeridoOriginal, setBasicoSugeridoOriginal] = useState<number | null>(null);
+  const [vigenciaDesde, setVigenciaDesde] = useState('');
+  const [aplicandoCascada, setAplicandoCascada] = useState(false);
 
   async function cargar() {
     try {
@@ -102,26 +106,61 @@ export function CategoriasSub() {
       pct_cuota_sindical: String(c.pct_cuota_sindical),
       pct_seguro_sepelio: String(c.pct_seguro_sepelio),
     });
+    setBasicoSugeridoOriginal(c.basico_sugerido ?? null);
+    setVigenciaDesde('');
   }
 
   async function guardarEdicion() {
     if (!editandoId) return;
     const payload = construirPayload();
     if (!payload) return;
+    const basicoNuevo = typeof payload.basico_sugerido === 'number' ? payload.basico_sugerido : null;
+    const cambioBasico = basicoNuevo !== basicoSugeridoOriginal;
+    if (cambioBasico && !vigenciaDesde) {
+      toast('Completá "Vigente desde" — el Básico sugerido cambió y hay que propagarlo a los legajos de esta categoría.', 'warn');
+      return;
+    }
+    setAplicandoCascada(cambioBasico);
     try {
       await pb.collection('fichadas_categorias').update(editandoId, payload);
+      if (cambioBasico && basicoNuevo != null) {
+        const legajosDeCategoria = await pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({
+          filter: pb.filter('categoria = {:c}', { c: editandoId }),
+        });
+        let actualizados = 0;
+        const errores: string[] = [];
+        for (const l of legajosDeCategoria) {
+          const resultado = await cambiarBasicoLegajo({
+            legajoId: l.id, categoriaId: editandoId, basicoSugerido: basicoNuevo, vigenciaDesde,
+          });
+          if (resultado.ok) actualizados++;
+          else errores.push(l.nombre + ': ' + resultado.error);
+        }
+        if (errores.length) {
+          toast(`Categoría actualizada. ${actualizados} legajo(s) actualizados, ${errores.length} con error: ${errores.join(' · ')}`, 'warn');
+        } else {
+          toast(`Categoría actualizada. ${actualizados} legajo(s) actualizados con el nuevo básico.`, 'ok');
+        }
+      } else {
+        toast('Categoría actualizada.', 'ok');
+      }
       setEditandoId(null);
       setForm(FORM_VACIO);
+      setBasicoSugeridoOriginal(null);
+      setVigenciaDesde('');
       cargar();
-      toast('Categoría actualizada.', 'ok');
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setAplicandoCascada(false);
     }
   }
 
   function cancelarEdicion() {
     setEditandoId(null);
     setForm(FORM_VACIO);
+    setBasicoSugeridoOriginal(null);
+    setVigenciaDesde('');
   }
 
   async function eliminar(id: string) {
@@ -137,11 +176,17 @@ export function CategoriasSub() {
 
   return (
     <div className="card">
-      <div className="hint">Categorías de convenio — cada una con su Plus Vacacional, divisor y % de descuentos, usados al liquidar vacaciones. El Básico sugerido es solo de referencia (viene de la escala del sindicato) — el básico real de cada empleado se sigue cargando a mano en Personal.</div>
+      <div className="hint">Categorías de convenio — cada una con su Plus Vacacional, divisor y % de descuentos, usados al liquidar vacaciones. El Básico sugerido es el básico real: al cambiarlo acá, se propaga automáticamente a todos los legajos de esta categoría desde la fecha "Vigente desde" que indiques.</div>
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '14px 0 8px' }}>{editandoId ? 'Editar categoría' : 'Nueva categoría'}</h3>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <div className="field"><label>Nombre</label><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Administ 2da" /></div>
         <div className="field"><label>Básico sugerido ($, opcional)</label><input value={form.basico_sugerido} onChange={(e) => setForm({ ...form, basico_sugerido: e.target.value })} style={{ width: 130 }} /></div>
+        {editandoId && (
+          <div className="field">
+            <label>Vigente desde (si cambiás el Básico sugerido)</label>
+            <input type="date" value={vigenciaDesde} onChange={(e) => setVigenciaDesde(e.target.value)} style={{ width: 140 }} />
+          </div>
+        )}
         <div className="field"><label>Plus Vacacional ($/día)</label><input value={form.plus_vacacional} onChange={(e) => setForm({ ...form, plus_vacacional: e.target.value })} style={{ width: 110 }} /></div>
         <div className="field"><label>Divisor mensual</label><input value={form.divisor_mensual} onChange={(e) => setForm({ ...form, divisor_mensual: e.target.value })} style={{ width: 90 }} /></div>
         {CAMPOS_PCT.map((c) => (
@@ -154,7 +199,7 @@ export function CategoriasSub() {
       <div className="row" style={{ marginTop: 8 }}>
         {editandoId ? (
           <>
-            <button onClick={guardarEdicion}>Guardar</button>
+            <button onClick={guardarEdicion} disabled={aplicandoCascada}>{aplicandoCascada ? 'Aplicando a legajos…' : 'Guardar'}</button>
             <button className="secondary" onClick={cancelarEdicion}>Cancelar</button>
           </>
         ) : (
