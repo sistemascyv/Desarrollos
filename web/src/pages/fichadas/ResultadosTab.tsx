@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { isoDate, fechaSola } from '../../lib/format';
-import { procesarPeriodo, fmtAbsHora, fmtDur, type ResultadoDia } from './motor';
+import { procesarPeriodo, fmtAbsHora, fmtDur, hhmmAMinutos, detectarDeposito, type ResultadoDia } from './motor';
 import type { FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
 
 type SubTab = 'detalle' | 'ausencias' | 'extra' | 'resumen';
@@ -144,13 +144,13 @@ export function ResultadosTab() {
           <button className={subTab === 'extra' ? 'small' : 'small secondary'} onClick={() => setSubTab('extra')}>Horas extra</button>
           <button className={subTab === 'resumen' ? 'small' : 'small secondary'} onClick={() => setSubTab('resumen')}>Resumen por empleado</button>
         </div>
-        <VistaSubTab subTab={subTab} filas={base} filtroArea={filtroArea} />
+        <VistaSubTab subTab={subTab} filas={base} filtroArea={filtroArea} onRecargar={buscar} />
       </div>
     </>
   );
 }
 
-function VistaSubTab({ subTab, filas, filtroArea }: { subTab: SubTab; filas: ResultadoDia[]; filtroArea: string }) {
+function VistaSubTab({ subTab, filas, filtroArea, onRecargar }: { subTab: SubTab; filas: ResultadoDia[]; filtroArea: string; onRecargar: () => void }) {
   if (subTab === 'resumen') return <ResumenPorEmpleado filas={filas} />;
   let mostrar = filas;
   if (subTab === 'ausencias') mostrar = filas.filter((r) => r.ausente);
@@ -159,7 +159,7 @@ function VistaSubTab({ subTab, filas, filtroArea }: { subTab: SubTab; filas: Res
 
   if (!mostrar.length) return <div className="empty">Sin registros para esta vista con el filtro actual.</div>;
 
-  if (filtroArea) return <TablaDetalle filas={mostrar} />;
+  if (filtroArea) return <TablaDetalle filas={mostrar} onRecargar={onRecargar} />;
   const grupos = new Map<string, ResultadoDia[]>();
   mostrar.forEach((r) => { if (!grupos.has(r.area)) grupos.set(r.area, []); grupos.get(r.area)!.push(r); });
   return (
@@ -167,14 +167,14 @@ function VistaSubTab({ subTab, filas, filtroArea }: { subTab: SubTab; filas: Res
       {Array.from(grupos.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([area, fs]) => (
         <div key={area}>
           <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--navy)' }}>{area} <span style={{ color: 'var(--suave)', fontWeight: 400 }}>({fs.length} registros)</span></h3>
-          <TablaDetalle filas={fs} />
+          <TablaDetalle filas={fs} onRecargar={onRecargar} />
         </div>
       ))}
     </>
   );
 }
 
-function TablaDetalle({ filas }: { filas: ResultadoDia[] }) {
+function TablaDetalle({ filas, onRecargar }: { filas: ResultadoDia[]; onRecargar: () => void }) {
   return (
     <div className="table-wrap">
       <table>
@@ -185,26 +185,103 @@ function TablaDetalle({ filas }: { filas: ResultadoDia[] }) {
           </tr>
         </thead>
         <tbody>
-          {filas.map((r, i) => (
-            <tr key={r.idLegajo + r.fecha + i} className={r.ausente ? 'row-ausente' : ''}>
-              <td>{r.nroLegajo}</td>
-              <td>{r.identificador}</td>
-              <td>{r.nombre}</td>
-              <td>{r.deposito}</td>
-              <td>{fechaSola(r.fecha)}</td>
-              <td>{r.dia}</td>
-              <td>{fmtDur(r.hN)}</td>
-              <td>{r.hE > 0 ? <span className="tag tag-extra">{fmtDur(r.hE)}</span> : '—'}</td>
-              <td>{fmtAbsHora(r.paresReales[0]?.[0])}</td>
-              <td>{fmtAbsHora(r.paresReales[0]?.[1])}</td>
-              <td>{fmtAbsHora(r.paresReales[1]?.[0])}</td>
-              <td>{fmtAbsHora(r.paresReales[1]?.[1])}</td>
-              <td>{r.ausente ? <span className="tag tag-ausente">AUSENTE</span> : (r.novedad || '—')}</td>
-            </tr>
-          ))}
+          {filas.map((r, i) => <FilaResultado key={r.idLegajo + r.fecha + i} r={r} onRecargar={onRecargar} />)}
         </tbody>
       </table>
     </div>
+  );
+}
+
+// Carga manual de horario para un día puntual, reusando el mismo endpoint
+// de importación masiva (/api/fichadas/marcas/importar) con un array de
+// una sola marca por hora cargada -- mismo dedup/mapeo tarjeta->legajo que
+// usa la carga de .txt del reloj, sin tocar nada del backend. Pensado para
+// el caso de un reloj que falló y no generó archivo: en vez de completar
+// un formulario desde cero, se carga el horario directo sobre la fila que
+// ya está marcada AUSENTE.
+function FilaResultado({ r, onRecargar }: { r: ResultadoDia; onRecargar: () => void }) {
+  const toast = useToast();
+  const [editando, setEditando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [deposito, setDeposito] = useState(() => {
+    const d = detectarDeposito(r.area);
+    return d === 'DESCONOCIDO' ? 'CORDOBA' : d;
+  });
+  const [entrada1, setEntrada1] = useState('');
+  const [salida1, setSalida1] = useState('');
+  const [entrada2, setEntrada2] = useState('');
+  const [salida2, setSalida2] = useState('');
+
+  async function guardar() {
+    const horas = [entrada1, salida1, entrada2, salida2].map((h) => h.trim()).filter(Boolean);
+    if (!horas.length) { toast('Cargá al menos una hora.', 'warn'); return; }
+    const minutos = horas.map(hhmmAMinutos);
+    if (minutos.some((m) => m === null)) { toast('Alguna hora no tiene formato HH:MM válido.', 'warn'); return; }
+    setGuardando(true);
+    try {
+      const marcas = horas.map((hora, i) => ({
+        tarjeta: r.identificador, fecha: r.fecha, hora, minutos: minutos[i]!,
+        deposito, reloj: 'MANUAL', archivo: 'MANUAL',
+      }));
+      const res = await pb.send<{ importadas: number }>('/api/fichadas/marcas/importar', { method: 'POST', body: { marcas } });
+      toast(`Horario cargado (${res.importadas} marca(s)).`, 'ok');
+      onRecargar();
+    } catch (e) {
+      toast('No se pudo cargar el horario: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (editando) {
+    return (
+      <tr className="row-ausente">
+        <td>{r.nroLegajo}</td>
+        <td>{r.identificador}</td>
+        <td>{r.nombre}</td>
+        <td>
+          <select value={deposito} onChange={(e) => setDeposito(e.target.value)} style={{ width: 110 }}>
+            <option value="CORDOBA">CORDOBA</option>
+            <option value="ROSARIO">ROSARIO</option>
+            <option value="BUENOS AIRES">BUENOS AIRES</option>
+            <option value="SAN FRANCISCO">SAN FRANCISCO</option>
+          </select>
+        </td>
+        <td>{fechaSola(r.fecha)}</td>
+        <td>{r.dia}</td>
+        <td colSpan={2} style={{ color: 'var(--suave)' }}>Carga manual</td>
+        <td><input value={entrada1} onChange={(e) => setEntrada1(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
+        <td><input value={salida1} onChange={(e) => setSalida1(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
+        <td><input value={entrada2} onChange={(e) => setEntrada2(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
+        <td><input value={salida2} onChange={(e) => setSalida2(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
+        <td>
+          <button className="small" disabled={guardando} onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar'}</button>{' '}
+          <button className="small secondary" disabled={guardando} onClick={() => setEditando(false)}>Cancelar</button>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className={r.ausente ? 'row-ausente' : ''}>
+      <td>{r.nroLegajo}</td>
+      <td>{r.identificador}</td>
+      <td>{r.nombre}</td>
+      <td>{r.deposito}</td>
+      <td>{fechaSola(r.fecha)}</td>
+      <td>{r.dia}</td>
+      <td>{fmtDur(r.hN)}</td>
+      <td>{r.hE > 0 ? <span className="tag tag-extra">{fmtDur(r.hE)}</span> : '—'}</td>
+      <td>{fmtAbsHora(r.paresReales[0]?.[0])}</td>
+      <td>{fmtAbsHora(r.paresReales[0]?.[1])}</td>
+      <td>{fmtAbsHora(r.paresReales[1]?.[0])}</td>
+      <td>{fmtAbsHora(r.paresReales[1]?.[1])}</td>
+      <td>
+        {r.ausente
+          ? <><span className="tag tag-ausente">AUSENTE</span> <button className="small secondary" onClick={() => setEditando(true)}>Cargar horario</button></>
+          : (r.novedad || '—')}
+      </td>
+    </tr>
   );
 }
 
