@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { isoDate, fechaSola } from '../../lib/format';
-import { procesarPeriodo, fmtAbsHora, fmtDur, hhmmAMinutos, detectarDeposito, type ResultadoDia } from './motor';
+import { procesarPeriodo, fmtAbsHora, fmtDur, hhmmAMinutos, detectarDeposito, CAUSAS_AUSENTISMO, type ResultadoDia } from './motor';
 import type { FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo } from '../../types';
 
 type SubTab = 'detalle' | 'ausencias' | 'extra' | 'resumen';
@@ -201,7 +201,7 @@ function TablaDetalle({ filas, onRecargar }: { filas: ResultadoDia[]; onRecargar
 // ya está marcada AUSENTE.
 function FilaResultado({ r, onRecargar }: { r: ResultadoDia; onRecargar: () => void }) {
   const toast = useToast();
-  const [editando, setEditando] = useState(false);
+  const [modo, setModo] = useState<'horario' | 'novedad' | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [deposito, setDeposito] = useState(() => {
     const d = detectarDeposito(r.area);
@@ -211,8 +211,10 @@ function FilaResultado({ r, onRecargar }: { r: ResultadoDia; onRecargar: () => v
   const [salida1, setSalida1] = useState('');
   const [entrada2, setEntrada2] = useState('');
   const [salida2, setSalida2] = useState('');
+  const [novTexto, setNovTexto] = useState('');
+  const [novCausa, setNovCausa] = useState('');
 
-  async function guardar() {
+  async function guardarHorario() {
     const horas = [entrada1, salida1, entrada2, salida2].map((h) => h.trim()).filter(Boolean);
     if (!horas.length) { toast('Cargá al menos una hora.', 'warn'); return; }
     const minutos = horas.map(hhmmAMinutos);
@@ -233,7 +235,33 @@ function FilaResultado({ r, onRecargar }: { r: ResultadoDia; onRecargar: () => v
     }
   }
 
-  if (editando) {
+  async function guardarNovedad() {
+    if (!novTexto.trim()) { toast('Completá el motivo.', 'warn'); return; }
+    setGuardando(true);
+    try {
+      // upsert: si ya hay una novedad ese día para este legajo, la reemplaza
+      // (mismo criterio que "Asignar novedad" en Cargar fichadas)
+      let existente: { id: string } | null = null;
+      try {
+        existente = await pb.collection('fichadas_novedades').getFirstListItem(
+          pb.filter('legajo = {:l} && fecha = {:f}', { l: r.idLegajo, f: r.fecha })
+        );
+      } catch { /* no existía */ }
+      if (existente) {
+        await pb.collection('fichadas_novedades').update(existente.id, { texto: novTexto.trim(), causa: novCausa || null });
+      } else {
+        await pb.collection('fichadas_novedades').create({ legajo: r.idLegajo, fecha: r.fecha, texto: novTexto.trim(), causa: novCausa || null });
+      }
+      toast('Novedad asignada.', 'ok');
+      onRecargar();
+    } catch (e) {
+      toast('No se pudo asignar la novedad: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (modo === 'horario') {
     return (
       <tr className="row-ausente">
         <td>{r.nroLegajo}</td>
@@ -255,8 +283,34 @@ function FilaResultado({ r, onRecargar }: { r: ResultadoDia; onRecargar: () => v
         <td><input value={entrada2} onChange={(e) => setEntrada2(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
         <td><input value={salida2} onChange={(e) => setSalida2(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
         <td>
-          <button className="small" disabled={guardando} onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar'}</button>{' '}
-          <button className="small secondary" disabled={guardando} onClick={() => setEditando(false)}>Cancelar</button>
+          <button className="small" disabled={guardando} onClick={guardarHorario}>{guardando ? 'Guardando…' : 'Guardar'}</button>{' '}
+          <button className="small secondary" disabled={guardando} onClick={() => setModo(null)}>Cancelar</button>
+        </td>
+      </tr>
+    );
+  }
+
+  if (modo === 'novedad') {
+    return (
+      <tr className="row-ausente">
+        <td>{r.nroLegajo}</td>
+        <td>{r.identificador}</td>
+        <td>{r.nombre}</td>
+        <td>{r.deposito}</td>
+        <td>{fechaSola(r.fecha)}</td>
+        <td>{r.dia}</td>
+        <td colSpan={6}>
+          <div className="row" style={{ gap: 6 }}>
+            <select value={novCausa} onChange={(e) => setNovCausa(e.target.value)} style={{ width: 150 }}>
+              <option value="">Sin especificar</option>
+              {CAUSAS_AUSENTISMO.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input value={novTexto} onChange={(e) => setNovTexto(e.target.value)} placeholder="Motivo (ej: vacaciones)" style={{ flex: 1 }} />
+          </div>
+        </td>
+        <td>
+          <button className="small" disabled={guardando} onClick={guardarNovedad}>{guardando ? 'Guardando…' : 'Guardar'}</button>{' '}
+          <button className="small secondary" disabled={guardando} onClick={() => setModo(null)}>Cancelar</button>
         </td>
       </tr>
     );
@@ -278,7 +332,13 @@ function FilaResultado({ r, onRecargar }: { r: ResultadoDia; onRecargar: () => v
       <td>{fmtAbsHora(r.paresReales[1]?.[1])}</td>
       <td>
         {r.ausente
-          ? <><span className="tag tag-ausente">AUSENTE</span> <button className="small secondary" onClick={() => setEditando(true)}>Cargar horario</button></>
+          ? (
+            <>
+              <span className="tag tag-ausente">AUSENTE</span>{' '}
+              <button className="small secondary" onClick={() => setModo('horario')}>Cargar horario</button>{' '}
+              <button className="small secondary" onClick={() => setModo('novedad')}>Asignar novedad</button>
+            </>
+          )
           : (r.novedad || '—')}
       </td>
     </tr>
