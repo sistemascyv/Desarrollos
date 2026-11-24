@@ -5,7 +5,7 @@ import { useConfirm } from '../../lib/ConfirmContext';
 import { fechaSola } from '../../lib/format';
 import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from '../fichadas/motor';
 import { cambiarBasicoLegajo } from '../../lib/basicoHistorial';
-import type { DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija } from '../../types';
+import type { DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija, SueldosBasicoHistorial } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const SUB_TABS = [
@@ -86,6 +86,8 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
   const [categoriaNueva, setCategoriaNueva] = useState('');
   const [vigenciaDesde, setVigenciaDesde] = useState('');
   const [guardandoCategoria, setGuardandoCategoria] = useState(false);
+  const [idViendoHistorial, setIdViendoHistorial] = useState<string | null>(null);
+  const [historialTramos, setHistorialTramos] = useState<SueldosBasicoHistorial[]>([]);
 
   useEffect(() => { if (!empresa && empresas[0]) setEmpresa(empresas[0].id); }, [empresas, empresa]);
   useEffect(() => { if (!horario && horarios[0]) setHorario(horarios[0].id); }, [horarios, horario]);
@@ -105,6 +107,33 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
     }
   }
 
+  // El primer tramo de vigencia de básico de un legajo arranca en su
+  // fecha_alta (backfill o primera asignación de categoría en Personal) --
+  // si después se corrige la fecha_alta, ese primer tramo queda
+  // desincronizado si no se actualiza acá. Nunca toca un tramo posterior
+  // (un cambio de categoría real, no relacionado con la fecha de alta).
+  async function sincronizarPrimerTramo(legajoId: string, nuevaFechaAlta: string) {
+    let tramos: SueldosBasicoHistorial[] = [];
+    try {
+      tramos = await pb.collection('sueldos_basico_historial').getFullList<SueldosBasicoHistorial>({
+        filter: pb.filter('legajo = {:l}', { l: legajoId }),
+        sort: 'vigencia_desde',
+      });
+    } catch { /* sin historial todavía */ }
+    if (!tramos.length) return;
+    const [primero, segundo] = tramos;
+    if (primero.vigencia_desde === nuevaFechaAlta) return;
+    if (segundo && nuevaFechaAlta >= segundo.vigencia_desde) {
+      toast('La fecha de alta no se movió en el historial de básico porque cae después de un cambio de categoría ya cargado — revisalo en "Ver historial" si hace falta.', 'warn');
+      return;
+    }
+    try {
+      await pb.collection('sueldos_basico_historial').update(primero.id, { vigencia_desde: nuevaFechaAlta });
+    } catch (e) {
+      toast('No se pudo actualizar el historial de básico: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
   async function editar(id: string, campo: string, valor: string | boolean) {
     if (campo === 'fecha_alta' && typeof valor === 'string' && valor) {
       const legajo = legajos.find((l) => l.id === id);
@@ -115,9 +144,26 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
     }
     try {
       await pb.collection('fichadas_legajos').update(id, { [campo]: valor });
+      if (campo === 'fecha_alta' && typeof valor === 'string' && valor) {
+        await sincronizarPrimerTramo(id, valor);
+      }
       onChanged();
     } catch (e) {
       toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    }
+  }
+
+  async function abrirHistorial(legajoId: string) {
+    setIdViendoHistorial(legajoId);
+    setHistorialTramos([]);
+    try {
+      const tramos = await pb.collection('sueldos_basico_historial').getFullList<SueldosBasicoHistorial>({
+        filter: pb.filter('legajo = {:l}', { l: legajoId }),
+        sort: '-vigencia_desde',
+      });
+      setHistorialTramos(tramos);
+    } catch (e) {
+      toast('No se pudo cargar el historial: ' + (e instanceof Error ? e.message : ''), 'err');
     }
   }
 
@@ -312,6 +358,34 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
         );
       })()}
 
+      {idViendoHistorial && (() => {
+        const l = legajos.find((x) => x.id === idViendoHistorial);
+        return (
+          <>
+            <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Historial de básico de "{l?.nombre}"</h3>
+            <div className="table-wrap" style={{ maxHeight: 220 }}>
+              <table>
+                <thead><tr><th>Categoría</th><th className="num">Básico</th><th>Vigente desde</th><th>Vigente hasta</th></tr></thead>
+                <tbody>
+                  {historialTramos.map((t) => (
+                    <tr key={t.id}>
+                      <td>{categorias.find((c) => c.id === t.categoria)?.nombre || '—'}</td>
+                      <td className="num">{t.basico.toLocaleString('es-AR')}</td>
+                      <td>{fechaSola(t.vigencia_desde)}</td>
+                      <td>{t.vigencia_hasta ? fechaSola(t.vigencia_hasta) : 'Actual'}</td>
+                    </tr>
+                  ))}
+                  {!historialTramos.length && <tr><td colSpan={4} style={{ color: 'var(--suave)' }}>Sin historial todavía.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <div className="row" style={{ marginTop: 8 }}>
+              <button className="secondary" onClick={() => setIdViendoHistorial(null)}>Cerrar</button>
+            </div>
+          </>
+        );
+      })()}
+
       <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
       <div className="table-wrap" style={{ maxHeight: '50vh' }}>
         <table>
@@ -339,7 +413,8 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
                   {categorias.find((c) => c.id === l.categoria)?.nombre || 'Sin categoría'}{' '}
                   <button className="small secondary" onClick={() => abrirCambioCategoria(l)}>
                     {l.categoria ? 'Cambiar' : 'Asignar'}
-                  </button>
+                  </button>{' '}
+                  <button className="small secondary" onClick={() => abrirHistorial(l.id)}>Ver historial</button>
                 </td>
                 <td className="num">{l.basico != null ? l.basico.toLocaleString('es-AR') : '—'}</td>
                 <td>

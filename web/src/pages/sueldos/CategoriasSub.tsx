@@ -141,7 +141,8 @@ export function CategoriasSub() {
           }
         }
         if (errores.length) {
-          toast(`Categoría actualizada. ${actualizados} legajo(s) actualizados, ${errores.length} con error: ${errores.join(' · ')}`, 'warn');
+          const detalle = errores.slice(0, 3).join(' · ') + (errores.length > 3 ? ` · y ${errores.length - 3} más` : '');
+          toast(`Categoría actualizada. ${actualizados} legajo(s) actualizados, ${errores.length} con error: ${detalle}`, 'warn');
         } else {
           toast(`Categoría actualizada. ${actualizados} legajo(s) actualizados con el nuevo básico.`, 'ok');
         }

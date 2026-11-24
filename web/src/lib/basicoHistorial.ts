@@ -33,6 +33,10 @@ export async function cambiarBasicoLegajo(params: {
     );
   } catch { /* no había tramo abierto */ }
 
+  if (tramoAbierto && tramoAbierto.categoria === categoriaId && tramoAbierto.basico === basicoSugerido) {
+    return { ok: true }; // misma categoría y mismo básico que el tramo ya abierto -- no crear un tramo redundante
+  }
+
   if (tramoAbierto && vigenciaDesde <= tramoAbierto.vigencia_desde) {
     return { ok: false, error: 'La fecha de vigencia no puede ser anterior o igual al inicio del tramo actual (' + tramoAbierto.vigencia_desde + ').' };
   }
