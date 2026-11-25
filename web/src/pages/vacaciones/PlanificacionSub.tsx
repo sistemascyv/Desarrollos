@@ -1,10 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { NOMBRES_MESES } from '../../lib/format';
-import type { Chofer, FichadasLegajo, FichadasVacacion, FichadasVacacionNota } from '../../types';
-
-type Grupo = 'administrativos' | 'choferes';
+import type { FichadasEmpresa, FichadasLegajo, FichadasVacacion, FichadasVacacionNota } from '../../types';
 
 const DIAS_SEMANA_CORTO = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
 
@@ -25,11 +23,11 @@ function offsetPrimerDia(anio: number, mes: number): number {
 export function PlanificacionSub() {
   const toast = useToast();
   const now = useMemo(() => new Date(), []);
-  const [grupo, setGrupo] = useState<Grupo>('administrativos');
+  const [empresas, setEmpresas] = useState<FichadasEmpresa[]>([]);
+  const [areaId, setAreaId] = useState('');
   const [anio, setAnio] = useState(now.getFullYear());
   const [mes, setMes] = useState(now.getMonth() + 1);
   const [legajos, setLegajos] = useState<FichadasLegajo[]>([]);
-  const [choferes, setChoferes] = useState<Chofer[]>([]);
   const [vacaciones, setVacaciones] = useState<FichadasVacacion[]>([]);
   const [notas, setNotas] = useState<FichadasVacacionNota[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -37,23 +35,36 @@ export function PlanificacionSub() {
   const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
   const [textoNota, setTextoNota] = useState('');
 
+  // Áreas reales (las mismas que ya usan Fichadas/Personal/Reportes) --
+  // segmentar por área en vez de Administrativos/Choferes, para que RRHH
+  // vea si se cruza algún compañero dentro de un mismo equipo.
+  useEffect(() => {
+    pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' })
+      .then((es) => {
+        setEmpresas(es);
+        if (es[0]) setAreaId((actual) => actual || es[0].id);
+      })
+      .catch((e) => toast('No se pudieron cargar las áreas: ' + (e instanceof Error ? e.message : ''), 'err'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function marcarSinGenerar() {
     setGenerado(false);
   }
 
   async function generar() {
+    if (!areaId) { toast('Elegí un área.', 'warn'); return; }
     setCargando(true);
     try {
       const diasDelMesElegido = diasDelMes(anio, mes);
       const desde = diasDelMesElegido[0];
       const hasta = diasDelMesElegido[diasDelMesElegido.length - 1];
-      const [l, c, v, n] = await Promise.all([
-        pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ filter: 'estado = true' }),
-        pb.collection('choferes').getFullList<Chofer>({ filter: 'activo = true' }),
+      const [l, v, n] = await Promise.all([
+        pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ filter: pb.filter('estado = true && empresa = {:a}', { a: areaId }) }),
         pb.collection('fichadas_vacaciones').getFullList<FichadasVacacion>({ filter: pb.filter('desde <= {:h} && hasta >= {:d}', { d: desde, h: hasta }) }),
-        pb.collection('fichadas_vacaciones_notas').getFullList<FichadasVacacionNota>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h} && grupo = {:g}', { d: desde, h: hasta, g: grupo }) }),
+        pb.collection('fichadas_vacaciones_notas').getFullList<FichadasVacacionNota>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h} && grupo = {:g}', { d: desde, h: hasta, g: areaId }) }),
       ]);
-      setLegajos(l); setChoferes(c); setVacaciones(v); setNotas(n);
+      setLegajos(l); setVacaciones(v); setNotas(n);
       setGenerado(true);
     } catch (e) {
       toast('No se pudo generar el calendario: ' + (e instanceof Error ? e.message : ''), 'err');
@@ -62,20 +73,13 @@ export function PlanificacionSub() {
     }
   }
 
-  const legajosDeChofer = useMemo(() => new Set(choferes.map((c) => c.legajo).filter(Boolean)), [choferes]);
   const legajoPorId = useMemo(() => new Map(legajos.map((l) => [l.id, l])), [legajos]);
+  const idsDelArea = useMemo(() => new Set(legajos.map((l) => l.id)), [legajos]);
   const notaPorFecha = useMemo(() => new Map(notas.map((n) => [n.fecha, n])), [notas]);
-
-  const idsDelGrupo = useMemo(() => {
-    const filtrados = grupo === 'choferes'
-      ? legajos.filter((l) => legajosDeChofer.has(l.id))
-      : legajos.filter((l) => !legajosDeChofer.has(l.id));
-    return new Set(filtrados.map((l) => l.id));
-  }, [legajos, legajosDeChofer, grupo]);
 
   function nombresDelDia(fecha: string): string[] {
     return vacaciones
-      .filter((v) => v.desde <= fecha && v.hasta >= fecha && idsDelGrupo.has(v.legajo))
+      .filter((v) => v.desde <= fecha && v.hasta >= fecha && idsDelArea.has(v.legajo))
       .map((v) => legajoPorId.get(v.legajo)?.nombre || '—');
   }
 
@@ -107,7 +111,7 @@ export function PlanificacionSub() {
         await pb.collection('fichadas_vacaciones_notas').update(existente.id, { texto });
         setNotas((ns) => ns.map((n) => (n.id === existente.id ? { ...n, texto } : n)));
       } else if (texto) {
-        const creada = await pb.collection('fichadas_vacaciones_notas').create<FichadasVacacionNota>({ fecha: diaAbierto, grupo, texto });
+        const creada = await pb.collection('fichadas_vacaciones_notas').create<FichadasVacacionNota>({ fecha: diaAbierto, grupo: areaId, texto });
         setNotas((ns) => [...ns, creada]);
       }
       setDiaAbierto(null);
@@ -120,13 +124,12 @@ export function PlanificacionSub() {
 
   return (
     <div className="card">
-      <div className="hint">Calendario de quién está de vacaciones cada día, armado con los períodos ya cargados en "Vacaciones" — hacé clic en un día para ver el detalle completo y agregar una nota operativa.</div>
+      <div className="hint">Calendario de quién está de vacaciones cada día, por área — armado con los períodos ya cargados en "Vacaciones". Hacé clic en un día para ver el detalle completo y agregar una nota operativa.</div>
       <div className="row" style={{ marginTop: 10 }}>
-        <div className="field">
-          <label>Ver</label>
-          <select value={grupo} onChange={(e) => { setGrupo(e.target.value as Grupo); marcarSinGenerar(); }}>
-            <option value="administrativos">Administrativos</option>
-            <option value="choferes">Choferes</option>
+        <div className="field" style={{ minWidth: 200 }}>
+          <label>Área</label>
+          <select value={areaId} onChange={(e) => { setAreaId(e.target.value); marcarSinGenerar(); }}>
+            {empresas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
           </select>
         </div>
         <div className="field">

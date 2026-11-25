@@ -355,7 +355,7 @@ export interface FichadasGrupoRestriccion extends BaseRecord {
 
 export interface FichadasVacacionNota extends BaseRecord {
   fecha: string; // "YYYY-MM-DD"
-  grupo: 'administrativos' | 'choferes';
+  grupo: string; // id de fichadas_empresas (área real, ver 1789570000_fichadas_vacaciones_notas_grupo_area.js)
   texto: string;
 }
 
