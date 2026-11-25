@@ -5,11 +5,13 @@ import { useConfirm } from '../../lib/ConfirmContext';
 import { fechaSola } from '../../lib/format';
 import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from '../fichadas/motor';
 import { cambiarBasicoLegajo } from '../../lib/basicoHistorial';
+import { ChoferesTab } from './ChoferesTab';
 import type { Chofer, DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija, SueldosBasicoHistorial } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const SUB_TABS = [
   { id: 'empleados', label: 'Empleados' },
+  { id: 'choferes', label: 'Choferes' },
   { id: 'horario_personal', label: 'Horario personalizado' },
   { id: 'horas_fijas', label: 'Horas extra fijas' },
   { id: 'plantillas', label: 'Plantillas de horario' },
@@ -56,6 +58,7 @@ export function PersonalPage() {
         </div>
         <div style={{ marginTop: 14 }}>
           {subTab === 'empleados' && <EmpleadosSub empresas={empresas} horarios={horarios} legajos={legajos} categorias={categorias} onChanged={refrescar} />}
+          {subTab === 'choferes' && <ChoferesTab version={tick} onChanged={refrescar} />}
           {subTab === 'horario_personal' && <HorarioPersonalSub legajos={legajos} onChanged={refrescar} />}
           {subTab === 'horas_fijas' && <HorasFijasSub legajos={legajos} onChanged={refrescar} />}
           {subTab === 'plantillas' && <PlantillasSub horarios={horarios} legajos={legajos} onChanged={refrescar} />}

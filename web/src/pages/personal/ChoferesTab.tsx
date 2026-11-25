@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { AdminSimpleTab } from './AdminSimpleTab';
+import { AdminSimpleTab } from '../admin/AdminSimpleTab';
 import type { Chofer, FichadasEmpresa, FichadasLegajo } from '../../types';
 
 // Muchos choferes reales nunca tuvieron una ficha en Personal -- solo

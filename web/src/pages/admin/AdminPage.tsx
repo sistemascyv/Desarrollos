@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ChoferesTab } from './ChoferesTab';
+import { ChoferesTab } from '../personal/ChoferesTab';
 import { VehiculosTab } from './VehiculosTab';
 import { ClientesTab } from './ClientesTab';
 import { RutasTab } from './RutasTab';
