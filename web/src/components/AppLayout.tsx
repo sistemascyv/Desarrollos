@@ -58,7 +58,7 @@ export function AppLayout() {
             {isAdmin && (
               <>
                 <div className="nav-sep" />
-                <NavLink to="/administracion/choferes" className={navLinkClass}>
+                <NavLink to="/administracion" className={navLinkClass}>
                   Administración
                 </NavLink>
               </>
