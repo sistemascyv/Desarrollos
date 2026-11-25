@@ -249,15 +249,15 @@ function App() {
             </RequireModule>
           }
         />
-        <Route path="/administracion" element={<Navigate to="/administracion/choferes" replace />} />
         <Route
-          path="/administracion/:tab"
+          path="/administracion"
           element={
             <RequireAdmin>
               <AdminPage />
             </RequireAdmin>
           }
         />
+        <Route path="/administracion/:tab" element={<Navigate to="/administracion" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

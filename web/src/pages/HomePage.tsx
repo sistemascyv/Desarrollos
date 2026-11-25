@@ -8,7 +8,7 @@ export function HomePage() {
 
   const items: ModuleDef[] = [...accesibles];
   if (isAdmin) {
-    items.push({ id: 'administracion', label: 'Administración', group: 'Sistema', path: 'administracion/choferes' });
+    items.push({ id: 'administracion', label: 'Administración', group: 'Sistema', path: 'administracion' });
   }
   // Mismo orden de grupos que el menú lateral (RRHH, TESORERIA,
   // MANTENIMIENTO...), no alfabético — el orden en que aparecen en MODULES.
