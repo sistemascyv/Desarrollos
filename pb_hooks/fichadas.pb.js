@@ -27,6 +27,46 @@ onRecordBeforeUpdateRequest((e) => {
   e.record.set("estado", !e.record.get("fecha_baja"));
 }, "fichadas_legajos");
 
+// Choferes vinculados a Personal (ver
+// docs/superpowers/specs/2026-11-25-choferes-vinculo-legajo-design.md): el
+// "activo" de un chofer deja de ser un dato propio y pasa a ser un espejo
+// del estado del legajo vinculado -- un solo lugar (Personal) para dar de
+// alta/baja. Dos direcciones:
+// 1) cuando se actualiza un legajo, empuja su estado al chofer vinculado
+//    (si hay uno) -- se calcula directo desde fecha_baja, no desde
+//    e.record.get("estado"), para no depender del orden en que corran los
+//    hooks de "fichadas_legajos" entre sí.
+// 2) cuando se crea/edita un chofer (por ej. al vincularlo a un legajo por
+//    primera vez, o al cambiarle el legajo), trae el estado actual de ESE
+//    legajo -- así vincular o revincular refleja la realidad al instante,
+//    y de paso es defensa en profundidad por si alguien edita "activo" a
+//    mano por la API sin pasar por la UI.
+// Un chofer sin legajo vinculado no se toca en ningún lado -- queda con su
+// activo manual (caso legado, ver spec).
+onRecordBeforeUpdateRequest((e) => {
+  try {
+    const dao = $app.dao();
+    const chofer = dao.findFirstRecordByFilter("choferes", "legajo = {:legajo}", { legajo: e.record.id });
+    const estadoNuevo = !e.record.get("fecha_baja");
+    if (chofer.get("activo") !== estadoNuevo) {
+      chofer.set("activo", estadoNuevo);
+      dao.saveRecord(chofer);
+    }
+  } catch (err) { /* ningún chofer vinculado a este legajo */ }
+}, "fichadas_legajos");
+
+function sincronizarActivoDesdeLegajo(e) {
+  const legajoId = e.record.get("legajo");
+  if (!legajoId) return;
+  try {
+    const dao = $app.dao();
+    const legajo = dao.findRecordById("fichadas_legajos", legajoId);
+    e.record.set("activo", !!legajo.get("estado"));
+  } catch (err) { /* legajo no encontrado */ }
+}
+onRecordBeforeCreateRequest(sincronizarActivoDesdeLegajo, "choferes");
+onRecordBeforeUpdateRequest(sincronizarActivoDesdeLegajo, "choferes");
+
 routerAdd("POST", "/api/fichadas/marcas/importar", (c) => {
   const info = $apis.requestInfo(c);
   const auth = info.authRecord;
