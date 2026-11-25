@@ -30,6 +30,12 @@ const PanelCubiertasPage = lazy(() =>
 const PosicionFlotaPage = lazy(() =>
   import('./pages/flota/satelital/PosicionFlotaPage').then((m) => ({ default: m.PosicionFlotaPage }))
 );
+const VehiculosPage = lazy(() =>
+  import('./pages/flota/VehiculosPage').then((m) => ({ default: m.VehiculosPage }))
+);
+const RutasFrecuentesPage = lazy(() =>
+  import('./pages/flota/RutasFrecuentesPage').then((m) => ({ default: m.RutasFrecuentesPage }))
+);
 const FichadasPage = lazy(() =>
   import('./pages/fichadas/FichadasPage').then((m) => ({ default: m.FichadasPage }))
 );
@@ -140,6 +146,22 @@ function App() {
           element={
             <RequireModule moduleId="flota_posicion">
               <PosicionFlotaPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/flota/vehiculos"
+          element={
+            <RequireModule moduleId="vehiculos">
+              <VehiculosPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/flota/rutas-frecuentes"
+          element={
+            <RequireModule moduleId="rutas_frecuentes">
+              <RutasFrecuentesPage />
             </RequireModule>
           }
         />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { AdminSimpleTab } from './AdminSimpleTab';
+import { AdminSimpleTab } from '../admin/AdminSimpleTab';
 import type { Vehiculo } from '../../types';
 
 export function VehiculosTab({ version, onChanged }: { version: number; onChanged: () => void }) {

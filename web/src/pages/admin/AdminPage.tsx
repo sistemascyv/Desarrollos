@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ChoferesTab } from '../personal/ChoferesTab';
-import { VehiculosTab } from './VehiculosTab';
+import { VehiculosTab } from '../flota/VehiculosTab';
 import { ClientesTab } from './ClientesTab';
-import { RutasTab } from './RutasTab';
+import { RutasTab } from '../flota/RutasTab';
 import { UsuariosTab } from './UsuariosTab';
 
 const TABS = [
