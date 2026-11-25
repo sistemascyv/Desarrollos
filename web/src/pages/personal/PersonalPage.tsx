@@ -5,7 +5,7 @@ import { useConfirm } from '../../lib/ConfirmContext';
 import { fechaSola } from '../../lib/format';
 import { hhmmAMinutos, fmtDur, MOTIVOS_BAJA } from '../fichadas/motor';
 import { cambiarBasicoLegajo } from '../../lib/basicoHistorial';
-import type { DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija, SueldosBasicoHistorial } from '../../types';
+import type { Chofer, DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHorario, FichadasLegajo, HoraExtraFija, SueldosBasicoHistorial } from '../../types';
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const SUB_TABS = [
@@ -88,9 +88,27 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
   const [guardandoCategoria, setGuardandoCategoria] = useState(false);
   const [idViendoHistorial, setIdViendoHistorial] = useState<string | null>(null);
   const [historialTramos, setHistorialTramos] = useState<SueldosBasicoHistorial[]>([]);
+  const [choferes, setChoferes] = useState<Chofer[]>([]);
+  const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'administrativos' | 'choferes'>('todos');
 
   useEffect(() => { if (!empresa && empresas[0]) setEmpresa(empresas[0].id); }, [empresas, empresa]);
   useEffect(() => { if (!horario && horarios[0]) setHorario(horarios[0].id); }, [horarios, horario]);
+  // Para distinguir Administrativo/Chofer en la tabla -- un legajo es
+  // "chofer" si algún choferes.legajo apunta a él (ver
+  // docs/superpowers/specs/2026-11-25-choferes-vinculo-legajo-design.md).
+  useEffect(() => {
+    pb.collection('choferes').getFullList<Chofer>()
+      .then(setChoferes)
+      .catch((e) => toast('No se pudieron cargar los choferes: ' + (e instanceof Error ? e.message : ''), 'err'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const legajosDeChofer = new Set(choferes.map((c) => c.legajo).filter(Boolean));
+  const legajosFiltrados = legajos.filter((l) => {
+    if (tipoFiltro === 'todos') return true;
+    const esChofer = legajosDeChofer.has(l.id);
+    return tipoFiltro === 'choferes' ? esChofer : !esChofer;
+  });
 
   async function agregar() {
     if (!nroTarjeta.trim() || !nombre.trim()) { toast('Completá al menos N° Tarjeta y Nombre.', 'warn'); return; }
@@ -386,16 +404,27 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
         );
       })()}
 
-      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Empleados cargados ({legajosFiltrados.length})</h3>
+      <div className="row" style={{ marginBottom: 8 }}>
+        <div className="field">
+          <label>Tipo</label>
+          <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value as typeof tipoFiltro)}>
+            <option value="todos">Todos</option>
+            <option value="administrativos">Administrativos</option>
+            <option value="choferes">Choferes</option>
+          </select>
+        </div>
+      </div>
       <div className="table-wrap" style={{ maxHeight: '50vh' }}>
         <table>
-          <thead><tr><th>Legajo</th><th>Tarjeta</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Fecha alta</th><th>Categoría</th><th>Básico</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Legajo</th><th>Tarjeta</th><th>Nombre</th><th>Tipo</th><th>Área</th><th>Horario</th><th>Fecha alta</th><th>Categoría</th><th>Básico</th><th>Estado</th><th></th></tr></thead>
           <tbody>
-            {legajos.map((l) => (
+            {legajosFiltrados.map((l) => (
               <tr key={l.id} className={!l.estado ? 'inactivo' : ''}>
                 <td>{l.nro_legajo}</td>
                 <td>{l.nro_tarjeta}</td>
                 <td className="admin-name">{l.nombre}</td>
+                <td>{legajosDeChofer.has(l.id) ? 'Chofer' : 'Administrativo'}</td>
                 <td>
                   <select value={l.empresa || ''} onChange={(e) => editar(l.id, 'empresa', e.target.value)}>
                     {empresas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}

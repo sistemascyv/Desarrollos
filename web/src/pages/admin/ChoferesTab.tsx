@@ -4,11 +4,55 @@ import { useToast } from '../../lib/ToastContext';
 import { AdminSimpleTab } from './AdminSimpleTab';
 import type { Chofer, FichadasLegajo } from '../../types';
 
+// Muchos choferes reales nunca tuvieron una ficha en Personal -- solo
+// existían en esta colección (usada por Planilla Choferes/Vale de Caja),
+// sin pasar nunca por el flujo de RRHH. El backfill por nombre (migración
+// 1789550000) solo pudo vincular a los que YA tenían una ficha coincidente
+// en fichadas_legajos -- el resto queda "Sin legajo vinculado" y, hasta
+// ahora, no tenía forma de arreglarlo sin ir a Personal a crear la ficha a
+// mano y volver acá a vincularla. Esta pantalla ahora deja crear esa
+// ficha directo, en el mismo lugar.
+function VincularLegajoForm({ chofer, onVinculado }: { chofer: Chofer; onVinculado: () => void }) {
+  const toast = useToast();
+  const [nroTarjeta, setNroTarjeta] = useState('');
+  const [fechaAlta, setFechaAlta] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  async function crearYVincular() {
+    if (!nroTarjeta.trim()) { toast('Completá el N° de Tarjeta.', 'warn'); return; }
+    setGuardando(true);
+    try {
+      const nuevoLegajo = await pb.collection('fichadas_legajos').create<FichadasLegajo>({
+        nro_tarjeta: nroTarjeta.trim(), nombre: chofer.nombre.toUpperCase(), estado: true, fecha_alta: fechaAlta || null,
+      });
+      await pb.collection('choferes').update(chofer.id, { legajo: nuevoLegajo.id });
+      toast('Legajo creado y vinculado.', 'ok');
+      onVinculado();
+    } catch (e) {
+      toast('Error: ' + (e instanceof Error ? e.message : ''), 'err');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="row" style={{ marginTop: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <div style={{ minWidth: 160, fontWeight: 600, fontSize: 13 }}>{chofer.nombre}</div>
+      <div className="field"><label>N° Tarjeta</label><input value={nroTarjeta} onChange={(e) => setNroTarjeta(e.target.value)} style={{ width: 110 }} /></div>
+      <div className="field"><label>Fecha de alta</label><input type="date" value={fechaAlta} onChange={(e) => setFechaAlta(e.target.value)} /></div>
+      <button className="small" disabled={guardando} onClick={crearYVincular}>{guardando ? 'Creando…' : 'Crear legajo y vincular'}</button>
+    </div>
+  );
+}
+
 export function ChoferesTab({ version, onChanged }: { version: number; onChanged: () => void }) {
   const toast = useToast();
   const [nombre, setNombre] = useState('');
   const [localidad, setLocalidad] = useState('');
+  const [modoLegajo, setModoLegajo] = useState<'existente' | 'nuevo'>('existente');
   const [legajoCreando, setLegajoCreando] = useState('');
+  const [nroTarjetaNuevo, setNroTarjetaNuevo] = useState('');
+  const [fechaAltaNuevo, setFechaAltaNuevo] = useState('');
   const [legajos, setLegajos] = useState<FichadasLegajo[]>([]);
   const [choferes, setChoferes] = useState<Chofer[]>([]);
 
@@ -24,15 +68,22 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
   const legajoPorId = new Map(legajos.map((l) => [l.id, l]));
   const legajosOcupados = new Set(choferes.map((c) => c.legajo).filter(Boolean));
   const legajosLibres = legajos.filter((l) => !legajosOcupados.has(l.id) && l.estado);
+  const choferesSinLegajo = choferes.filter((c) => !c.legajo);
 
   async function create() {
     if (!nombre.trim()) { toast('Falta el nombre.', 'warn'); return; }
-    if (!legajoCreando) { toast('Elegí un legajo de Personal para vincular (si no existe todavía, creálo primero en Personal → Empleados).', 'warn'); return; }
     try {
-      await pb.collection('choferes').create({ nombre: nombre.trim(), localidad: localidad.trim(), activo: true, legajo: legajoCreando });
-      setNombre('');
-      setLocalidad('');
-      setLegajoCreando('');
+      let legajoId = legajoCreando;
+      if (modoLegajo === 'nuevo') {
+        if (!nroTarjetaNuevo.trim()) { toast('Completá el N° de Tarjeta del legajo nuevo.', 'warn'); return; }
+        const nuevoLegajo = await pb.collection('fichadas_legajos').create<FichadasLegajo>({
+          nro_tarjeta: nroTarjetaNuevo.trim(), nombre: nombre.trim().toUpperCase(), estado: true, fecha_alta: fechaAltaNuevo || null,
+        });
+        legajoId = nuevoLegajo.id;
+      }
+      if (!legajoId) { toast('Elegí un legajo de Personal o creá uno nuevo.', 'warn'); return; }
+      await pb.collection('choferes').create({ nombre: nombre.trim(), localidad: localidad.trim(), activo: true, legajo: legajoId });
+      setNombre(''); setLocalidad(''); setLegajoCreando(''); setNroTarjetaNuevo(''); setFechaAltaNuevo('');
       onChanged();
       toast('Chofer agregado.', 'ok');
     } catch (e) {
@@ -41,36 +92,60 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
   }
 
   return (
-    <AdminSimpleTab<Chofer>
-      title="Choferes"
-      collection="choferes"
-      activoReadOnly
-      columns={[
-        { field: 'nombre', label: 'Nombre' },
-        { field: 'localidad', label: 'Localidad' },
-        {
-          field: 'legajo', label: 'Legajo', type: 'select',
-          options: legajos.map((l) => ({ value: l.id, label: l.nombre + (l.nro_legajo ? ' (' + l.nro_legajo + ')' : '') })),
-          render: (v) => { const l = legajoPorId.get(String(v || '')); return l ? l.nombre : '⚠ Sin legajo vinculado'; },
-        },
-      ]}
-      searchFields={['nombre', 'localidad']}
-      version={version}
-      onChanged={onChanged}
-      form={
-        <div className="row">
-          <div className="field" style={{ flex: 1 }}><label>Nombre</label><input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
-          <div className="field"><label>Localidad</label><input value={localidad} onChange={(e) => setLocalidad(e.target.value)} /></div>
-          <div className="field" style={{ flex: 1 }}>
-            <label>Legajo (Personal)</label>
-            <select value={legajoCreando} onChange={(e) => setLegajoCreando(e.target.value)}>
-              <option value="">Elegir…</option>
-              {legajosLibres.map((l) => <option key={l.id} value={l.id}>{l.nombre}{l.nro_legajo ? ' (' + l.nro_legajo + ')' : ''}</option>)}
-            </select>
-          </div>
-          <button onClick={create}>+ Agregar</button>
+    <>
+      {choferesSinLegajo.length > 0 && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <h3 style={{ margin: '0 0 6px', fontSize: 13 }}>Choferes sin legajo vinculado ({choferesSinLegajo.length})</h3>
+          <div className="hint">Nunca tuvieron una ficha en Personal — creásela acá para que aparezcan en Personal → Empleados y puedan tener alta/baja.</div>
+          {choferesSinLegajo.map((c) => <VincularLegajoForm key={c.id} chofer={c} onVinculado={onChanged} />)}
         </div>
-      }
-    />
+      )}
+
+      <AdminSimpleTab<Chofer>
+        title="Choferes"
+        collection="choferes"
+        activoReadOnly
+        columns={[
+          { field: 'nombre', label: 'Nombre' },
+          { field: 'localidad', label: 'Localidad' },
+          {
+            field: 'legajo', label: 'Legajo', type: 'select',
+            options: legajos.map((l) => ({ value: l.id, label: l.nombre + (l.nro_legajo ? ' (' + l.nro_legajo + ')' : '') })),
+            render: (v) => { const l = legajoPorId.get(String(v || '')); return l ? l.nombre : '⚠ Sin legajo vinculado'; },
+          },
+        ]}
+        searchFields={['nombre', 'localidad']}
+        version={version}
+        onChanged={onChanged}
+        form={
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <div className="field" style={{ flex: 1 }}><label>Nombre</label><input value={nombre} onChange={(e) => setNombre(e.target.value)} /></div>
+            <div className="field"><label>Localidad</label><input value={localidad} onChange={(e) => setLocalidad(e.target.value)} /></div>
+            <div className="field">
+              <label>Legajo (Personal)</label>
+              <div className="row" style={{ gap: 4 }}>
+                <button type="button" className={modoLegajo === 'existente' ? 'small' : 'small secondary'} onClick={() => setModoLegajo('existente')}>Elegir existente</button>
+                <button type="button" className={modoLegajo === 'nuevo' ? 'small' : 'small secondary'} onClick={() => setModoLegajo('nuevo')}>Crear nuevo</button>
+              </div>
+            </div>
+            {modoLegajo === 'existente' ? (
+              <div className="field" style={{ flex: 1 }}>
+                <label>&nbsp;</label>
+                <select value={legajoCreando} onChange={(e) => setLegajoCreando(e.target.value)}>
+                  <option value="">Elegir…</option>
+                  {legajosLibres.map((l) => <option key={l.id} value={l.id}>{l.nombre}{l.nro_legajo ? ' (' + l.nro_legajo + ')' : ''}</option>)}
+                </select>
+              </div>
+            ) : (
+              <>
+                <div className="field"><label>N° Tarjeta</label><input value={nroTarjetaNuevo} onChange={(e) => setNroTarjetaNuevo(e.target.value)} style={{ width: 110 }} /></div>
+                <div className="field"><label>Fecha de alta</label><input type="date" value={fechaAltaNuevo} onChange={(e) => setFechaAltaNuevo(e.target.value)} /></div>
+              </>
+            )}
+            <button onClick={create}>+ Agregar</button>
+          </div>
+        }
+      />
+    </>
   );
 }
