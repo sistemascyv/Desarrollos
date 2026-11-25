@@ -14,17 +14,21 @@ import type { Chofer, FichadasEmpresa, FichadasLegajo } from '../../types';
 // ficha directo, en el mismo lugar.
 function VincularLegajoForm({ chofer, empresas, onVinculado }: { chofer: Chofer; empresas: FichadasEmpresa[]; onVinculado: () => void }) {
   const toast = useToast();
-  const [nroTarjeta, setNroTarjeta] = useState('');
+  const [nroLegajo, setNroLegajo] = useState('');
   const [fechaAlta, setFechaAlta] = useState('');
   const [empresaId, setEmpresaId] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   async function crearYVincular() {
-    if (!nroTarjeta.trim()) { toast('Completá el N° de Tarjeta.', 'warn'); return; }
+    if (!nroLegajo.trim()) { toast('Completá el N° de Legajo.', 'warn'); return; }
     setGuardando(true);
     try {
+      // El chofer no ficha con reloj -- nro_tarjeta es obligatorio en la
+      // base (lo usa el motor de Fichadas para matchear marcas) pero no
+      // tiene sentido real acá, así que se completa con el mismo N° de
+      // Legajo (lo que sí importa para RRHH) en vez de pedirlo aparte.
       const nuevoLegajo = await pb.collection('fichadas_legajos').create<FichadasLegajo>({
-        nro_tarjeta: nroTarjeta.trim(), nombre: chofer.nombre.toUpperCase(), estado: true, fecha_alta: fechaAlta || null, empresa: empresaId || null,
+        nro_legajo: nroLegajo.trim(), nro_tarjeta: nroLegajo.trim(), nombre: chofer.nombre.toUpperCase(), estado: true, fecha_alta: fechaAlta || null, empresa: empresaId || null,
       });
       await pb.collection('choferes').update(chofer.id, { legajo: nuevoLegajo.id });
       toast('Legajo creado y vinculado.', 'ok');
@@ -39,7 +43,7 @@ function VincularLegajoForm({ chofer, empresas, onVinculado }: { chofer: Chofer;
   return (
     <div className="row" style={{ marginTop: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
       <div style={{ minWidth: 160, fontWeight: 600, fontSize: 13 }}>{chofer.nombre}</div>
-      <div className="field"><label>N° Tarjeta</label><input value={nroTarjeta} onChange={(e) => setNroTarjeta(e.target.value)} style={{ width: 110 }} /></div>
+      <div className="field"><label>N° de Legajo</label><input value={nroLegajo} onChange={(e) => setNroLegajo(e.target.value)} style={{ width: 110 }} /></div>
       <div className="field"><label>Fecha de alta</label><input type="date" value={fechaAlta} onChange={(e) => setFechaAlta(e.target.value)} /></div>
       <div className="field">
         <label>Área</label>
@@ -59,7 +63,7 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
   const [localidad, setLocalidad] = useState('');
   const [modoLegajo, setModoLegajo] = useState<'existente' | 'nuevo'>('existente');
   const [legajoCreando, setLegajoCreando] = useState('');
-  const [nroTarjetaNuevo, setNroTarjetaNuevo] = useState('');
+  const [nroLegajoNuevo, setNroLegajoNuevo] = useState('');
   const [fechaAltaNuevo, setFechaAltaNuevo] = useState('');
   const [empresaNuevo, setEmpresaNuevo] = useState('');
   const [legajos, setLegajos] = useState<FichadasLegajo[]>([]);
@@ -86,15 +90,18 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
     try {
       let legajoId = legajoCreando;
       if (modoLegajo === 'nuevo') {
-        if (!nroTarjetaNuevo.trim()) { toast('Completá el N° de Tarjeta del legajo nuevo.', 'warn'); return; }
+        if (!nroLegajoNuevo.trim()) { toast('Completá el N° de Legajo nuevo.', 'warn'); return; }
+        // El chofer no ficha con reloj -- nro_tarjeta es obligatorio en la
+        // base pero no tiene sentido real acá, se completa con el mismo
+        // N° de Legajo en vez de pedirlo aparte (ver VincularLegajoForm).
         const nuevoLegajo = await pb.collection('fichadas_legajos').create<FichadasLegajo>({
-          nro_tarjeta: nroTarjetaNuevo.trim(), nombre: nombre.trim().toUpperCase(), estado: true, fecha_alta: fechaAltaNuevo || null, empresa: empresaNuevo || null,
+          nro_legajo: nroLegajoNuevo.trim(), nro_tarjeta: nroLegajoNuevo.trim(), nombre: nombre.trim().toUpperCase(), estado: true, fecha_alta: fechaAltaNuevo || null, empresa: empresaNuevo || null,
         });
         legajoId = nuevoLegajo.id;
       }
       if (!legajoId) { toast('Elegí un legajo de Personal o creá uno nuevo.', 'warn'); return; }
       await pb.collection('choferes').create({ nombre: nombre.trim(), localidad: localidad.trim(), activo: true, legajo: legajoId });
-      setNombre(''); setLocalidad(''); setLegajoCreando(''); setNroTarjetaNuevo(''); setFechaAltaNuevo(''); setEmpresaNuevo('');
+      setNombre(''); setLocalidad(''); setLegajoCreando(''); setNroLegajoNuevo(''); setFechaAltaNuevo(''); setEmpresaNuevo('');
       onChanged();
       toast('Chofer agregado.', 'ok');
     } catch (e) {
@@ -149,7 +156,7 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
               </div>
             ) : (
               <>
-                <div className="field"><label>N° Tarjeta</label><input value={nroTarjetaNuevo} onChange={(e) => setNroTarjetaNuevo(e.target.value)} style={{ width: 110 }} /></div>
+                <div className="field"><label>N° de Legajo</label><input value={nroLegajoNuevo} onChange={(e) => setNroLegajoNuevo(e.target.value)} style={{ width: 110 }} /></div>
                 <div className="field"><label>Fecha de alta</label><input type="date" value={fechaAltaNuevo} onChange={(e) => setFechaAltaNuevo(e.target.value)} /></div>
                 <div className="field">
                   <label>Área</label>
