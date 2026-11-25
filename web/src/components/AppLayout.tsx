@@ -6,6 +6,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { StatusBanner } from './StatusBanner';
 import { PageLoading } from './PageLoading';
 import { ChunkErrorBoundary } from './ChunkErrorBoundary';
+import { AyudaFlotante } from './AyudaFlotante';
 
 export function AppLayout() {
   const { usuario, isAdmin, canAccessModule, logout } = useAuth();
@@ -24,6 +25,7 @@ export function AppLayout() {
 
   return (
     <div>
+      <AyudaFlotante />
       <div className="mobile-topbar">
         <button type="button" className="secondary small" onClick={() => setSidebarOpen((o) => !o)}>
           Menú
