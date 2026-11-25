@@ -43,7 +43,7 @@ export function PlanificacionSub() {
         pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ filter: 'estado = true' }),
         pb.collection('choferes').getFullList<Chofer>({ filter: 'activo = true' }),
         pb.collection('fichadas_vacaciones').getFullList<FichadasVacacion>({ filter: pb.filter('desde <= {:h} && hasta >= {:d}', { d: desde, h: hasta }) }),
-        pb.collection('fichadas_vacaciones_notas').getFullList<FichadasVacacionNota>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
+        pb.collection('fichadas_vacaciones_notas').getFullList<FichadasVacacionNota>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h} && grupo = {:g}', { d: desde, h: hasta, g: grupo }) }),
       ]);
       setLegajos(l); setChoferes(c); setVacaciones(v); setNotas(n);
       setGenerado(true);
@@ -118,8 +118,8 @@ export function PlanificacionSub() {
             <option value="choferes">Choferes</option>
           </select>
         </div>
-        <div className="field"><label>Desde</label><input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></div>
-        <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
+        <div className="field"><label>Desde</label><input type="date" value={desde} onChange={(e) => { setDesde(e.target.value); setGenerado(false); }} /></div>
+        <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => { setHasta(e.target.value); setGenerado(false); }} /></div>
         <button onClick={generar} disabled={cargando}>{cargando ? 'Generando…' : 'Generar'}</button>
       </div>
 

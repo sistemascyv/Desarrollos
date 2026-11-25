@@ -46,12 +46,18 @@ onRecordBeforeUpdateRequest((e) => {
 onRecordBeforeUpdateRequest((e) => {
   try {
     const dao = $app.dao();
-    const chofer = dao.findFirstRecordByFilter("choferes", "legajo = {:legajo}", { legajo: e.record.id });
+    // findRecordsByFilter (no findFirstRecordByFilter): si por algún motivo
+    // hubiera más de un chofer vinculado al mismo legajo (nada en el schema
+    // lo impide todavía), sincroniza a todos, no solo al primero que
+    // encuentra el filtro.
+    const choferesVinculados = dao.findRecordsByFilter("choferes", "legajo = {:legajo}", "", 0, 0, { legajo: e.record.id });
     const estadoNuevo = !e.record.get("fecha_baja");
-    if (chofer.get("activo") !== estadoNuevo) {
-      chofer.set("activo", estadoNuevo);
-      dao.saveRecord(chofer);
-    }
+    choferesVinculados.forEach((chofer) => {
+      if (chofer.get("activo") !== estadoNuevo) {
+        chofer.set("activo", estadoNuevo);
+        dao.saveRecord(chofer);
+      }
+    });
   } catch (err) { /* ningún chofer vinculado a este legajo */ }
 }, "fichadas_legajos");
 

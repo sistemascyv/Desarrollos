@@ -29,12 +29,12 @@ migrate((db) => {
         "options": { "min": null, "max": null, "pattern": "" }
       }
     ],
-    "indexes": [],
+    "indexes": ["CREATE UNIQUE INDEX `idx_fvn_fecha_grupo` ON `fichadas_vacaciones_notas` (`fecha`, `grupo`)"],
     "listRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"vacaciones\")",
     "viewRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"vacaciones\")",
     "createRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"vacaciones\")",
     "updateRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"vacaciones\")",
-    "deleteRule": "@request.auth.rol = \"admin\"",
+    "deleteRule": "@request.auth.id != \"\" && (@request.auth.rol = \"admin\" || @request.auth.modulos ~ \"vacaciones\")",
     "options": {}
   }));
   return null;

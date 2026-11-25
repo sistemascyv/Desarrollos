@@ -47,6 +47,29 @@ migrate((db) => {
   });
   console.log('choferes_backfill_legajo: ' + vinculados + ' vinculados por nombre, ' + sinMatch + ' sin match (quedan para vincular a mano en Administración → Choferes).');
 
+  // --- Reconciliar `activo` con el estado real del legajo vinculado ---
+  // Esta migración corre con Dao, no por una request HTTP real, así que
+  // los hooks de pb_hooks/fichadas.pb.js (que sincronizan activo<->estado
+  // en vivo) NO se disparan acá. Sin este paso, cualquier chofer vinculado
+  // -- tanto los recién backfillados arriba como los que ya vinculó
+  // 1789490000_liquidacion_choferes.js -- podría quedar con un `activo`
+  // desincronizado del `estado` real de su legajo hasta que alguien lo
+  // edite a mano por la API.
+  let choferesConLegajoFinal = [];
+  try { choferesConLegajoFinal = dao.findRecordsByFilter(choferesCol.id, "legajo != ''", '', 500, 0); } catch (e) { /* ninguno */ }
+  let reconciliados = 0;
+  choferesConLegajoFinal.forEach((c) => {
+    let legajo = null;
+    try { legajo = dao.findRecordById(legajosCol.id, c.get('legajo')); } catch (e) { return; }
+    const activoReal = !legajo.get('fecha_baja');
+    if (c.get('activo') !== activoReal) {
+      c.set('activo', activoReal);
+      dao.saveRecord(c);
+      reconciliados++;
+    }
+  });
+  console.log('choferes_backfill_legajo: ' + reconciliados + ' choferes con activo reconciliado contra el estado real de su legajo.');
+
   return null;
 }, (db) => {
   // No se revierte: volver a dejar `legajo` en blanco perdería el vínculo

@@ -23,7 +23,7 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
 
   const legajoPorId = new Map(legajos.map((l) => [l.id, l]));
   const legajosOcupados = new Set(choferes.map((c) => c.legajo).filter(Boolean));
-  const legajosLibres = legajos.filter((l) => !legajosOcupados.has(l.id));
+  const legajosLibres = legajos.filter((l) => !legajosOcupados.has(l.id) && l.estado);
 
   async function create() {
     if (!nombre.trim()) { toast('Falta el nombre.', 'warn'); return; }
