@@ -350,7 +350,7 @@ export function ReportesPage() {
             </div>
             {rotacionMovimientos && rotacionMovimientos.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '0 0 8px' }}>Movimientos del año</h3>
+                <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '0 0 8px' }}>Movimientos del año</h3>
                 <ul style={{ margin: 0, paddingLeft: 18 }}>
                   {rotacionMovimientos.map((mv, idx) => (
                     <li key={idx} style={{ fontSize: 12 }}>

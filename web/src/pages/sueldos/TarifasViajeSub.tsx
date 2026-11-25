@@ -90,7 +90,7 @@ export function TarifasViajeSub() {
   return (
     <div className="card">
       <div className="hint">Tarifas de viaje — valores que no dependen de la categoría del chofer (se actualizan con cada aumento de la escala).</div>
-      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '14px 0 8px' }}>{editandoId ? 'Editar tarifa' : 'Nueva tarifa'}</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '14px 0 8px' }}>{editandoId ? 'Editar tarifa' : 'Nueva tarifa'}</h3>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <div className="field"><label>Nombre</label><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Cruce de frontera" style={{ width: 280 }} /></div>
         <div className="field"><label>Valor ($)</label><input value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} style={{ width: 110 }} /></div>
@@ -106,7 +106,7 @@ export function TarifasViajeSub() {
         )}
       </div>
 
-      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Tarifas ({tarifas.length})</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Tarifas ({tarifas.length})</h3>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Nombre</th><th>Valor</th><th></th></tr></thead>

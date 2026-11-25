@@ -293,7 +293,7 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
 
   return (
     <>
-      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '0 0 8px' }}>Agregar empleado nuevo</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '0 0 8px' }}>Agregar empleado nuevo</h3>
       <div className="row">
         <div className="field"><label>N° Legajo</label><input value={nroLegajo} onChange={(e) => setNroLegajo(e.target.value)} /></div>
         <div className="field"><label>N° Tarjeta</label><input value={nroTarjeta} onChange={(e) => setNroTarjeta(e.target.value)} placeholder="Suele ser igual al legajo" /></div>
@@ -306,7 +306,7 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
 
       {legajoEnBaja && (
         <>
-          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Dar de baja a "{legajoEnBaja.nombre}"</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Dar de baja a "{legajoEnBaja.nombre}"</h3>
           <div className="row">
             <div className="field"><label>Fecha de baja</label><input type="date" value={fechaBaja} onChange={(e) => setFechaBaja(e.target.value)} /></div>
             <div className="field">
@@ -324,7 +324,7 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
 
       {legajoEnReingreso && (
         <>
-          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Reincorporar a "{legajoEnReingreso.nombre}"</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Reincorporar a "{legajoEnReingreso.nombre}"</h3>
           <div className="hint">Se guarda la etapa anterior (con su fecha de baja y motivo) en el historial de esa persona, y arranca una nueva con la fecha que pongas acá.</div>
           <div className="row" style={{ marginTop: 6 }}>
             <div className="field"><label>Fecha de alta (nueva)</label><input type="date" value={fechaAltaNueva} onChange={(e) => setFechaAltaNueva(e.target.value)} /></div>
@@ -338,7 +338,7 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
         const l = legajos.find((x) => x.id === idCambiandoCategoria);
         return (
           <>
-            <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>
+            <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>
               {l?.categoria ? 'Cambiar categoría de' : 'Asignar categoría a'} "{l?.nombre}"
             </h3>
             <div className="hint">El básico se toma automáticamente del "Básico sugerido" de la categoría elegida (Sueldos → Categorías) — ya no se edita a mano.</div>
@@ -362,7 +362,7 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
         const l = legajos.find((x) => x.id === idViendoHistorial);
         return (
           <>
-            <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Historial de básico de "{l?.nombre}"</h3>
+            <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Historial de básico de "{l?.nombre}"</h3>
             <div className="table-wrap" style={{ maxHeight: 220 }}>
               <table>
                 <thead><tr><th>Categoría</th><th className="num">Básico</th><th>Vigente desde</th><th>Vigente hasta</th></tr></thead>
@@ -386,7 +386,7 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
         );
       })()}
 
-      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Empleados cargados ({legajos.length})</h3>
       <div className="table-wrap" style={{ maxHeight: '50vh' }}>
         <table>
           <thead><tr><th>Legajo</th><th>Tarjeta</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Fecha alta</th><th>Categoría</th><th>Básico</th><th>Estado</th><th></th></tr></thead>
@@ -722,13 +722,13 @@ function PlantillasSub({ horarios, legajos, onChanged }: { horarios: FichadasHor
 
   return (
     <>
-      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '0 0 8px' }}>Nueva plantilla</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '0 0 8px' }}>Nueva plantilla</h3>
       <div className="row">
         <div className="field" style={{ flex: 2 }}><label>Nombre</label><input value={nombreNueva} onChange={(e) => setNombreNueva(e.target.value)} placeholder="Ej: Corrido - Entrada 09:00" /></div>
         <button onClick={crear}>Crear (después definís los días)</button>
       </div>
 
-      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Plantillas ({horarios.length})</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Plantillas ({horarios.length})</h3>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Nombre</th><th>Empleados que la usan</th><th></th></tr></thead>
@@ -751,7 +751,7 @@ function PlantillasSub({ horarios, legajos, onChanged }: { horarios: FichadasHor
       </div>
       {horarioEditando && (
         <div style={{ marginTop: 14 }} key={horarioEditando.id}>
-          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)' }}>Días de "{horarioEditando.nombre}"</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--accent)' }}>Días de "{horarioEditando.nombre}"</h3>
           <EditorDias diasIniciales={horarioEditando.dias} onGuardar={guardarDias} guardando={guardando} />
         </div>
       )}
@@ -800,12 +800,12 @@ function AreasSub({ empresas, legajos, onChanged }: { empresas: FichadasEmpresa[
 
   return (
     <>
-      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '0 0 8px' }}>Nueva área</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '0 0 8px' }}>Nueva área</h3>
       <div className="row">
         <div className="field" style={{ flex: 2 }}><label>Nombre</label><input value={nombreNueva} onChange={(e) => setNombreNueva(e.target.value)} placeholder="Ej: DEPOSITO NUEVO" /></div>
         <button onClick={crear}>Agregar</button>
       </div>
-      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Áreas ({empresas.length})</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--accent)', margin: '18px 0 8px' }}>Áreas ({empresas.length})</h3>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Nombre</th><th>Empleados</th><th></th></tr></thead>

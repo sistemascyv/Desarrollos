@@ -168,7 +168,7 @@ function VistaSubTab({ subTab, filas, filtroArea, onRecargar }: { subTab: SubTab
     <>
       {Array.from(grupos.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([area, fs]) => (
         <div key={area}>
-          <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--brand-dark)' }}>{area} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({fs.length} registros)</span></h3>
+          <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--accent)' }}>{area} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({fs.length} registros)</span></h3>
           <TablaDetalle filas={fs} onRecargar={onRecargar} />
         </div>
       ))}
@@ -370,7 +370,7 @@ function ResumenPorEmpleado({ filas }: { filas: ResultadoDia[] }) {
         const subHE = personas.reduce((s, p) => s + p.hE, 0);
         return (
           <div key={area}>
-            <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--brand-dark)' }}>{area} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({personas.length} empleados)</span></h3>
+            <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--accent)' }}>{area} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({personas.length} empleados)</span></h3>
             <div className="table-wrap">
               <table>
                 <thead><tr><th>Empleado</th><th>Jornadas</th><th>Ausencias sin justificar</th><th>H N total</th><th>H E total</th></tr></thead>
