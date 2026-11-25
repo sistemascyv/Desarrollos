@@ -401,6 +401,8 @@ export const MODULES: ModuleDef[] = [
   { id: 'consumo_combustible', label: 'Consumo de Combustible', group: 'MANTENIMIENTO', path: 'flota/consumo-combustible' },
   { id: 'panel_cubiertas', label: 'Panel de Cubiertas', group: 'MANTENIMIENTO', path: 'flota/panel-cubiertas' },
   { id: 'flota_posicion', label: 'Posición de Flota', group: 'MANTENIMIENTO', path: 'flota/posicion' },
+  { id: 'vehiculos', label: 'Vehículos / Tractores', group: 'MANTENIMIENTO', path: 'flota/vehiculos' },
+  { id: 'rutas_frecuentes', label: 'Rutas Frecuentes', group: 'MANTENIMIENTO', path: 'flota/rutas-frecuentes' },
   { id: 'fichadas', label: 'Fichadas', group: 'RRHH', path: 'rrhh/fichadas' },
   { id: 'personal', label: 'Personal', group: 'RRHH', path: 'rrhh/personal' },
   { id: 'sueldos', label: 'Sueldos', group: 'RRHH', path: 'rrhh/sueldos' },
@@ -409,6 +411,7 @@ export const MODULES: ModuleDef[] = [
   { id: 'bot_tarifas', label: 'Actualizar Tarifas', group: 'COMERCIAL', path: 'comercial/bot-tarifas' },
   { id: 'cuadro_tarifario', label: 'Tarifas', group: 'COMERCIAL', path: 'comercial/tarifas' },
   { id: 'cotizador', label: 'Cotizador', group: 'COMERCIAL', path: 'comercial/cotizador' },
+  { id: 'clientes', label: 'Clientes', group: 'COMERCIAL', path: 'comercial/clientes' },
 ];
 
 // Resultado de una corrida del Bot Act Tarifas (Python + Selenium, corre en
