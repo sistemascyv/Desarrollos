@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { AdminSimpleTab } from './AdminSimpleTab';
-import type { Chofer, FichadasLegajo } from '../../types';
+import type { Chofer, FichadasEmpresa, FichadasLegajo } from '../../types';
 
 // Muchos choferes reales nunca tuvieron una ficha en Personal -- solo
 // existían en esta colección (usada por Planilla Choferes/Vale de Caja),
@@ -12,10 +12,11 @@ import type { Chofer, FichadasLegajo } from '../../types';
 // ahora, no tenía forma de arreglarlo sin ir a Personal a crear la ficha a
 // mano y volver acá a vincularla. Esta pantalla ahora deja crear esa
 // ficha directo, en el mismo lugar.
-function VincularLegajoForm({ chofer, onVinculado }: { chofer: Chofer; onVinculado: () => void }) {
+function VincularLegajoForm({ chofer, empresas, onVinculado }: { chofer: Chofer; empresas: FichadasEmpresa[]; onVinculado: () => void }) {
   const toast = useToast();
   const [nroTarjeta, setNroTarjeta] = useState('');
   const [fechaAlta, setFechaAlta] = useState('');
+  const [empresaId, setEmpresaId] = useState('');
   const [guardando, setGuardando] = useState(false);
 
   async function crearYVincular() {
@@ -23,7 +24,7 @@ function VincularLegajoForm({ chofer, onVinculado }: { chofer: Chofer; onVincula
     setGuardando(true);
     try {
       const nuevoLegajo = await pb.collection('fichadas_legajos').create<FichadasLegajo>({
-        nro_tarjeta: nroTarjeta.trim(), nombre: chofer.nombre.toUpperCase(), estado: true, fecha_alta: fechaAlta || null,
+        nro_tarjeta: nroTarjeta.trim(), nombre: chofer.nombre.toUpperCase(), estado: true, fecha_alta: fechaAlta || null, empresa: empresaId || null,
       });
       await pb.collection('choferes').update(chofer.id, { legajo: nuevoLegajo.id });
       toast('Legajo creado y vinculado.', 'ok');
@@ -40,6 +41,13 @@ function VincularLegajoForm({ chofer, onVinculado }: { chofer: Chofer; onVincula
       <div style={{ minWidth: 160, fontWeight: 600, fontSize: 13 }}>{chofer.nombre}</div>
       <div className="field"><label>N° Tarjeta</label><input value={nroTarjeta} onChange={(e) => setNroTarjeta(e.target.value)} style={{ width: 110 }} /></div>
       <div className="field"><label>Fecha de alta</label><input type="date" value={fechaAlta} onChange={(e) => setFechaAlta(e.target.value)} /></div>
+      <div className="field">
+        <label>Área</label>
+        <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)}>
+          <option value="">Sin área</option>
+          {empresas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+        </select>
+      </div>
       <button className="small" disabled={guardando} onClick={crearYVincular}>{guardando ? 'Creando…' : 'Crear legajo y vincular'}</button>
     </div>
   );
@@ -53,14 +61,17 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
   const [legajoCreando, setLegajoCreando] = useState('');
   const [nroTarjetaNuevo, setNroTarjetaNuevo] = useState('');
   const [fechaAltaNuevo, setFechaAltaNuevo] = useState('');
+  const [empresaNuevo, setEmpresaNuevo] = useState('');
   const [legajos, setLegajos] = useState<FichadasLegajo[]>([]);
   const [choferes, setChoferes] = useState<Chofer[]>([]);
+  const [empresas, setEmpresas] = useState<FichadasEmpresa[]>([]);
 
   useEffect(() => {
     Promise.all([
       pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ sort: 'nombre' }),
       pb.collection('choferes').getFullList<Chofer>(),
-    ]).then(([l, c]) => { setLegajos(l); setChoferes(c); })
+      pb.collection('fichadas_empresas').getFullList<FichadasEmpresa>({ sort: 'nombre' }),
+    ]).then(([l, c, e]) => { setLegajos(l); setChoferes(c); setEmpresas(e); })
       .catch((e) => toast('No se pudieron cargar los legajos: ' + (e instanceof Error ? e.message : ''), 'err'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version]);
@@ -77,13 +88,13 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
       if (modoLegajo === 'nuevo') {
         if (!nroTarjetaNuevo.trim()) { toast('Completá el N° de Tarjeta del legajo nuevo.', 'warn'); return; }
         const nuevoLegajo = await pb.collection('fichadas_legajos').create<FichadasLegajo>({
-          nro_tarjeta: nroTarjetaNuevo.trim(), nombre: nombre.trim().toUpperCase(), estado: true, fecha_alta: fechaAltaNuevo || null,
+          nro_tarjeta: nroTarjetaNuevo.trim(), nombre: nombre.trim().toUpperCase(), estado: true, fecha_alta: fechaAltaNuevo || null, empresa: empresaNuevo || null,
         });
         legajoId = nuevoLegajo.id;
       }
       if (!legajoId) { toast('Elegí un legajo de Personal o creá uno nuevo.', 'warn'); return; }
       await pb.collection('choferes').create({ nombre: nombre.trim(), localidad: localidad.trim(), activo: true, legajo: legajoId });
-      setNombre(''); setLocalidad(''); setLegajoCreando(''); setNroTarjetaNuevo(''); setFechaAltaNuevo('');
+      setNombre(''); setLocalidad(''); setLegajoCreando(''); setNroTarjetaNuevo(''); setFechaAltaNuevo(''); setEmpresaNuevo('');
       onChanged();
       toast('Chofer agregado.', 'ok');
     } catch (e) {
@@ -97,7 +108,7 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
         <div className="card" style={{ marginBottom: 12 }}>
           <h3 style={{ margin: '0 0 6px', fontSize: 13 }}>Choferes sin legajo vinculado ({choferesSinLegajo.length})</h3>
           <div className="hint">Nunca tuvieron una ficha en Personal — creásela acá para que aparezcan en Personal → Empleados y puedan tener alta/baja.</div>
-          {choferesSinLegajo.map((c) => <VincularLegajoForm key={c.id} chofer={c} onVinculado={onChanged} />)}
+          {choferesSinLegajo.map((c) => <VincularLegajoForm key={c.id} chofer={c} empresas={empresas} onVinculado={onChanged} />)}
         </div>
       )}
 
@@ -140,6 +151,13 @@ export function ChoferesTab({ version, onChanged }: { version: number; onChanged
               <>
                 <div className="field"><label>N° Tarjeta</label><input value={nroTarjetaNuevo} onChange={(e) => setNroTarjetaNuevo(e.target.value)} style={{ width: 110 }} /></div>
                 <div className="field"><label>Fecha de alta</label><input type="date" value={fechaAltaNuevo} onChange={(e) => setFechaAltaNuevo(e.target.value)} /></div>
+                <div className="field">
+                  <label>Área</label>
+                  <select value={empresaNuevo} onChange={(e) => setEmpresaNuevo(e.target.value)}>
+                    <option value="">Sin área</option>
+                    {empresas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  </select>
+                </div>
               </>
             )}
             <button onClick={create}>+ Agregar</button>
