@@ -20,12 +20,13 @@ interface Props<T extends BaseRecord & { activo: boolean }> {
   form: ReactNode;
   version: number;
   onChanged: () => void;
+  activoReadOnly?: boolean; // si true, no se puede Desactivar/Reactivar a mano (el activo lo controla otro lado, ej. un legajo vinculado)
 }
 
 const PAGE_SIZE = 50;
 
 export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
-  title, collection, columns, searchFields, form, version, onChanged,
+  title, collection, columns, searchFields, form, version, onChanged, activoReadOnly = false,
 }: Props<T>) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -193,7 +194,9 @@ export function AdminSimpleTab<T extends BaseRecord & { activo: boolean }>({
                     ) : (
                       <>
                         <button className="small secondary" onClick={() => startEdit(item)}>Editar</button>
-                        <button className="small secondary" onClick={() => toggleActivo(item.id, !inactivo)}>{inactivo ? 'Reactivar' : 'Desactivar'}</button>
+                        {!activoReadOnly && (
+                          <button className="small secondary" onClick={() => toggleActivo(item.id, !inactivo)}>{inactivo ? 'Reactivar' : 'Desactivar'}</button>
+                        )}
                         <button className="small danger" onClick={() => remove(item.id)}>Borrar</button>
                       </>
                     )}
