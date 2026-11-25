@@ -63,6 +63,9 @@ const CotizadorPage = lazy(() =>
 const CotizacionImprimirPage = lazy(() =>
   import('./pages/tarifas/CotizacionImprimirPage').then((m) => ({ default: m.CotizacionImprimirPage }))
 );
+const ClientesPage = lazy(() =>
+  import('./pages/tarifas/ClientesPage').then((m) => ({ default: m.ClientesPage }))
+);
 const AdminPage = lazy(() => import('./pages/admin/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 function LoginOrRedirect() {
@@ -235,6 +238,14 @@ function App() {
           element={
             <RequireModule moduleId="cotizador">
               <CotizacionImprimirPage />
+            </RequireModule>
+          }
+        />
+        <Route
+          path="/comercial/clientes"
+          element={
+            <RequireModule moduleId="clientes">
+              <ClientesPage />
             </RequireModule>
           }
         />

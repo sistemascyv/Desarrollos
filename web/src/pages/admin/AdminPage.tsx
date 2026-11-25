@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ChoferesTab } from '../personal/ChoferesTab';
 import { VehiculosTab } from '../flota/VehiculosTab';
-import { ClientesTab } from './ClientesTab';
+import { ClientesTab } from '../tarifas/ClientesTab';
 import { RutasTab } from '../flota/RutasTab';
 import { UsuariosTab } from './UsuariosTab';
 
