@@ -168,7 +168,7 @@ function VistaSubTab({ subTab, filas, filtroArea, onRecargar }: { subTab: SubTab
     <>
       {Array.from(grupos.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([area, fs]) => (
         <div key={area}>
-          <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--navy)' }}>{area} <span style={{ color: 'var(--suave)', fontWeight: 400 }}>({fs.length} registros)</span></h3>
+          <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--brand-dark)' }}>{area} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({fs.length} registros)</span></h3>
           <TablaDetalle filas={fs} onRecargar={onRecargar} />
         </div>
       ))}
@@ -279,7 +279,7 @@ function FilaResultado({ r, onRecargar }: { r: ResultadoDia; onRecargar: () => v
         </td>
         <td>{fechaSola(r.fecha)}</td>
         <td>{r.dia}</td>
-        <td colSpan={2} style={{ color: 'var(--suave)' }}>Carga manual</td>
+        <td colSpan={2} style={{ color: 'var(--muted)' }}>Carga manual</td>
         <td><input value={entrada1} onChange={(e) => setEntrada1(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
         <td><input value={salida1} onChange={(e) => setSalida1(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
         <td><input value={entrada2} onChange={(e) => setEntrada2(e.target.value)} placeholder="HH:MM" style={{ width: 55 }} /></td>
@@ -370,7 +370,7 @@ function ResumenPorEmpleado({ filas }: { filas: ResultadoDia[] }) {
         const subHE = personas.reduce((s, p) => s + p.hE, 0);
         return (
           <div key={area}>
-            <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--navy)' }}>{area} <span style={{ color: 'var(--suave)', fontWeight: 400 }}>({personas.length} empleados)</span></h3>
+            <h3 style={{ margin: '16px 0 6px', fontSize: 13, color: 'var(--brand-dark)' }}>{area} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({personas.length} empleados)</span></h3>
             <div className="table-wrap">
               <table>
                 <thead><tr><th>Empleado</th><th>Jornadas</th><th>Ausencias sin justificar</th><th>H N total</th><th>H E total</th></tr></thead>

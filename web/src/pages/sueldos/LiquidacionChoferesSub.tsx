@@ -168,7 +168,7 @@ export function LiquidacionChoferesSub() {
             <div className="stat"><div className="lbl">Neto</div><div className="val">{resultado.neto.toLocaleString('es-AR')}</div></div>
           </div>
 
-          <h3 style={{ fontSize: 13, color: 'var(--navy)' }}>Variable del mes</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)' }}>Variable del mes</h3>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Concepto</th><th className="num">Cantidad</th><th className="num">Tarifa</th><th className="num">Monto</th></tr></thead>
@@ -186,7 +186,7 @@ export function LiquidacionChoferesSub() {
             </table>
           </div>
 
-          <h3 style={{ fontSize: 13, color: 'var(--navy)', marginTop: 14 }}>Descuentos</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', marginTop: 14 }}>Descuentos</h3>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Concepto</th><th className="num">%</th><th className="num">Monto</th></tr></thead>

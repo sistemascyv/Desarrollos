@@ -182,7 +182,7 @@ export function CategoriasSub() {
   return (
     <div className="card">
       <div className="hint">Categorías de convenio — cada una con su Plus Vacacional, divisor y % de descuentos, usados al liquidar vacaciones. El Básico sugerido es el básico real: al cambiarlo acá, se propaga automáticamente a todos los legajos de esta categoría desde la fecha "Vigente desde" que indiques.</div>
-      <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '14px 0 8px' }}>{editandoId ? 'Editar categoría' : 'Nueva categoría'}</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '14px 0 8px' }}>{editandoId ? 'Editar categoría' : 'Nueva categoría'}</h3>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         <div className="field"><label>Nombre</label><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Administ 2da" /></div>
         <div className="field"><label>Básico sugerido ($, opcional)</label><input value={form.basico_sugerido} onChange={(e) => setForm({ ...form, basico_sugerido: e.target.value })} style={{ width: 130 }} /></div>
@@ -212,7 +212,7 @@ export function CategoriasSub() {
         )}
       </div>
 
-      <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Categorías ({categorias.length})</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Categorías ({categorias.length})</h3>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Nombre</th><th>Básico sug.</th><th>Plus Vac.</th><th>Divisor</th><th>Jubil.</th><th>Ley 19032</th><th>Obra Soc.</th><th>ANSSAL</th><th>Sindical</th><th>Sepelio</th><th></th></tr></thead>

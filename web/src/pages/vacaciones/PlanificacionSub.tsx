@@ -1,44 +1,52 @@
 import { useMemo, useState } from 'react';
 import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
-import { isoDate } from '../../lib/format';
+import { NOMBRES_MESES } from '../../lib/format';
 import type { Chofer, FichadasLegajo, FichadasVacacion, FichadasVacacionNota } from '../../types';
 
 type Grupo = 'administrativos' | 'choferes';
 
-function nombreDiaCorto(fecha: string): string {
-  const [y, m, d] = fecha.split('-').map(Number);
-  return ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+const DIAS_SEMANA_CORTO = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+
+function diasDelMes(anio: number, mes: number): string[] {
+  const cantidad = new Date(anio, mes, 0).getDate();
+  const out: string[] = [];
+  for (let d = 1; d <= cantidad; d++) out.push(`${anio}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+  return out;
 }
 
-function primerDiaDelMes(): string {
-  const n = new Date();
-  return isoDate(new Date(n.getFullYear(), n.getMonth(), 1));
-}
-function ultimoDiaDelMes(): string {
-  const n = new Date();
-  return isoDate(new Date(n.getFullYear(), n.getMonth() + 1, 0));
+// 0 = lunes ... 6 = domingo (semana arrancando lunes, igual criterio que el
+// resto del sistema -- ver DIAS_SEMANA en PersonalPage.tsx).
+function offsetPrimerDia(anio: number, mes: number): number {
+  const dow = new Date(Date.UTC(anio, mes - 1, 1)).getUTCDay(); // 0=domingo..6=sabado
+  return (dow + 6) % 7;
 }
 
 export function PlanificacionSub() {
   const toast = useToast();
+  const now = useMemo(() => new Date(), []);
   const [grupo, setGrupo] = useState<Grupo>('administrativos');
-  const [desde, setDesde] = useState(primerDiaDelMes);
-  const [hasta, setHasta] = useState(ultimoDiaDelMes);
+  const [anio, setAnio] = useState(now.getFullYear());
+  const [mes, setMes] = useState(now.getMonth() + 1);
   const [legajos, setLegajos] = useState<FichadasLegajo[]>([]);
   const [choferes, setChoferes] = useState<Chofer[]>([]);
   const [vacaciones, setVacaciones] = useState<FichadasVacacion[]>([]);
   const [notas, setNotas] = useState<FichadasVacacionNota[]>([]);
   const [cargando, setCargando] = useState(false);
   const [generado, setGenerado] = useState(false);
-  const [editandoNota, setEditandoNota] = useState<string | null>(null);
+  const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
   const [textoNota, setTextoNota] = useState('');
 
+  function marcarSinGenerar() {
+    setGenerado(false);
+  }
+
   async function generar() {
-    if (!desde || !hasta) { toast('Elegí el rango de fechas.', 'warn'); return; }
-    if (hasta < desde) { toast('"Hasta" no puede ser anterior a "Desde".', 'warn'); return; }
     setCargando(true);
     try {
+      const diasDelMesElegido = diasDelMes(anio, mes);
+      const desde = diasDelMesElegido[0];
+      const hasta = diasDelMesElegido[diasDelMesElegido.length - 1];
       const [l, c, v, n] = await Promise.all([
         pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ filter: 'estado = true' }),
         pb.collection('choferes').getFullList<Chofer>({ filter: 'activo = true' }),
@@ -48,7 +56,7 @@ export function PlanificacionSub() {
       setLegajos(l); setChoferes(c); setVacaciones(v); setNotas(n);
       setGenerado(true);
     } catch (e) {
-      toast('No se pudo generar el cuadro: ' + (e instanceof Error ? e.message : ''), 'err');
+      toast('No se pudo generar el calendario: ' + (e instanceof Error ? e.message : ''), 'err');
     } finally {
       setCargando(false);
     }
@@ -65,31 +73,32 @@ export function PlanificacionSub() {
     return new Set(filtrados.map((l) => l.id));
   }, [legajos, legajosDeChofer, grupo]);
 
-  const dias = useMemo(() => {
-    if (!generado) return [];
-    const out: string[] = [];
-    const finMs = new Date(hasta + 'T00:00:00Z').getTime();
-    for (let cur = new Date(desde + 'T00:00:00Z').getTime(); cur <= finMs; cur += 86400000) {
-      out.push(new Date(cur).toISOString().slice(0, 10));
-    }
-    return out;
-  }, [generado, desde, hasta]);
-
-  function nombresDelDia(fecha: string): string {
-    const nombres = vacaciones
+  function nombresDelDia(fecha: string): string[] {
+    return vacaciones
       .filter((v) => v.desde <= fecha && v.hasta >= fecha && idsDelGrupo.has(v.legajo))
       .map((v) => legajoPorId.get(v.legajo)?.nombre || '—');
-    return nombres.length ? nombres.join(', ') : '—';
   }
 
-  function abrirNota(fecha: string) {
-    setEditandoNota(fecha);
+  const dias = useMemo(() => (generado ? diasDelMes(anio, mes) : []), [generado, anio, mes]);
+  const celdas = useMemo(() => {
+    if (!dias.length) return [];
+    const out: (string | null)[] = [];
+    const offset = offsetPrimerDia(anio, mes);
+    for (let i = 0; i < offset; i++) out.push(null);
+    out.push(...dias);
+    while (out.length % 7 !== 0) out.push(null);
+    return out;
+  }, [dias, anio, mes]);
+
+  function abrirDia(fecha: string) {
+    setDiaAbierto(fecha);
     setTextoNota(notaPorFecha.get(fecha)?.texto || '');
   }
 
-  async function guardarNota(fecha: string) {
+  async function guardarNota() {
+    if (!diaAbierto) return;
     try {
-      const existente = notaPorFecha.get(fecha);
+      const existente = notaPorFecha.get(diaAbierto);
       const texto = textoNota.trim();
       if (existente && !texto) {
         await pb.collection('fichadas_vacaciones_notas').delete(existente.id);
@@ -98,57 +107,76 @@ export function PlanificacionSub() {
         await pb.collection('fichadas_vacaciones_notas').update(existente.id, { texto });
         setNotas((ns) => ns.map((n) => (n.id === existente.id ? { ...n, texto } : n)));
       } else if (texto) {
-        const creada = await pb.collection('fichadas_vacaciones_notas').create<FichadasVacacionNota>({ fecha, grupo, texto });
+        const creada = await pb.collection('fichadas_vacaciones_notas').create<FichadasVacacionNota>({ fecha: diaAbierto, grupo, texto });
         setNotas((ns) => [...ns, creada]);
       }
-      setEditandoNota(null);
+      setDiaAbierto(null);
     } catch (e) {
       toast('No se pudo guardar la nota: ' + (e instanceof Error ? e.message : ''), 'err');
     }
   }
 
+  const nombresDelDiaAbierto = diaAbierto ? nombresDelDia(diaAbierto) : [];
+
   return (
     <div className="card">
-      <div className="hint">Cuadro día por día de quién está de vacaciones, armado con los períodos ya cargados en "Vacaciones" — agregá una nota operativa por día si hace falta, igual que la planilla de comunicados.</div>
+      <div className="hint">Calendario de quién está de vacaciones cada día, armado con los períodos ya cargados en "Vacaciones" — hacé clic en un día para ver el detalle completo y agregar una nota operativa.</div>
       <div className="row" style={{ marginTop: 10 }}>
         <div className="field">
           <label>Ver</label>
-          <select value={grupo} onChange={(e) => { setGrupo(e.target.value as Grupo); setGenerado(false); }}>
+          <select value={grupo} onChange={(e) => { setGrupo(e.target.value as Grupo); marcarSinGenerar(); }}>
             <option value="administrativos">Administrativos</option>
             <option value="choferes">Choferes</option>
           </select>
         </div>
-        <div className="field"><label>Desde</label><input type="date" value={desde} onChange={(e) => { setDesde(e.target.value); setGenerado(false); }} /></div>
-        <div className="field"><label>Hasta</label><input type="date" value={hasta} onChange={(e) => { setHasta(e.target.value); setGenerado(false); }} /></div>
+        <div className="field">
+          <label>Mes</label>
+          <select value={mes} onChange={(e) => { setMes(Number(e.target.value)); marcarSinGenerar(); }}>
+            {NOMBRES_MESES.map((label, i) => <option key={label} value={i + 1}>{label}</option>)}
+          </select>
+        </div>
+        <div className="field"><label>Año</label><input type="number" value={anio} onChange={(e) => { setAnio(Number(e.target.value)); marcarSinGenerar(); }} style={{ width: 90 }} /></div>
         <button onClick={generar} disabled={cargando}>{cargando ? 'Generando…' : 'Generar'}</button>
       </div>
 
       {generado && (
-        <div className="table-wrap" style={{ marginTop: 14 }}>
-          <table>
-            <thead><tr><th>Día</th><th>De vacaciones</th><th>Nota</th></tr></thead>
-            <tbody>
-              {dias.map((fecha) => (
-                <tr key={fecha}>
-                  <td>{nombreDiaCorto(fecha)} {fecha.split('-').reverse().join('/')}</td>
-                  <td>{nombresDelDia(fecha)}</td>
-                  <td>
-                    {editandoNota === fecha ? (
-                      <div className="row" style={{ gap: 6 }}>
-                        <input value={textoNota} onChange={(e) => setTextoNota(e.target.value)} style={{ flex: 1 }} autoFocus />
-                        <button className="small" onClick={() => guardarNota(fecha)}>Guardar</button>
-                        <button className="small secondary" onClick={() => setEditandoNota(null)}>Cancelar</button>
-                      </div>
-                    ) : (
-                      <span onClick={() => abrirNota(fecha)} style={{ cursor: 'pointer' }}>
-                        {notaPorFecha.get(fecha)?.texto || <span style={{ color: 'var(--suave)' }}>+ agregar nota</span>}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="calendario-planificacion">
+          {DIAS_SEMANA_CORTO.map((d) => <div key={d} className="calendario-dow">{d}</div>)}
+          {celdas.map((fecha, i) => {
+            if (!fecha) return <div key={'vacio' + i} className="calendario-celda calendario-celda-vacia" />;
+            const nombres = nombresDelDia(fecha);
+            const nota = notaPorFecha.get(fecha);
+            const numero = Number(fecha.split('-')[2]);
+            return (
+              <div key={fecha} className="calendario-celda" onClick={() => abrirDia(fecha)}>
+                <div className="calendario-numero">{numero}</div>
+                <div className="calendario-nombres">
+                  {nombres.slice(0, 3).map((n, j) => <span key={j} className="tag calendario-tag">{n}</span>)}
+                  {nombres.length > 3 && <span className="calendario-mas">+{nombres.length - 3} más</span>}
+                </div>
+                {nota && <div className="calendario-nota">{nota.texto}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {diaAbierto && (
+        <div className="modal-bg" onClick={() => setDiaAbierto(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <h3>{diaAbierto.split('-').reverse().join('/')}</h3>
+            <div className="hint" style={{ marginBottom: 10 }}>
+              {nombresDelDiaAbierto.length ? 'De vacaciones: ' + nombresDelDiaAbierto.join(', ') : 'Nadie de vacaciones este día.'}
+            </div>
+            <div className="field">
+              <label>Nota</label>
+              <input value={textoNota} onChange={(e) => setTextoNota(e.target.value)} autoFocus style={{ width: '100%' }} />
+            </div>
+            <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+              <button className="secondary" onClick={() => setDiaAbierto(null)}>Cancelar</button>
+              <button onClick={guardarNota}>Guardar</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

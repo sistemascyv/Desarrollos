@@ -88,7 +88,7 @@ export function GruposRestriccionSub() {
   return (
     <div className="card">
       <div className="hint">Personas que no pueden coincidir de vacaciones al mismo tiempo. Al asignar un período que se solapa con alguien del mismo grupo, Vacaciones avisa (no bloquea).</div>
-      <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '14px 0 8px' }}>Nuevo grupo</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '14px 0 8px' }}>Nuevo grupo</h3>
       <div className="row">
         <div className="field"><label>Nombre (opcional)</label><input value={nombreNuevo} onChange={(e) => setNombreNuevo(e.target.value)} placeholder="Ej: Julian y Diego" /></div>
         <div className="field" style={{ flex: 2 }}>
@@ -100,7 +100,7 @@ export function GruposRestriccionSub() {
         <button onClick={crear}>Crear grupo</button>
       </div>
 
-      <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Grupos ({grupos.length})</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Grupos ({grupos.length})</h3>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Nombre</th><th>Personas</th><th></th></tr></thead>
@@ -121,7 +121,7 @@ export function GruposRestriccionSub() {
 
       {editandoId && (
         <>
-          <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Editar personas del grupo</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Editar personas del grupo</h3>
           <div className="row">
             <div className="field" style={{ flex: 2 }}>
               <select multiple value={seleccionEditando} onChange={(e) => setSeleccionEditando(opcionesSeleccionadas(e.target))} style={{ height: 140 }}>

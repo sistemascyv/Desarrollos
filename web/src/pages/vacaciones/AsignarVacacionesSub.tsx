@@ -250,7 +250,7 @@ export function AsignarVacacionesSub() {
         )}
       </div>
 
-      <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Asignar período</h3>
+      <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Asignar período</h3>
       <div className="row">
         <div className="field" style={{ flex: 2 }}>
           <label>Empleado</label>
@@ -266,7 +266,7 @@ export function AsignarVacacionesSub() {
 
       {vista === 'lista' && (
         <>
-          <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Períodos de {anio} ({periodosDelAnio.length})</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Períodos de {anio} ({periodosDelAnio.length})</h3>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Legajo</th><th>Nombre</th><th>Área</th><th>Desde</th><th>Hasta</th><th>Días</th><th>Comentario</th><th>Notificado</th><th></th></tr></thead>
@@ -301,7 +301,7 @@ export function AsignarVacacionesSub() {
 
       {vista === 'por_legajo' && (
         <>
-          <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Resumen por legajo — {anio}</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Resumen por legajo — {anio}</h3>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Legajo</th><th>Nombre</th><th>Área</th><th>Corresponden</th><th>Asignados</th><th>Restantes</th><th>Períodos</th></tr></thead>
@@ -325,7 +325,7 @@ export function AsignarVacacionesSub() {
 
       {liquidacion && (
         <>
-          <h3 style={{ fontSize: 13, color: 'var(--navy)', margin: '18px 0 8px' }}>Liquidación — {liquidacion.nombreLegajo}</h3>
+          <h3 style={{ fontSize: 13, color: 'var(--brand-dark)', margin: '18px 0 8px' }}>Liquidación — {liquidacion.nombreLegajo}</h3>
           <div className="hint" style={{ marginBottom: 8 }}>
             Categoría: {liquidacion.nombreCategoria} — Básico: ${fmtMoneda(liquidacion.basico)} — Horas extra promedio (6 meses): {liquidacion.horasExtraPromedio.toFixed(2)} hs/mes
           </div>
