@@ -204,7 +204,7 @@ export function AsignarVacacionesSub() {
       const basico = basicoVigente(historialBasico, legajo.id, v.desde);
       if (basico === null) { toast('No se encontró un básico vigente para este período (revisá el historial en Personal → Empleados).', 'warn'); return; }
       const { resultados } = procesarPeriodo({
-        legajos: [legajoConHorario], marcas, novedades, feriados, historial, empresaNombrePorId,
+        legajos: [legajoConHorario], marcas, novedades, feriados, historial, vacaciones, empresaNombrePorId,
         desde: desdeVentana, hasta: hastaVentana,
       });
       const horasExtraPromedio = calcularHorasExtraPromedioPorLegajo(resultados, legajo.id, primerMes, 6);

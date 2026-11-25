@@ -3,7 +3,7 @@ import { pb } from '../../lib/pb';
 import { useToast } from '../../lib/ToastContext';
 import { NOMBRES_MESES } from '../../lib/format';
 import { procesarPeriodo, calcularLiquidacionSueldoMensual, basicoVigente, type LiquidacionSueldoMensual } from '../fichadas/motor';
-import type { Chofer, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, HistorialLegajo, SueldosBasicoHistorial, SueldosTarifaViaje } from '../../types';
+import type { Chofer, FichadasEmpresa, FichadasFeriado, FichadasLegajo, FichadasMarca, FichadasNovedad, FichadasVacacion, HistorialLegajo, SueldosBasicoHistorial, SueldosTarifaViaje } from '../../types';
 
 const NOMBRE_TARIFA_COMIDA = 'Viaticos 4.1.12 - Comida (por dia trabajado)';
 const NOMBRE_TARIFA_ESPECIAL = 'Viaticos 4.1.13 - Especial (por dia trabajado)';
@@ -57,7 +57,7 @@ export function LiquidacionAdministrativosSub() {
       const desde = anioMes + '-01';
       const hasta = anioMes + '-' + String(diasDelMes).padStart(2, '0');
 
-      const [legajosTodos, marcas, novedades, feriados, empresas, historial, tarifas, historialBasico] = await Promise.all([
+      const [legajosTodos, marcas, novedades, feriados, empresas, historial, tarifas, historialBasico, vacaciones] = await Promise.all([
         pb.collection('fichadas_legajos').getFullList<FichadasLegajo>({ expand: 'empresa,horario' }),
         pb.collection('fichadas_marcas').getFullList<FichadasMarca>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
         pb.collection('fichadas_novedades').getFullList<FichadasNovedad>({ filter: pb.filter('fecha >= {:d} && fecha <= {:h}', { d: desde, h: hasta }) }),
@@ -66,6 +66,7 @@ export function LiquidacionAdministrativosSub() {
         pb.collection('fichadas_legajo_historial').getFullList<HistorialLegajo>(),
         pb.collection('sueldos_tarifas_viaje').getFullList<SueldosTarifaViaje>(),
         pb.collection('sueldos_basico_historial').getFullList<SueldosBasicoHistorial>({ filter: pb.filter('legajo = {:l}', { l: legajoId }) }),
+        pb.collection('fichadas_vacaciones').getFullList<FichadasVacacion>({ filter: pb.filter('desde <= {:h} && hasta >= {:d}', { d: desde, h: hasta }) }),
       ]);
       const fechaResolucionBasico = legajo.fecha_alta && legajo.fecha_alta > desde ? legajo.fecha_alta : desde;
       const basico = basicoVigente(historialBasico, legajoId, fechaResolucionBasico);
@@ -73,7 +74,7 @@ export function LiquidacionAdministrativosSub() {
       const legajosAjustados = legajosTodos.map((l) => ((l.estado || l.fecha_baja) ? l : { ...l, horas_extra_fijas: null }));
       const empresaNombrePorId = new Map(empresas.map((e) => [e.id, e.nombre]));
       const { resultados } = procesarPeriodo({
-        legajos: legajosAjustados, marcas, novedades, feriados, historial, empresaNombrePorId, desde, hasta,
+        legajos: legajosAjustados, marcas, novedades, feriados, historial, vacaciones, empresaNombrePorId, desde, hasta,
       });
 
       const resultadosLegajo = resultados.filter((r) => r.idLegajo === legajoId);

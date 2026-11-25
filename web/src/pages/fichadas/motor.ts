@@ -70,11 +70,12 @@ export function procesarPeriodo(params: {
   novedades: FichadasNovedad[];
   feriados: FichadasFeriado[];
   historial?: HistorialLegajo[]; // etapas laborales ya cerradas de cualquier legajo (reingresos)
+  vacaciones?: FichadasVacacion[]; // períodos de vacaciones asignados (módulo Vacaciones)
   empresaNombrePorId: Map<string, string>;
   desde: string; // YYYY-MM-DD
   hasta: string; // YYYY-MM-DD
 }): { resultados: ResultadoDia[]; tarjetasSinLegajo: string[] } {
-  const { legajos, marcas, novedades, feriados, historial = [], empresaNombrePorId, desde, hasta } = params;
+  const { legajos, marcas, novedades, feriados, historial = [], vacaciones = [], empresaNombrePorId, desde, hasta } = params;
   const historialPorLegajo = new Map<string, HistorialLegajo[]>();
   historial.forEach((h) => {
     if (!historialPorLegajo.has(h.legajo)) historialPorLegajo.set(h.legajo, []);
@@ -85,6 +86,18 @@ export function procesarPeriodo(params: {
   legajos.forEach((l) => legajoPorTarjeta.set(l.nro_tarjeta.trim(), l));
 
   const novedadPorLegajoFecha = new Map<string, { texto: string; causa: string }>();
+  // Un período de vacaciones asignado cuenta como novedad "Vacaciones" para
+  // cada día que cubre, sin causa (no es ausentismo -- calcularEstadisticaAusentismo
+  // descarta cualquier causa vacía). Se cargan ANTES que fichadas_novedades
+  // para que una novedad cargada a mano sobre ese mismo día gane (ej: una
+  // corrección puntual).
+  vacaciones.forEach((v) => {
+    const vDesde = v.desde < desde ? desde : v.desde;
+    const vHasta = v.hasta > hasta ? hasta : v.hasta;
+    for (let cur = fechaAUtcMs(vDesde); cur <= fechaAUtcMs(vHasta); cur += 86400000) {
+      novedadPorLegajoFecha.set(v.legajo + '|' + new Date(cur).toISOString().slice(0, 10), { texto: 'Vacaciones', causa: '' });
+    }
+  });
   novedades.forEach((n) => novedadPorLegajoFecha.set(n.legajo + '|' + n.fecha, { texto: n.texto, causa: n.causa || '' }));
   const feriadoPorFecha = new Map<string, string>();
   feriados.forEach((f) => feriadoPorFecha.set(f.fecha, f.nombre || 'Feriado'));
