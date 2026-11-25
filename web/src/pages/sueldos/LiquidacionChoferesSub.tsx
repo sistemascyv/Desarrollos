@@ -59,7 +59,7 @@ export function LiquidacionChoferesSub() {
       const mesStr = anio + '-' + mes;
       const chofer = await pb.collection('choferes').getOne<Chofer>(choferId, { expand: 'legajo,legajo.categoria' });
       const legajo = chofer.expand?.legajo;
-      if (!legajo) { setAviso('Este chofer todavía no tiene un legajo vinculado (Administración → Choferes).'); return; }
+      if (!legajo) { setAviso('Este chofer todavía no tiene un legajo vinculado (Personal → Choferes).'); return; }
       const categoria = legajo.expand?.categoria;
       if (!categoria) { setAviso('El legajo vinculado no tiene una categoría de convenio asignada (Personal → Empleados).'); return; }
 

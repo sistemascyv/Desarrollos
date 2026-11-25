@@ -22,9 +22,8 @@ export const AYUDA_MODULOS: Record<string, AyudaModulo> = {
   },
   administracion: {
     titulo: 'Administración',
-    resumen: 'Pantalla solo para administradores: acá se gestionan los catálogos base del sistema (choferes, vehículos, clientes, rutas) y los usuarios con sus permisos.',
+    resumen: 'Pantalla solo para administradores: acá se gestionan los usuarios que entran al sistema y sus permisos.',
     pasos: [
-      '"Choferes", "Vehículos / Tractores", "Clientes" y "Rutas frecuentes" son los catálogos que usan el resto de los módulos (Planilla Choferes, Cotizador, Posición de Flota, etc.) — ahí se dan de alta, se editan o se dan de baja.',
       '"Usuarios" es donde se crea cada persona que va a entrar al sistema: nombre, contraseña, rol (Administrador u Operador) y sucursal.',
       'El botón "Módulos" de cada usuario abre el detalle de a qué módulos tiene acceso (se tildan uno por uno) — eso solo importa para los usuarios "Operador".',
       'Un usuario "Administrador" ve TODOS los módulos siempre, sin importar lo que tenga tildado en "Módulos".',

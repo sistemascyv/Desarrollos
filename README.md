@@ -91,10 +91,11 @@ Colecciones resultantes:
 | `tarifas` | mes, tarifa_km |
 | `tramos` | ver lista completa abajo |
 
-`clientes` y `rutas` son catálogos de uso rápido: se cargan desde el panel
-**👤 Administración** de la propia app y alimentan el autocompletado de
-"Cliente" y el selector de "Ruta rápida" al cargar un tramo nuevo, para no
-tener que tipear origen/destino/cliente de memoria cada vez.
+`clientes` y `rutas` son catálogos de uso rápido: se cargan desde los módulos
+**Comercial → Clientes** y **Mantenimiento → Rutas frecuentes** de la propia
+app y alimentan el autocompletado de "Cliente" y el selector de "Ruta
+rápida" al cargar un tramo nuevo, para no tener que tipear
+origen/destino/cliente de memoria cada vez.
 
 ### Login y roles de usuario
 
@@ -104,17 +105,21 @@ que trae cualquier colección `auth` de PocketBase, tiene `nombre`, `rol` y
 `activo`) y dos roles:
 
 - **`operador`**: puede cargar, editar y borrar tramos y tarifas (el uso
-  diario de rendiciones). No ve el botón "👤 Administración".
-- **`admin`**: además de lo anterior, entra al panel de Administración
-  completo — choferes, vehículos, clientes, rutas **y usuarios** (crear
-  cuentas nuevas, cambiar de rol, desactivar, borrar).
+  diario de rendiciones), más los módulos que tenga asignados — Choferes
+  vive en **Personal**, Vehículos/Tractores y Rutas frecuentes en
+  **Mantenimiento**, y Clientes en **Comercial**. No ve el botón
+  "👤 Administración".
+- **`admin`**: además de lo anterior, ve todos los módulos sin necesidad de
+  que se los asignen, y entra al panel de Administración, que ahora solo
+  tiene gestión de **usuarios** (crear cuentas nuevas, cambiar de rol,
+  desactivar, borrar).
 
 Reglas de API por colección:
 
 | Colección | Leer (list/view) | Crear/editar/borrar |
 |---|---|---|
 | `tramos`, `tarifas` | cualquier usuario logueado | cualquier usuario logueado |
-| `choferes`, `vehiculos`, `clientes`, `rutas` | cualquier usuario logueado | solo `admin` |
+| `choferes`, `vehiculos`, `clientes`, `rutas` | cualquier usuario logueado | usuario con el módulo correspondiente asignado (Personal, Mantenimiento o Comercial), o `admin` |
 | `usuarios` | cualquier usuario logueado (ve la lista); el registro propio o cualquiera si es `admin` | solo `admin` (ver [Bootstrap](#bootstrap-primer-usuario-admin) para crear el primero) |
 
 Todas estas reglas ya están en `pb_schema.json`. Como las colecciones base
