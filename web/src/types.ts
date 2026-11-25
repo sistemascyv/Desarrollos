@@ -353,6 +353,12 @@ export interface FichadasGrupoRestriccion extends BaseRecord {
   expand?: { legajos?: FichadasLegajo[] };
 }
 
+export interface FichadasVacacionNota extends BaseRecord {
+  fecha: string; // "YYYY-MM-DD"
+  grupo: 'administrativos' | 'choferes';
+  texto: string;
+}
+
 export interface FichadasCategoria extends BaseRecord {
   nombre: string;
   basico_sugerido?: number;
