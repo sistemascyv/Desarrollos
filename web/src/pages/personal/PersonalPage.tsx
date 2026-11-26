@@ -11,7 +11,6 @@ import type { Chofer, DiaHorario, FichadasCategoria, FichadasEmpresa, FichadasHo
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const SUB_TABS = [
   { id: 'empleados', label: 'Empleados' },
-  { id: 'choferes', label: 'Choferes' },
   { id: 'horario_personal', label: 'Horario personalizado' },
   { id: 'horas_fijas', label: 'Horas extra fijas' },
   { id: 'plantillas', label: 'Plantillas de horario' },
@@ -57,8 +56,7 @@ export function PersonalPage() {
           ))}
         </div>
         <div style={{ marginTop: 14 }}>
-          {subTab === 'empleados' && <EmpleadosSub empresas={empresas} horarios={horarios} legajos={legajos} categorias={categorias} onChanged={refrescar} />}
-          {subTab === 'choferes' && <ChoferesTab version={tick} onChanged={refrescar} />}
+          {subTab === 'empleados' && <EmpleadosSub empresas={empresas} horarios={horarios} legajos={legajos} categorias={categorias} version={tick} onChanged={refrescar} />}
           {subTab === 'horario_personal' && <HorarioPersonalSub legajos={legajos} onChanged={refrescar} />}
           {subTab === 'horas_fijas' && <HorasFijasSub legajos={legajos} onChanged={refrescar} />}
           {subTab === 'plantillas' && <PlantillasSub horarios={horarios} legajos={legajos} onChanged={refrescar} />}
@@ -71,7 +69,7 @@ export function PersonalPage() {
 
 // ---------- Empleados ----------
 
-function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { empresas: FichadasEmpresa[]; horarios: FichadasHorario[]; legajos: FichadasLegajo[]; categorias: FichadasCategoria[]; onChanged: () => void }) {
+function EmpleadosSub({ empresas, horarios, legajos, categorias, version, onChanged }: { empresas: FichadasEmpresa[]; horarios: FichadasHorario[]; legajos: FichadasLegajo[]; categorias: FichadasCategoria[]; version: number; onChanged: () => void }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [nroLegajo, setNroLegajo] = useState('');
@@ -463,6 +461,10 @@ function EmpleadosSub({ empresas, horarios, legajos, categorias, onChanged }: { 
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <ChoferesTab version={version} onChanged={onChanged} />
       </div>
     </>
   );
